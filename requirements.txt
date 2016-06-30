@@ -1,0 +1,9 @@
+# Requirements
+
+## MIR
+
+## 
+
+## Mock RedPanal WebService 
+
+$ sudo pip2 install flask
