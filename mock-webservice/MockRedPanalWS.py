@@ -17,12 +17,15 @@ def documentation():
     """
         Doc generation
     """
-    return auto.html('public')
+    return auto.html('public').replace("&amp;lt;br&amp;gt;","") # quick fix with replace (html gen)
 
 
 @auto.doc('public')
 @app.route('/pistas/<int:id>/audio', methods=['GET'])
 def get_pista_audio(id):
+    """
+        Path donde esta descargado el audio con ese id
+    """
     app.logger.warning("Falta implementar")
     return("URL del audio ID %s" % id)
 
@@ -30,6 +33,9 @@ def get_pista_audio(id):
 @auto.doc('public')
 @app.route('/pistas/<int:id>/descriptor', methods=['GET'])
 def get_descriptor_audio(id):
+    """
+        Path con el archivo  json con descriptores
+    """
     app.logger.warning("Falta implementar")
     return("Descriptor json del audio ID %s" % id)
 
@@ -46,22 +52,31 @@ def get_pista(id):
                    audio=DATA_PATH + str(id) + ".ogg")
 
 
+@auto.doc('public')
 @app.route('/search/<query>/<int:number>', methods=['GET'])
 def get_search_query(query, number):
     app.logger.warning("Falta implementar")
     return ("Json con %s resultados, cada uno con id y audio+desc url,correspondientes con %s" % (number, query))
 
 
+@auto.doc('public')
 @app.route('/search/last/<int:number>', methods=['GET'])
 def get_last_searchs(number):
     app.logger.warning("Falta implementar")
     return ("Json con las últimas %i búsquedas" % (int(number)))
 
+
+@auto.doc('public')
 @app.route('/search/tag/<tag1>', methods=['GET'])
 def get_tag_search(tag1):
+    """
+        Search by tag name
+    """
     app.logger.warning("Falta implementar")
     return ("Resultado de buscar por tag %s" % (tag1))
 
+
+@auto.doc('public')
 @app.route('/list/pistas', methods=['GET'])
 def list_pistas():
     app.logger.warning("Falta implementar")
