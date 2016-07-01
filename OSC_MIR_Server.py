@@ -4,7 +4,8 @@
 import argparse
 from pythonosc import dispatcher
 from pythonosc import osc_server
-import urllib2
+import os
+import urllib.request
 
 # WARNING: python3
 
@@ -28,11 +29,10 @@ DEFAULT_NUMBER_OF_RESULTS = 10
 # #
 
 def search_handler(unused_addr, args, query):
-    call = '/search/%s'%query
-    response = urllib2.urlopen(URL_BASE + call).read()
-    print(response)
-#
-
+    call = '/search/%s/%s'%(query,DEFAULT_NUMBER_OF_RESULTS)
+    with urllib.request.urlopen(URL_BASE + call) as response:
+        print( response.read() )
+#search_handler()
 
 
 if __name__ == "__main__":
