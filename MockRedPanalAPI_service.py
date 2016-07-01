@@ -5,6 +5,9 @@ import flask
 from flask import jsonify
 from flask_autodoc import Autodoc
 import logging
+import os
+import json
+from flask import abort
 
 DATA_PATH = "./data/"
 
@@ -32,13 +35,31 @@ def get_pista_audio(id):
 
 @auto.doc('public')
 @app.route('/pistas/<int:id>/descriptor', methods=['GET'])
-def get_descriptor_audio(id):
+def get_pista_descriptor_file(id):
+    """
+        json con descriptores
+    """
+    try:
+        with open(DATA_PATH + str(id) + ".json",'r') as f:
+            return( f.read() )
+    except:
+        abort(404)
+
+
+@auto.doc('public')
+@app.route('/pistas/<int:id>/descriptor/<descname>', methods=['GET'])
+def get_pista_descriptor_value(id, descname):
     """
         Path con el archivo  json con descriptores
     """
-    app.logger.warning("Falta implementar")
-    return("Descriptor json del audio ID %s" % id)
-
+    desc = json.load( open(DATA_PATH + str(id) + ".json",'r') )
+    output = "not found"
+    try:
+        output = str( desc[descname][0] )
+    except Exception, e:
+        app.logger.error( e )
+        abort(404)
+    return output
 
 @auto.doc('public')
 @app.route('/pistas/<int:id>', methods=['GET'])
@@ -53,10 +74,13 @@ def get_pista(id):
 
 
 @auto.doc('public')
-@app.route('/search/<query>/<int:number>', methods=['GET'])
-def get_search_query(query, number):
+@app.route('/search/<query>/<int:maxnumber>', methods=['GET'])
+def get_search_query(query, maxnumber):
+    """
+        Search result of query
+    """
     app.logger.warning("Falta implementar")
-    return ("Json con %s resultados, cada uno con id y audio+desc url,correspondientes con %s" % (number, query))
+    return ("Json con %s resultados, cada uno con id y audio+desc url,correspondientes con %s" % (maxnumber, query))
 
 
 @auto.doc('public')
@@ -79,17 +103,21 @@ def get_tag_search(tag1):
 @auto.doc('public')
 @app.route('/list/pistas', methods=['GET'])
 def list_pistas():
+    """
+        list audio files
+    """
     app.logger.warning("Falta implementar")
-    #list audio files
+    outlist = ""
     ext_filter = ['.mp3','.ogg','.ogg']
     for subdir, dirs, files in os.walk(DATA_PATH):
         for f in files:
             if os.path.splitext(f)[1] in ext_filter:
-                print(f)
+                outlist += f + "\n"
+    return(outlist)
 
 
 if __name__ == "__main__":
-    file_handler = logging.FileHandler('app.log')
+    file_handler = logging.FileHandler('mock_redpanal_api_ws.log')
     app.logger.addHandler(file_handler)
     app.logger.setLevel(logging.INFO)
     

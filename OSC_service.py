@@ -1,4 +1,4 @@
-#! /usr/bin/env python3
+#! /usr/bin/env python2
 # -*- coding: utf-8 -*-
 
 import argparse
@@ -17,16 +17,7 @@ DEFAULT_IP = "127.0.0.1"
 DEFAULT_PORT = 5005
 DEFAULT_NUMBER_OF_RESULTS = 10
 
-# def print_pistas_handler(unused_addr, args, query):
-#     print("[{0} cmd]: (cant: {1})".format(args[0], query))
-
-#     #list audio files
-#     ext_filter = ['.mp3','.ogg','.ogg']
-#     for subdir, dirs, files in os.walk(DESCRIPTORS_PATH):
-#         for f in files:
-#             if os.path.splitext(f)[1] in ext_filter:
-#                 print(f)
-# #
+#TODO: add login
 
 def search_handler(unused_addr, args, query):
     call = '/search/%s/%s'%(query,DEFAULT_NUMBER_OF_RESULTS)
@@ -36,20 +27,20 @@ def search_handler(unused_addr, args, query):
 
 
 if __name__ == "__main__":
-  parser = argparse.ArgumentParser()
+    parser = argparse.ArgumentParser()
 
-  parser.add_argument("--ip", default=DEFAULT_IP, help="The ip to listen on")
-  parser.add_argument("--port", type=int, default=DEFAULT_PORT, help="The port to listen on")
-  args = parser.parse_args()
+    parser.add_argument("--ip", default=DEFAULT_IP, help="The ip to listen on")
+    parser.add_argument("--port", type=int, default=DEFAULT_PORT, help="The port to listen on")
+    args = parser.parse_args()
 
 
-  dispatcher = dispatcher.Dispatcher()
-  dispatcher.map("/debug", print) #
-  
-  dispatcher.map("/search", search_handler, "Search", DEFAULT_NUMBER_OF_RESULTS)
+    dispatcher = dispatcher.Dispatcher()
+    #dispatcher.map("/debug", print) #
 
-  server = osc_server.ThreadingOSCUDPServer(
+    dispatcher.map("/search", search_handler, "Search", DEFAULT_NUMBER_OF_RESULTS)
+
+    server = osc_server.ThreadingOSCUDPServer(
               (args.ip, args.port), dispatcher)
 
-  print("Serving on {}".format(server.server_address))
-  server.serve_forever()
+    print("Serving on {}".format(server.server_address))
+    server.serve_forever()
