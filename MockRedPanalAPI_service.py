@@ -9,10 +9,18 @@ import os
 import json
 from flask import abort
 
-DATA_PATH = "./data/"
+DATA_PATH = "./data"
 
 app = flask.Flask(__name__)
 auto = Autodoc(app)
+
+
+def get_url_audio(id):
+    ext_filter = ['.mp3','.ogg','.ogg']
+    for subdir, dirs, files in os.walk(DATA_PATH):
+        for f in files:
+            if os.path.splitext(f)[1] in ext_filter and os.path.splitext(f)[0]==str(id):
+                    return( os.path.abspath(DATA_PATH) + "/" + str(f) )
 
 
 @app.route('/documentation')
@@ -27,10 +35,10 @@ def documentation():
 @app.route('/pistas/<int:id>/audio', methods=['GET'])
 def get_pista_audio(id):
     """
-        Path donde esta descargado el audio con ese id
+        Retorna el full path donde esta descargado el audio con ese id
     """
-    app.logger.warning("Falta implementar")
-    return("URL del audio ID %s" % id)
+    return get_url_audio(id)
+
 
 
 @auto.doc('public')
@@ -40,7 +48,7 @@ def get_pista_descriptor_file(id):
         json con descriptores
     """
     try:
-        with open(DATA_PATH + str(id) + ".json",'r') as f:
+        with open(DATA_PATH + "/" + str(id) + ".json",'r') as f:
             return( f.read() )
     except:
         abort(404)
@@ -52,7 +60,7 @@ def get_pista_descriptor_value(id, descname):
     """
         Path con el archivo  json con descriptores
     """
-    desc = json.load( open(DATA_PATH + str(id) + ".json",'r') )
+    desc = json.load( open(DATA_PATH + "/" + str(id) + ".json",'r') )
     output = "not found"
     try:
         output = str( desc[descname][0] )
@@ -65,12 +73,11 @@ def get_pista_descriptor_value(id, descname):
 @app.route('/pistas/<int:id>', methods=['GET'])
 def get_pista(id):
     """
-        json con path a archivos de audio y del descriptor
+        Info de la pista. Json con path a archivos de audio y del descriptor
     """
-    app.logger.warning("Falta implementar")
     return jsonify(id=id,
-                   desc=DATA_PATH + str(id) + ".json",
-                   audio=DATA_PATH + str(id) + ".ogg")
+                   desc=os.path.abspath(DATA_PATH) + "/" + str(id) + ".json",
+                   audio=get_url_audio(id))
 
 
 @auto.doc('public')
