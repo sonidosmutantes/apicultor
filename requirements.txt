@@ -2,7 +2,9 @@
 
 ## MIR
 
-## 
+## Supercollider
+
+$ sudo apt-get install scide 
 
 ## Mock RedPanal WebService 
 

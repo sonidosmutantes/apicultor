@@ -29,8 +29,8 @@ def get_last_searchs(number):
 
 
 @app.route('/search/tag/<tag1>', methods=['GET'])
-def get_last_searchs(tag1):
-    return ("Resultado de buscar por tag %s" % (tag1)
+def get_tag_search(tag1):
+    return ("Resultado de buscar por tag %s" % (tag1))
 
 
 if __name__ == "__main__":
