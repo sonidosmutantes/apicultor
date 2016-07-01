@@ -17,11 +17,15 @@ class Test_REST_API(unittest.TestCase):
         self.assertNotEqual(response.find("ID 23"), -1)
 
     def test_pista_descriptor(self):
-        call = '/pistas/76/descriptor'
+        call = '/pistas/76/descriptor' #id 76 (no existente en la DB) retorna 404
+        try:
+            response = urllib2.urlopen(URL_BASE + call).read()
+        except Exception, e:
+            self.assertNotEqual(str(e).find("Error 404"), -1)
+
+        call = '/pistas/126/descriptor' # id 126 (existente, retorna json)
         response = urllib2.urlopen(URL_BASE + call).read()
-        # print(response)
-        self.assertNotEqual(response.find("ID 76"), -1)
-        self.assertNotEqual(response.find("json"), -1)
+        self.assertNotEqual(response.find("lowlevel.dissonance.mean"), -1)
 
     def test_pista_search(self):
         call = '/search/bass/10'
