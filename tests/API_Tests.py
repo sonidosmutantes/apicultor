@@ -11,10 +11,10 @@ URL_BASE = "http://127.0.0.1:5000"
 class Test_REST_API(unittest.TestCase):
 
     def test_pista_audio(self):
-        call = '/pistas/23/audio'
+        call = '/pistas/126/audio'
         response = urllib2.urlopen(URL_BASE + call).read()
-        # print(response)
-        self.assertNotEqual(response.find("ID 23"), -1)
+        #print(response)
+        self.assertNotEqual(response.find("126"), -1)
 
     def test_pista_descriptor(self):
         call = '/pistas/76/descriptor' #id 76 (no existente en la DB) retorna 404

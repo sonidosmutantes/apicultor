@@ -16,11 +16,12 @@ auto = Autodoc(app)
 
 
 def get_url_audio(id):
-    ext_filter = ['.mp3','.ogg','.ogg']
+    ext_filter = ['.mp3','.ogg','.ogg','.wav']
     for subdir, dirs, files in os.walk(DATA_PATH):
         for f in files:
             if os.path.splitext(f)[1] in ext_filter and os.path.splitext(f)[0]==str(id):
                     return( os.path.abspath(DATA_PATH) + "/" + str(f) )
+    abort(404) #not found
 
 
 @app.route('/documentation')
@@ -51,7 +52,7 @@ def get_pista_descriptor_file(id):
         with open(DATA_PATH + "/" + str(id) + ".json",'r') as f:
             return( f.read() )
     except:
-        abort(404)
+        abort(404) #not found
 
 
 @auto.doc('public')
@@ -66,7 +67,7 @@ def get_pista_descriptor_value(id, descname):
         output = str( desc[descname][0] )
     except Exception, e:
         app.logger.error( e )
-        abort(404)
+        abort(404) #not found
     return output
 
 @auto.doc('public')
