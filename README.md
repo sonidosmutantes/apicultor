@@ -24,6 +24,8 @@ $ ./run_MIR_analysis.py
 ## Correr webservice (api rest)
 $ ./MockRedPanalAPI_service.py
 
+(escucha en localhost, puerto 5000)
+
 Ver ejemplos de uso en tests/API_Tests.py
 
 ## Generar documentación HTML sobre la API REST
@@ -31,3 +33,6 @@ $ cd doc/ && ./update-api-doc.sh
 
 Resultado: API-Documentation.html
 
+## Supercollider
+
+Ver ejemplos en tests/examples.scd
