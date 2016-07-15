@@ -9,7 +9,7 @@ from essentia import *
 from essentia.standard import *
 
 files_dir = "data"
-ext_filter = ['.mp3','.ogg','.ogg'] #valid files
+ext_filter = ['.mp3','.ogg','.ogg','.wav'] #valid files
 
 # descriptors of interest
 descriptors = [ 
@@ -70,7 +70,7 @@ for subdir, dirs, files in os.walk(files_dir):
     for f in files:
         if os.path.splitext(f)[1] in ext_filter:
             audio_input = subdir+'/'+f
-            #print( audio_input )
+            print( audio_input )
             process_file( audio_input )
 #
 
