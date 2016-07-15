@@ -15,3 +15,19 @@ Servidor OSC + API REST para la consulta externa de archivos y descriptores desd
 * Server OSC
 * Ejemplos de uso con SuperCollider
 
+# Uso (temporal)
+
+## Bajar archivos de prueba y aplicar MIR
+$ cd data && ./download-test-data.sh
+$ ./run_MIR_analysis.py
+
+## Correr webservice (api rest)
+$ ./MockRedPanalAPI_service.py
+
+Ver ejemplos de uso en tests/API_Tests.py
+
+## Generar documentación HTML sobre la API REST
+$ cd doc/ && ./update-api-doc.sh
+
+Resultado: API-Documentation.html
+
