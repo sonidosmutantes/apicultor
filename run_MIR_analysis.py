@@ -14,11 +14,12 @@ ext_filter = ['.mp3','.ogg','.ogg','.wav'] #valid audio files
 
 # descriptors of interest
 descriptors = [ 
-                'lowlevel.spectral_centroid.mean',
+                'lowlevel.spectral_centroid',
                 #'lowlevel.spectral_contrast.mean',
-                #'lowlevel.dissonance.mean',
-                #'lowlevel.hfc.mean',
-                #'lowlevel.mfcc.mean',
+                'lowlevel.dissonance',
+                'lowlevel.hfc',
+                'lowlevel.mfcc',
+                'loudness.level',
                 #'sfx.logattacktime.mean',
                 #'sfx.inharmonicity.mean'
                 ]
@@ -49,25 +50,38 @@ def process_file(inputSoundFile, frameSize = 1024, hopSize = 512):
         frame_spectrum = spectrum(frame_windowed)
     
         #low level
-        c = centroid( frame_spectrum )
-        pool.add('lowlevel.spectral_centroid', c)
+        namespace = 'lowlevel'
 
-        mfcc_melbands, mfcc_coeffs = mfcc( frame_spectrum )
-        pool.add('lowlevel.mfcc', mfcc_coeffs)
-        #pool.add('lowlevel.mfcc_bands', mfcc_melbands)
+        desc_name = namespace + '.spectral_centroid'
+        if desc_name in descriptors:
+            c = centroid( frame_spectrum )
+            pool.add(desc_name, c)
 
-        h = hfc( frame_spectrum )
-        pool.add('lowlevel.hfc', h)
+        desc_name = namespace + '.mfcc'
+        if desc_name in descriptors:
+            mfcc_melbands, mfcc_coeffs = mfcc( frame_spectrum )
+            pool.add(desc_name, mfcc_coeffs)
+            #pool.add('lowlevel.mfcc_bands', mfcc_melbands)
+
+        desc_name = namespace + '.hfc'
+        if desc_name in descriptors:
+            h = hfc( frame_spectrum )
+            pool.add(desc_name, h)
 
         # dissonance
-        (frame_frequencies, frame_magnitudes) = spectral_peaks(frame_spectrum)
-        frame_dissonance = dissonance(frame_frequencies, frame_magnitudes)
-        pool.add( 'lowlevel.' + 'dissonance', frame_dissonance)
+        desc_name = namespace + '.dissonance'
+        if desc_name in descriptors:
+            (frame_frequencies, frame_magnitudes) = spectral_peaks(frame_spectrum)
+            frame_dissonance = dissonance(frame_frequencies, frame_magnitudes)
+            pool.add( desc_name, frame_dissonance)
         
         # t frame
-        l = levelExtractor(frame)
-        pool.add('loudness.level',l)
-          
+        namespace = 'loudness'
+        desc_name = namespace + '.level'
+        if desc_name in descriptors:
+            l = levelExtractor(frame)
+            pool.add(desc_name,l)
+    #end of frame computation
 
 
     # Pool stats (mean, var)
