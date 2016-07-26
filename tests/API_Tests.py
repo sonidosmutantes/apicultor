@@ -4,11 +4,19 @@
 import unittest
 import urllib2
 
-URL_BASE = "http://127.0.0.1:5000"
+URL_BASE = "http://127.0.0.1:5000"  #TODO: get from a config file
 # URL_BASE = "http://api.redpanal.org.ar"
 
 
 class Test_REST_API(unittest.TestCase):
+
+    def test_list_pistas(self):
+        call = '/list/pistas'
+        response = urllib2.urlopen(URL_BASE + call).read()
+        # for file in response.split('\n'):
+        #     print(file)
+        self.assertNotEqual(response.find("1288.ogg"), -1)
+        self.assertNotEqual(response.find("795.ogg"), -1)
 
     def test_pista_audio(self):
         call = '/pistas/126/audio'
