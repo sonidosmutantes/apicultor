@@ -3,6 +3,9 @@ NetAddr.localAddr //check '127.0.0.1', 57120
 
 s.boot; //start server
 
+//create the buffer
+b = Buffer.alloc(s, s.sampleRate * 8.0, 2); // an 8 second stereo buffer
+
 SynthDef(\playBufMono, {| out = 0, bufnum = 0, rate = 1 |  var scaledRate, player;
 scaledRate = rate * BufRateScale.kr(bufnum);  player = PlayBuf.ar(1, bufnum,scaledRate, doneAction:2);  Out.ar(out, player) }).add;
 

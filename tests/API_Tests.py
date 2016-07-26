@@ -18,6 +18,13 @@ class Test_REST_API(unittest.TestCase):
         self.assertNotEqual(response.find("1288.ogg"), -1)
         self.assertNotEqual(response.find("795.ogg"), -1)
 
+    def test_list_samples(self):
+        call = '/list/samples'
+        response = urllib2.urlopen(URL_BASE + call).read()
+        # for file in response.split('\n'):
+        #     print(file)
+        # self.assertNotEqual(response.find(".wav"), -1)
+
     def test_pista_audio(self):
         call = '/pistas/126/audio'
         response = urllib2.urlopen(URL_BASE + call).read()
