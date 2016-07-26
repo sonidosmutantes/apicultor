@@ -22,9 +22,9 @@ osc_client.connect( ( '127.0.0.1', 57121 ) )
 
 T = pykov.Matrix()
 
-T['idle','harmonic'] = .4
+T['idle','harmonic'] = .2
 T['idle','inharmonic'] = .1
-T['idle','idle'] = .5
+T['idle','idle'] = .7
 
 T['harmonic','idle'] = .2
 T['harmonic','inharmonic'] = .1

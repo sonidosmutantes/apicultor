@@ -39,10 +39,10 @@ def random_segmentation(filename, segments, options):
 #random_segmentation()
 
 files_dir = "data"
-segments = 2
+segments = 5
 options = dict()
 options['outputPath'] = 'samples'
-options['duration'] = (0.1, 3) # min, max (de 100ms a 3 seg)
+options['duration'] = (0.1, 5) # min, max (de 100ms a 5 seg)
 ext_filter = ['.wav'] #valid audio files FIXME: convert to wav or support read other formats
 for subdir, dirs, files in os.walk(files_dir):
     for f in files:
