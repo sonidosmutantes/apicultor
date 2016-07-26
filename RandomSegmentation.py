@@ -24,7 +24,7 @@ def random_segmentation(filename, segments, options):
                 pos = random.uniform(0.,1.) #posición en el archivo normalizada    
                 dur = random.uniform(min_dur,max_dur) 
                 durSamples = dur*sr
-                posSamples = pos*sr
+                posSamples = int( pos*len(wavsignal) )
                 if posSamples+durSamples<len(wavsignal):
                     break
 

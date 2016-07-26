@@ -9,14 +9,16 @@ import os
 import json
 from flask import abort
 
+#TODO: get from config files
 DATA_PATH = "./data"
+SAMPLES_PATH = "./samples"
 
 app = flask.Flask(__name__)
 auto = Autodoc(app)
 
+ext_filter = ['.mp3','.ogg','.ogg','.wav']
 
 def get_url_audio(id):
-    ext_filter = ['.mp3','.ogg','.ogg','.wav']
     for subdir, dirs, files in os.walk(DATA_PATH):
         for f in files:
             if os.path.splitext(f)[1] in ext_filter and os.path.splitext(f)[0]==str(id):
@@ -114,15 +116,27 @@ def list_pistas():
     """
         list audio files
     """
-    app.logger.warning("Falta implementar")
+    app.logger.warning("Falta implementar en formato definitivo")
     outlist = ""
-    ext_filter = ['.mp3','.ogg','.ogg']
     for subdir, dirs, files in os.walk(DATA_PATH):
         for f in files:
             if os.path.splitext(f)[1] in ext_filter:
-                outlist += f + "\n"
+                outlist += subdir+'/'+ f + "\n"
     return(outlist)
 
+@auto.doc('public')
+@app.route('/list/samples', methods=['GET'])
+def list_samples():
+    """
+        list sample files (segmented pistas)
+    """
+    app.logger.warning("Falta implementar en formato definitivo")
+    outlist = ""
+    for subdir, dirs, files in os.walk(SAMPLES_PATH):
+        for f in files:
+            if os.path.splitext(f)[1] in ext_filter:
+                outlist += subdir+'/'+ f + "\n"
+    return(outlist)
 
 if __name__ == "__main__":
     file_handler = logging.FileHandler('mock_redpanal_api_ws.log')
