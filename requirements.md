@@ -42,3 +42,7 @@ $ sudo pip3 install python-osc
 
 $ sudo apt-get install scide 
 
+## Pre-processing
+
+$ sudo apt-get install ffmpeg
+

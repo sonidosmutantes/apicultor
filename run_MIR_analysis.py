@@ -12,6 +12,9 @@ files_dir = "data"
 ext_filter = ['.mp3','.ogg','.ogg','.wav'] #valid audio files
 #TODO: check sample rate
 
+#TODO: add tempo, time length
+print("WARNING: Add tempo and time")
+
 # descriptors of interest
 descriptors = [ 
                 'lowlevel.spectral_centroid',
