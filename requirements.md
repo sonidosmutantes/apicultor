@@ -47,3 +47,7 @@ $ cd pyosc && sudo ./setup.py install
 
 $ sudo apt-get install scide 
 
+## Pre-processing
+
+$ sudo apt-get install ffmpeg
+
