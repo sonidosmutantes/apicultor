@@ -36,7 +36,12 @@ Note that Pykov depends on numpy and scipy
 
 ## OSC
 
+# OSC Service Example
 $ sudo pip3 install python-osc
+
+# State Machine Example
+$ git clone https://github.com/ptone/pyosc.git
+$ cd pyosc && sudo ./setup.py install
 
 ## Supercollider
 
