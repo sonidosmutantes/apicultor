@@ -7,13 +7,13 @@ import random
 import urllib2
 import OSC
 
-#RedPanal API
+# RedPanal API
 URL_BASE = "http://127.0.0.1:5000" #TODO: get from a config file
 
-#OSC Server
+# OSC Server
 osc_client = OSC.OSCClient()
 # osc_client.connect( ( '127.0.0.1', 57120 ) )
-osc_client.connect( ( '127.0.0.1', 57121 ) )
+osc_client.connect( ( '5.0.22.38', 57121 ) )
 
 # 3 states  (each row must sum 1)
 # idle -> no sound
@@ -66,7 +66,7 @@ while(1):
             osc_client.send(msg)
         except Exception,e:
             print(e)
-        #TODO: get duration from API
+        #TODO: get duration from msg (via API)
         time.sleep(duration)
 
       state = T.succ(state).choose() #new state
