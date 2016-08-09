@@ -28,26 +28,3 @@ $ ./waf
 To install the C++ library and the python bindings (if configured successfully; you might need to run this command with sudo):
 $ sudo ./waf install
 
-## State Machine
-
-$ pip install git+git://github.com/riccardoscalco/Pykov@master #both Python2 and Python3
-
-Note that Pykov depends on numpy and scipy
-
-## OSC
-
-# OSC Service Example
-$ sudo pip3 install python-osc
-
-# State Machine Example
-$ git clone https://github.com/ptone/pyosc.git
-$ cd pyosc && sudo ./setup.py install
-
-## Supercollider
-
-$ sudo apt-get install scide 
-
-## Pre-processing
-
-$ sudo apt-get install ffmpeg
-
