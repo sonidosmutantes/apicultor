@@ -8,30 +8,26 @@ import json
 from essentia import *
 from essentia.standard import *
 
-files_dir = "data"
+files_dir = "bajo/"
 ext_filter = ['.mp3','.ogg','.ogg','.wav'] #valid audio files
-#TODO: check sample rate
-
-#TODO: add tempo, time length
-print("WARNING: Add tempo and time")
 
 # descriptors of interest
 descriptors = [ 
                 'lowlevel.spectral_centroid',
-                #'lowlevel.spectral_contrast.mean',
+                'lowlevel.spectral_contrast.mean',
                 'lowlevel.dissonance',
                 'lowlevel.hfc',
                 'lowlevel.mfcc',
                 'loudness.level',
-                #'sfx.logattacktime.mean',
-                #'sfx.inharmonicity.mean'
+                'sfx.logattacktime.mean',
+                'sfx.inharmonicity.mean',
+		'rhythm.bpm',
+		'metadata.duration'
                 ]
 
-def process_file(inputSoundFile, frameSize = 1024, hopSize = 512):
-    #TODO check stereo vs mono file
-    # load our audio into an array
+def process_file(inputSoundFile, frameSize = 512, hopSize = 256):
     audio = MonoLoader(filename = inputSoundFile)()
-    sampleRate = 44100 #FIXME
+    sampleRate = 44100
         
     #method alias for extractors
     centroid = SpectralCentroidTime()
@@ -39,6 +35,8 @@ def process_file(inputSoundFile, frameSize = 1024, hopSize = 512):
     mfcc = MFCC()    
     hfc = HFC()
     dissonance = Dissonance()
+    bpm = RhythmExtractor2013()
+    timelength = Duration()
 
     #more aliases (helper functions)
 #    w = Windowing() #default windows
@@ -64,7 +62,7 @@ def process_file(inputSoundFile, frameSize = 1024, hopSize = 512):
         if desc_name in descriptors:
             mfcc_melbands, mfcc_coeffs = mfcc( frame_spectrum )
             pool.add(desc_name, mfcc_coeffs)
-            #pool.add('lowlevel.mfcc_bands', mfcc_melbands)
+            pool.add('lowlevel.mfcc_bands', mfcc_melbands)
 
         desc_name = namespace + '.hfc'
         if desc_name in descriptors:
@@ -77,6 +75,7 @@ def process_file(inputSoundFile, frameSize = 1024, hopSize = 512):
             (frame_frequencies, frame_magnitudes) = spectral_peaks(frame_spectrum)
             frame_dissonance = dissonance(frame_frequencies, frame_magnitudes)
             pool.add( desc_name, frame_dissonance)
+
         
         # t frame
         namespace = 'loudness'
@@ -84,6 +83,20 @@ def process_file(inputSoundFile, frameSize = 1024, hopSize = 512):
         if desc_name in descriptors:
             l = levelExtractor(frame)
             pool.add(desc_name,l)
+
+        #bpm
+        namespace = 'rhythm'
+        desc_name = namespace + '.bpm'
+        if desc_name in descriptors:
+            beatsperminute = bpm(audio)[0]
+            pool.add(desc_name, beatsperminute)
+
+        #duration
+        namespace = 'metadata'
+        desc_name = namespace + '.duration'
+        if desc_name in descriptors:
+            duration = timelength(audio)
+            pool.add(desc_name, duration)
     #end of frame computation
 
 
@@ -102,7 +115,7 @@ def process_file(inputSoundFile, frameSize = 1024, hopSize = 512):
             data[dn] = str( aggrPool[dn][0] )
         except:
             data[dn] = str( aggrPool[dn] )
-    #print data
+    print data
     json_output = os.path.splitext(inputSoundFile)[0]+".json"
     with open(json_output, 'w') as outfile:
          json.dump(data, outfile) #write to file
@@ -116,6 +129,3 @@ for subdir, dirs, files in os.walk(files_dir):
             audio_input = subdir+'/'+f
             print( audio_input )
             process_file( audio_input )
-#
-
-#process_file('data/982.ogg')
