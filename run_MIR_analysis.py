@@ -8,7 +8,7 @@ import json
 from essentia import *
 from essentia.standard import *
 
-files_dir = "guitarra/"
+files_dir = "bajo/"
 ext_filter = ['.mp3','.ogg','.ogg','.wav'] #archivos de sonido válidos
 
 # descriptores de interés
