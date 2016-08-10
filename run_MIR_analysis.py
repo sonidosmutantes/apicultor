@@ -8,37 +8,42 @@ import json
 from essentia import *
 from essentia.standard import *
 
-files_dir = "bajo/"
-ext_filter = ['.mp3','.ogg','.ogg','.wav'] #valid audio files
+files_dir = "guitarra/"
+ext_filter = ['.mp3','.ogg','.ogg','.wav'] #archivos de sonido válidos
 
-# descriptors of interest
+# descriptores de interés
 descriptors = [ 
                 'lowlevel.spectral_centroid',
-                'lowlevel.spectral_contrast.mean',
+                'lowlevel.spectral_contrast',
                 'lowlevel.dissonance',
                 'lowlevel.hfc',
                 'lowlevel.mfcc',
                 'loudness.level',
-                'sfx.logattacktime.mean',
-                'sfx.inharmonicity.mean',
+                #'sfx.logattacktime', tarda en calcular 
+                #'sfx.inharmonicity', el primer harmónico no tiene que estar en 0 Hz para poder calcularse
 		'rhythm.bpm',
 		'metadata.duration'
                 ]
 
-def process_file(inputSoundFile, frameSize = 512, hopSize = 256):
+def process_file(inputSoundFile, frameSize = 1024, hopSize = 512):
     audio = MonoLoader(filename = inputSoundFile)()
     sampleRate = 44100
         
     #method alias for extractors
     centroid = SpectralCentroidTime()
+    contrast = SpectralContrast(frameSize = frameSize+1)
     levelExtractor = LevelExtractor()
     mfcc = MFCC()    
     hfc = HFC()
     dissonance = Dissonance()
     bpm = RhythmExtractor2013()
     timelength = Duration()
+    #logat = LogAttackTime()
+    #inharmonicity = Inharmonicity()
 
-    #more aliases (helper functions)
+    #++++helper functions++++
+    #envelope = Envelope()
+    #signal_envelope = envelope(audio)
 #    w = Windowing() #default windows
     w_hann = Windowing(type = 'hann')
     spectrum = Spectrum()
@@ -57,6 +62,12 @@ def process_file(inputSoundFile, frameSize = 512, hopSize = 256):
         if desc_name in descriptors:
             c = centroid( frame_spectrum )
             pool.add(desc_name, c)
+
+        desc_name = namespace + '.spectral_contrast'
+        if desc_name in descriptors:
+            contrasts, valleys = contrast(frame_spectrum)
+            pool.add(desc_name, valleys)
+            pool.add('lowlevel.spectral_valleys', valleys)
 
         desc_name = namespace + '.mfcc'
         if desc_name in descriptors:
@@ -83,6 +94,19 @@ def process_file(inputSoundFile, frameSize = 512, hopSize = 256):
         if desc_name in descriptors:
             l = levelExtractor(frame)
             pool.add(desc_name,l)
+
+        #logattacktime
+        #desc_name = 'sfx.logattacktime'
+        #if desc_name in descriptors:
+         #   attacktime = logat(signal_envelope)
+          #  pool.add(desc_name, attacktime)
+
+	#inharmonicity
+        #desc_name = namespace + '.inharmonicity'
+        #if desc_name in descriptors:
+         #   (frame_frequencies, frame_magnitudes) = spectral_peaks(frame_spectrum)
+          #  inharmonic = inharmonicity(frame_frequencies, frame_magnitudes)
+           # pool.add(desc_name, inharmonic)
 
         #bpm
         namespace = 'rhythm'
