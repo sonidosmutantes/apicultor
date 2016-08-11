@@ -6,7 +6,7 @@ import re
 from sklearn import preprocessing                                       
 from sklearn.cluster import AffinityPropagation                                  
                                                                         
-files_dir = 'descriptores/guitarra'                                            
+files_dir = 'descriptores/bajo'                                            
                                              
 for subdir, dirs, files in os.walk(files_dir):                          
     details = {}               
@@ -31,6 +31,7 @@ print lowest_to_highest
 plt.scatter(lowest_to_highest[euclidean_labels==0,0], lowest_to_highest[euclidean_labels==0,1], c='b')
 plt.scatter(lowest_to_highest[euclidean_labels==1,0], lowest_to_highest[euclidean_labels==1,1], c='r')
 plt.scatter(lowest_to_highest[euclidean_labels==2,0], lowest_to_highest[euclidean_labels==2,1], c='y')
-plt.xlabel('Loudness Level (scaled)')
-plt.ylabel('Disonancia(scaled)')
+plt.scatter(lowest_to_highest[euclidean_labels==3,0], lowest_to_highest[euclidean_labels==3,1], c='g')
+plt.xlabel('Disonancia (scaled)')
+plt.ylabel('MFCC (scaled)')
 plt.show()
