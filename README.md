@@ -10,6 +10,15 @@ El código da soporte para el procesamiento de los mismos utilizando técnicas d
 * Algoritmos para segmentar los archivos de audio con distintos criterios
 * Algoritmos para clasificar y agrupar los archivos de la base de datos redpanalera
 
+#Dependencias
+* pip install bs4
+* pip install regex
+* pip install wget
+* pip install matplotlib
+* Essentia (ver instrucciones para compilar aquí: http://essentia.upf.edu/documentation/installing.html)
+* pip install numpy scipy scikit-learn
+* pip install smst
+
 # Uso 
 ## Bajar archivos de prueba y aplicar MIR
 $ ./descargar.py
