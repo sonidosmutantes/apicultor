@@ -8,7 +8,7 @@ website = 'http://redpanal.org'
 
 host = 'http://redpanal.org/tag/'
 
-tag = 'trompeta'
+tag = 'teclado' 
 
 search = tag+'/audios' 
 

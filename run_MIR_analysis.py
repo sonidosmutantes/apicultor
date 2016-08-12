@@ -8,7 +8,7 @@ import json
 from essentia import *
 from essentia.standard import *
 
-files_dir = "bajo/"
+files_dir = "bateria/"
 ext_filter = ['.mp3','.ogg','.ogg','.wav'] #archivos de sonido válidos
 
 # descriptores de interés
@@ -66,7 +66,7 @@ def process_file(inputSoundFile, frameSize = 1024, hopSize = 512):
         desc_name = namespace + '.spectral_contrast'
         if desc_name in descriptors:
             contrasts, valleys = contrast(frame_spectrum)
-            pool.add(desc_name, valleys)
+            pool.add(desc_name, contrasts)
             pool.add('lowlevel.spectral_valleys', valleys)
 
         desc_name = namespace + '.mfcc'
