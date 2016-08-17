@@ -12,8 +12,8 @@ URL_BASE = "http://127.0.0.1:5000" #TODO: get from a config file
 
 # OSC Server
 osc_client = OSC.OSCClient()
-# osc_client.connect( ( '127.0.0.1', 57120 ) )
-osc_client.connect( ( '5.0.22.38', 57121 ) )
+osc_client.connect( ( '127.0.0.1', 57120 ) )
+# osc_client.connect( ( '5.0.22.38', 57121 ) )
 
 # 3 states  (each row must sum 1)
 # idle -> no sound
