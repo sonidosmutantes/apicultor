@@ -13,7 +13,8 @@ URL_BASE = "http://127.0.0.1:5000" #TODO: get from a config file
 # OSC Server
 osc_client = OSC.OSCClient()
 # osc_client.connect( ( '127.0.0.1', 57120 ) )
-osc_client.connect( ( '5.0.22.38', 57121 ) )
+#osc_client.connect( ( '5.0.22.38', 57121 ) )
+osc_client.connect( ( '192.168.0.7', 57120 ) )
 
 # 3 states  (each row must sum 1)
 # idle -> no sound
@@ -61,7 +62,10 @@ while(1):
         print("\tPlaying %s"%file_chosen)
         msg = OSC.OSCMessage()
         msg.setAddress("/play")
-        msg.append( file_chosen )
+
+        #mac os
+        msg.append( "/Users/hordia/Documents/apicultor"+file_chosen.split('.')[1]+'.wav' )
+
         try:
             osc_client.send(msg)
         except Exception,e:

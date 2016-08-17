@@ -1,5 +1,8 @@
 # Requirements
 
+# PIP 
+sudo apt-get install python3-pip python-pip
+
 ## Mock RedPanal WebService 
 
 $ sudo pip2 install flask
@@ -20,7 +23,7 @@ $ sudo apt-get install build-essential libyaml-dev libfftw3-dev libavcodec-dev l
 In order to use python bindings for the library, you might also need to install python-numpy-dev (or python-numpy on Ubuntu) and python-yaml for YAML support in python:
 $ sudo apt-get install python-numpy-dev python-numpy python-yaml
 
-./waf configure --mode=release --build-static --with-python --with-cpptests --with-examples --with-vamp --with-gaia
+./waf configure --mode=release --build-static --with-python --with-cpptests --with-examples --with-vamp 
 
 To compile everything you’ve configured:
 $ ./waf
@@ -30,7 +33,7 @@ $ sudo ./waf install
 
 ## State Machine
 
-$ pip install git+git://github.com/riccardoscalco/Pykov@master #both Python2 and Python3
+$ sudo pip install git+git://github.com/riccardoscalco/Pykov@master #both Python2 and Python3
 
 Note that Pykov depends on numpy and scipy
 
@@ -45,6 +48,7 @@ $ cd pyosc && sudo ./setup.py install
 
 ## Supercollider
 
+$ sudo apt-get install supercollider supercollider-ide
 $ sudo apt-get install scide 
 
 ## Pre-processing

@@ -17,6 +17,7 @@ def random_segmentation(filename, segments, options):
     outputPath = options['outputPath']    
     min_dur,max_dur = options['duration']
 
+    #TODO: check if 'samples' dir exists (if not, create it)
     try:
         sr, wavsignal = wavfile.read(filename)
         for i in range(segments):
