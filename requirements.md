@@ -1,5 +1,7 @@
 # Requirements
 
+Tested under Ubuntu 15.04 and 16.04
+
 # PIP 
 sudo apt-get install python3-pip python-pip
 
