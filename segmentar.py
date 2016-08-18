@@ -23,7 +23,8 @@ def do_segmentation(audio_input):
         baseName = os.path.splitext(audio_input)[0].split('/')[-1]     
         outputFilename = 'samples'+'/'+baseName+'_sample'+'.wav'                                                              
         audio.write_wav(output,44100,outputFilename)
-        print("File generated: %s"%outputFilename)  
+        print("File generated: %s"%outputFilename)
+	break  
 
 files_dir = "bajo/"
 for subdir, dirs, files in os.walk(files_dir):
