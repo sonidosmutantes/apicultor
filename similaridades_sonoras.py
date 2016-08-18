@@ -16,8 +16,8 @@ for subdir, dirs, files in os.walk(files_dir):
 features = re.findall(r"[+-]? *(?:\d+(?:\.\d*)?|\.\d+)(?:[eE][+-]?\d+)?", str(details['features']))     
 files_features = np.array_split(features, len(files))  
 
-first_descriptor_values = (zip(*files_features)[4])
-second_descriptor_values = (zip(*files_features)[2])
+first_descriptor_values = (zip(*files_features)[0])
+second_descriptor_values = (zip(*files_features)[5])
 
 min_to_max = preprocessing.MinMaxScaler(feature_range=(-1, 1))          
 lowest_to_highest = min_to_max.fit_transform(np.vstack((first_descriptor_values,second_descriptor_values)).T)   
@@ -31,6 +31,6 @@ print lowest_to_highest
 plt.scatter(lowest_to_highest[euclidean_labels==0,0], lowest_to_highest[euclidean_labels==0,1], c='b')
 plt.scatter(lowest_to_highest[euclidean_labels==1,0], lowest_to_highest[euclidean_labels==1,1], c='r')
 plt.scatter(lowest_to_highest[euclidean_labels==2,0], lowest_to_highest[euclidean_labels==2,1], c='y')
-plt.xlabel('Spectral_Centroid (scaled)')
-plt.ylabel('BPM (scaled)')
+plt.xlabel('Disonancia (scaled)')
+plt.ylabel('MFFC (scaled)')
 plt.show()

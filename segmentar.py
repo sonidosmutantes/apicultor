@@ -2,6 +2,7 @@ from smst.utils import audio
 import numpy as np
 import essentia
 from essentia.standard import *
+import os 
 
 
 def do_segmentation(audio_input):
@@ -25,9 +26,7 @@ def do_segmentation(audio_input):
         print("File generated: %s"%outputFilename)  
 
 files_dir = "bajo/"
-ext_filter = ['.wav'] 
 for subdir, dirs, files in os.walk(files_dir):
     for f in files:
-        if os.path.splitext(f)[1] in ext_filter:
-            audio_input = subdir+'/'+f
-            do_segmentation( audio_input)
+        audio_input = subdir+'/'+f
+        do_segmentation( audio_input)
