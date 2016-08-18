@@ -12,9 +12,11 @@ URL_BASE = "http://127.0.0.1:5000" #TODO: get from a config file
 
 # OSC Server
 osc_client = OSC.OSCClient()
-# osc_client.connect( ( '127.0.0.1', 57120 ) )
-#osc_client.connect( ( '5.0.22.38', 57121 ) )
-osc_client.connect( ( '192.168.0.7', 57120 ) )
+#osc_client.connect( ( '127.0.0.1', 57120 ) )
+#osc_client.connect( ( '5.0.23.27', 57120 ) )
+#osc_client.connect( ( '10.142.39.109', 57120 ) )
+#Virtual Box: Network Adapter in NAT mode (not bridge)
+osc_client.connect( ( '10.0.2.3', 57120 ) ) #internal network with host OS
 
 # 3 states  (each row must sum 1)
 # idle -> no sound
@@ -44,6 +46,7 @@ except Exception,e:
 
 
 duration = 1 #FIXME: hardcoded
+time_bt_states = 1 # (delay within states...)
 state = 'idle' #start state
 
 events = 10 # or loop with while(1)
@@ -73,7 +76,9 @@ while(1):
         #TODO: get duration from msg (via API)
         time.sleep(duration)
 
+
       state = T.succ(state).choose() #new state
       time_between_notes = random.uniform(0.,2.) #in seconds
       time.sleep(time_between_notes)
-
+      #delay within states
+      time.sleep(time_bt_states)

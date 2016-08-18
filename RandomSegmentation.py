@@ -6,6 +6,7 @@ import os
 import numpy as np
 from scipy.io import wavfile
 
+#TODO: make MONO samples? (freeze effect)
 def random_segmentation(filename, segments, options):
     """
         Segmenta con valores aleatorios según opciones
