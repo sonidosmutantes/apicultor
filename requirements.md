@@ -30,7 +30,7 @@ $ sudo ./waf install
 
 ## State Machine
 
-$ pip install git+git://github.com/riccardoscalco/Pykov@master #both Python2 and Python3
+$ sudo pip install git+git://github.com/riccardoscalco/Pykov@master #both Python2 and Python3
 
 Note that Pykov depends on numpy and scipy
 

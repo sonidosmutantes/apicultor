@@ -12,8 +12,10 @@ URL_BASE = "http://127.0.0.1:5000" #TODO: get from a config file
 
 # OSC Server
 osc_client = OSC.OSCClient()
-# osc_client.connect( ( '127.0.0.1', 57120 ) )
-osc_client.connect( ( '5.0.22.38', 57121 ) )
+#Local SC server
+osc_client.connect( ( '127.0.0.1', 57121 ) )
+#Remote server
+#osc_client.connect( ( '5.0.22.38', 57120 ) )
 
 # 3 states  (each row must sum 1)
 # idle -> no sound
@@ -50,7 +52,7 @@ events = 10 # or loop with while(1)
 while(1):
       print( state ) # TODO: call the right method for the state here
       if state=='harmonic':
-        call = '/list/samples'
+        call = '/list/samples' #gets only wav files because SuperCollider
         response = urllib2.urlopen(URL_BASE + call).read()
         audioFiles = list()
         for file in response.split('\n'):
