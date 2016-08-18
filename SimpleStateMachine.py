@@ -15,7 +15,9 @@ osc_client = OSC.OSCClient()
 #Local SC server
 osc_client.connect( ( '127.0.0.1', 57121 ) )
 #Remote server
-#osc_client.connect( ( '5.0.22.38', 57120 ) )
+#osc_client.connect( ( '10.142.39.109', 57120 ) )
+#Virtual Box: Network Adapter in NAT mode (not bridge)
+osc_client.connect( ( '10.0.2.3', 57120 ) ) #internal network with host OS
 
 # 3 states  (each row must sum 1)
 # idle -> no sound
@@ -45,6 +47,7 @@ except Exception,e:
 
 
 duration = 1 #FIXME: hardcoded
+time_bt_states = 1 # (delay within states...)
 state = 'idle' #start state
 
 events = 10 # or loop with while(1)
@@ -63,7 +66,10 @@ while(1):
         print("\tPlaying %s"%file_chosen)
         msg = OSC.OSCMessage()
         msg.setAddress("/play")
-        msg.append( file_chosen )
+
+        #mac os
+        msg.append( "/Users/hordia/Documents/apicultor"+file_chosen.split('.')[1]+'.wav' )
+
         try:
             osc_client.send(msg)
         except Exception,e:
@@ -71,7 +77,9 @@ while(1):
         #TODO: get duration from msg (via API)
         time.sleep(duration)
 
+
       state = T.succ(state).choose() #new state
       time_between_notes = random.uniform(0.,2.) #in seconds
       time.sleep(time_between_notes)
-
+      #delay within states
+      time.sleep(time_bt_states)
