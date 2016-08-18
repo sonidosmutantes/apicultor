@@ -31,6 +31,17 @@ $ ./waf
 To install the C++ library and the python bindings (if configured successfully; you might need to run this command with sudo):
 $ sudo ./waf install
 
+### Analysis
+* pip install bs4
+* pip install regex
+* pip install wget
+* pip install matplotlib
+* pip install numpy scipy scikit-learn
+* pip install smst
+
+$ sudo pip install bs4 regex wget numpy scipy scikit-learn 
+$ sudo pip install matplotlib smst
+
 ## State Machine
 
 $ sudo pip install git+git://github.com/riccardoscalco/Pykov@master #both Python2 and Python3

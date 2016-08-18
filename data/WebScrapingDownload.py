@@ -1,17 +1,22 @@
+#!/usr/bin/python
+# -*- coding: UTF-8 -*-
+
 import os
+import sys
 import urllib2
 from bs4 import BeautifulSoup
 import re
 import wget
 
+"""
+    Descarga los primeros diez archivos de la base de datos redpanalera tomando
+    en cuenta el tag
+    Los guarda en una carpeta con el mismo nombre (del tag)
+"""
+
 website = 'http://redpanal.org'
 
 host = 'http://redpanal.org/tag/'
-
-tag = 'teclado' 
-
-search = tag+'/audios' 
-
 
 def searchfiles(website, host, tag, search):
       resp = urllib2.urlopen(host+search) 
@@ -31,14 +36,38 @@ def searchfiles(website, host, tag, search):
 
       return  list(set([website+'/media'+audiopath for audiopath in audiopaths]))
 
-def download_files():
-
+def download_files(tag):
     paths_in_website = searchfiles(website, host, tag, search)
 
     [wget.download(path_in_website, out = tag) for path_in_website in paths_in_website]
 
 
-download_files()
+Usage = "./WebScrapingDownload.py [TAGNAME]"
+if __name__ == '__main__':
+  
+    if len(sys.argv) < 2:
+        print "\nBad amount of input arguments\n", Usage, "\n"
+        sys.exit(1)
+
+
+    try:
+        tagName = sys.argv[1]
+
+        #tagName = 'teclado' # Example 
+
+        try:
+            os.mkdir(tagName)
+        except:
+            pass
+
+        search = tagName+'/audios' 
+        print( "Downloading first 10 files with tag %s"%tagName )
+        download_files(tagName)
+
+    except Exception, e:
+        print(e)
+        exit(1)
+
 
 
 
