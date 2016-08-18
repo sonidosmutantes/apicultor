@@ -1,3 +1,6 @@
+#! /usr/bin/env python
+# -*- coding: utf-8 -*-
+
 from smst.utils import audio
 import numpy as np
 import essentia
