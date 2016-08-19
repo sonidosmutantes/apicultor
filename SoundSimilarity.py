@@ -10,11 +10,13 @@ import re
 from sklearn import preprocessing                                       
 from sklearn.cluster import AffinityPropagation                                  
                                                                         
-files_dir = 'descriptores/teclado'                                            
+files_dir = 'data/teclado'                                            
                                              
 for subdir, dirs, files in os.walk(files_dir):                          
-    details = {}               
-    dics = [json.load(open(subdir+'/'+f)) for f in files]
+    details = {}            
+    print subdir
+    print files   
+    dics = [json.load(open(subdir+'/'+f)) for f in files if f.split('.')[1]=="json"]
     details =  {'file': files, 'features': dics}
 
 features = re.findall(r"[+-]? *(?:\d+(?:\.\d*)?|\.\d+)(?:[eE][+-]?\d+)?", str(details['features']))     
