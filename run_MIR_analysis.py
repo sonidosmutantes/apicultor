@@ -8,7 +8,8 @@ import json
 from essentia import *
 from essentia.standard import *
 
-files_dir = "data"
+#files_dir = "data"
+files_dir = "samples"
 ext_filter = ['.mp3','.ogg','.ogg','.wav'] #archivos de sonido válidos
 
 # descriptores de interés
