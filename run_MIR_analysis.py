@@ -9,38 +9,41 @@ from essentia import *
 from essentia.standard import *
 
 files_dir = "data"
-ext_filter = ['.mp3','.ogg','.ogg','.wav'] #valid audio files
-#TODO: check sample rate
+ext_filter = ['.mp3','.ogg','.ogg','.wav'] #archivos de sonido válidos
 
-#TODO: add tempo, time length
-print("WARNING: Add tempo and time")
-
-# descriptors of interest
+# descriptores de interés
 descriptors = [ 
                 'lowlevel.spectral_centroid',
-                #'lowlevel.spectral_contrast.mean',
+                'lowlevel.spectral_contrast',
                 'lowlevel.dissonance',
                 'lowlevel.hfc',
                 'lowlevel.mfcc',
                 'loudness.level',
-                #'sfx.logattacktime.mean',
-                #'sfx.inharmonicity.mean'
+                #'sfx.logattacktime', tarda en calcular 
+                #'sfx.inharmonicity', el primer harmónico no tiene que estar en 0 Hz para poder calcularse
+		'rhythm.bpm',
+		'metadata.duration'
                 ]
 
 def process_file(inputSoundFile, frameSize = 1024, hopSize = 512):
-    #TODO check stereo vs mono file
-    # load our audio into an array
     audio = MonoLoader(filename = inputSoundFile)()
-    sampleRate = 44100 #FIXME
+    sampleRate = 44100
         
     #method alias for extractors
     centroid = SpectralCentroidTime()
+    contrast = SpectralContrast(frameSize = frameSize+1)
     levelExtractor = LevelExtractor()
     mfcc = MFCC()    
     hfc = HFC()
     dissonance = Dissonance()
+    bpm = RhythmExtractor2013()
+    timelength = Duration()
+    #logat = LogAttackTime()
+    #inharmonicity = Inharmonicity()
 
-    #more aliases (helper functions)
+    #++++helper functions++++
+    #envelope = Envelope()
+    #signal_envelope = envelope(audio)
 #    w = Windowing() #default windows
     w_hann = Windowing(type = 'hann')
     spectrum = Spectrum()
@@ -60,11 +63,17 @@ def process_file(inputSoundFile, frameSize = 1024, hopSize = 512):
             c = centroid( frame_spectrum )
             pool.add(desc_name, c)
 
+        desc_name = namespace + '.spectral_contrast'
+        if desc_name in descriptors:
+            contrasts, valleys = contrast(frame_spectrum)
+            pool.add(desc_name, contrasts)
+            pool.add('lowlevel.spectral_valleys', valleys)
+
         desc_name = namespace + '.mfcc'
         if desc_name in descriptors:
             mfcc_melbands, mfcc_coeffs = mfcc( frame_spectrum )
             pool.add(desc_name, mfcc_coeffs)
-            #pool.add('lowlevel.mfcc_bands', mfcc_melbands)
+            pool.add('lowlevel.mfcc_bands', mfcc_melbands)
 
         desc_name = namespace + '.hfc'
         if desc_name in descriptors:
@@ -77,6 +86,7 @@ def process_file(inputSoundFile, frameSize = 1024, hopSize = 512):
             (frame_frequencies, frame_magnitudes) = spectral_peaks(frame_spectrum)
             frame_dissonance = dissonance(frame_frequencies, frame_magnitudes)
             pool.add( desc_name, frame_dissonance)
+
         
         # t frame
         namespace = 'loudness'
@@ -84,6 +94,33 @@ def process_file(inputSoundFile, frameSize = 1024, hopSize = 512):
         if desc_name in descriptors:
             l = levelExtractor(frame)
             pool.add(desc_name,l)
+
+        #logattacktime
+        #desc_name = 'sfx.logattacktime'
+        #if desc_name in descriptors:
+         #   attacktime = logat(signal_envelope)
+          #  pool.add(desc_name, attacktime)
+
+	#inharmonicity
+        #desc_name = namespace + '.inharmonicity'
+        #if desc_name in descriptors:
+         #   (frame_frequencies, frame_magnitudes) = spectral_peaks(frame_spectrum)
+          #  inharmonic = inharmonicity(frame_frequencies, frame_magnitudes)
+           # pool.add(desc_name, inharmonic)
+
+        #bpm
+        namespace = 'rhythm'
+        desc_name = namespace + '.bpm'
+        if desc_name in descriptors:
+            beatsperminute = bpm(audio)[0]
+            pool.add(desc_name, beatsperminute)
+
+        #duration
+        namespace = 'metadata'
+        desc_name = namespace + '.duration'
+        if desc_name in descriptors:
+            duration = timelength(audio)
+            pool.add(desc_name, duration)
     #end of frame computation
 
 
@@ -102,7 +139,7 @@ def process_file(inputSoundFile, frameSize = 1024, hopSize = 512):
             data[dn] = str( aggrPool[dn][0] )
         except:
             data[dn] = str( aggrPool[dn] )
-    #print data
+    print data
     json_output = os.path.splitext(inputSoundFile)[0]+".json"
     with open(json_output, 'w') as outfile:
          json.dump(data, outfile) #write to file
@@ -116,6 +153,3 @@ for subdir, dirs, files in os.walk(files_dir):
             audio_input = subdir+'/'+f
             print( audio_input )
             process_file( audio_input )
-#
-
-#process_file('data/982.ogg')
