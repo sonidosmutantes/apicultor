@@ -36,4 +36,4 @@ Resultado: API-Documentation.html
 
 ## Supercollider
 
-Ver ejemplos en tests/examples.scd
+Ver ejemplos en examples/
