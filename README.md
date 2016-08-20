@@ -21,11 +21,17 @@ El código da soporte para el procesamiento de los mismos utilizando técnicas d
 
 # Uso 
 ## Bajar archivos de prueba y aplicar MIR
-$ ./descargar.py
+$ cd data 
+$ ./WebScrapingDownload.py 
+$ cd /carpetadondeesta/apicultor
 $ ./run_MIR_analysis.py
 
 #Docu
-* descargar.py descarga los primeros diez archivos de la base de datos redpanalera tomando en cuenta el tag. Solamente hay que establecer el tag de archivos para buscar y tener la carpeta creada con el nombre del tag.
-* segmentar.py es un archivo ejemplo hackeable que muestra como segmentar los archivos de audio en cuadros de corta duración. MonoLoader (ver código) no discrimina formatos de sonido que no sean .wav, por lo que pueden especificar en el parámetro ext_filter que sonidos con qué formato quieren segmentar de la carpeta
+* WebScrapingDownload.py descarga los primeros diez archivos de la base de datos redpanalera tomando en cuenta el tag. Solamente hay que establecer el tag de archivos para buscar y tener la carpeta creada con el nombre del tag.
+* DoSegmentation.py segmenta los archivos de audio en cuadros de corta duración.
+* RandomSegmentation.py segmenta los archivos de audio en cuadros de duración aleatoria
 * run_MIR_analysis.py te muestra los valores de las pistas en base a conceptos de interés como el ataque, la frecuencia del centroide espectral, los BPM, y muestra muchas cosas mas!
-* similaridades_sonoras.py lee los descriptores e intenta encontrar similaridades entre los sonidos para encontrar los sonidos más compatibles para tu experimento
+* SoundSimilarity.py lee los descriptores e intenta encontrar similaridades entre los sonidos para encontrar los sonidos más compatibles para tu experimento
+
+#SuperCollider
+SuperCollider code in "examples/" 
