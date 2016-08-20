@@ -39,7 +39,7 @@ def random_segmentation(filename, segments, options, sr):
                 print "Creating samples directory"
                 time.sleep(4) 
             outputFilename = outputPath+'/'+baseName+'_sample'+str(i)+'.wav'
-            audio.write_wav(np.array(signalOut, dtype='int16'),sr,outputFilename)
+            audio.write_wav(signalOut,sr,outputFilename)
             print("File generated: %s"%outputFilename)
             time.sleep(1)
     except Exception, e:
