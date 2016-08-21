@@ -8,8 +8,12 @@ import json
 from essentia import *
 from essentia.standard import *
 
+<<<<<<< HEAD
 #files_dir = "data"
 files_dir = "samples"
+=======
+files_dir = "data/bajo"
+>>>>>>> c5ad6939e7667e31997ed9625c849ec7bfd3bce1
 ext_filter = ['.mp3','.ogg','.ogg','.wav'] #archivos de sonido válidos
 
 # descriptores de interés
@@ -20,16 +24,18 @@ descriptors = [
                 'lowlevel.hfc',
                 'lowlevel.mfcc',
                 'loudness.level',
-                #'sfx.logattacktime', tarda en calcular 
-                #'sfx.inharmonicity', el primer harmónico no tiene que estar en 0 Hz para poder calcularse
+                'sfx.logattacktime',  
+                'sfx.inharmonicity', 
 		'rhythm.bpm',
 		'metadata.duration'
                 ]
 
 def process_file(inputSoundFile, frameSize = 1024, hopSize = 512):
-    audio = MonoLoader(filename = inputSoundFile)()
+    input_signal = MonoLoader(filename = inputSoundFile)()
     sampleRate = 44100
-        
+    
+    #filter direct current noise
+    offset_filter = DCRemoval()    
     #method alias for extractors
     centroid = SpectralCentroidTime()
     contrast = SpectralContrast(frameSize = frameSize+1)
@@ -39,16 +45,18 @@ def process_file(inputSoundFile, frameSize = 1024, hopSize = 512):
     dissonance = Dissonance()
     bpm = RhythmExtractor2013()
     timelength = Duration()
-    #logat = LogAttackTime()
-    #inharmonicity = Inharmonicity()
+    logat = LogAttackTime()
+    harmonic_peaks = HarmonicPeaks()                                   
+    f0_est = PitchYin()    
+    inharmonicity = Inharmonicity()
 
     #++++helper functions++++
-    #envelope = Envelope()
-    #signal_envelope = envelope(audio)
+    envelope = Envelope()
 #    w = Windowing() #default windows
     w_hann = Windowing(type = 'hann')
     spectrum = Spectrum()
     spectral_peaks = SpectralPeaks(sampleRate = sampleRate, orderBy='frequency')
+    audio = offset_filter(input_signal)
 
     # compute for all frames in our audio and add it to the pool
     pool = essentia.Pool()
@@ -84,7 +92,7 @@ def process_file(inputSoundFile, frameSize = 1024, hopSize = 512):
         # dissonance
         desc_name = namespace + '.dissonance'
         if desc_name in descriptors:
-            (frame_frequencies, frame_magnitudes) = spectral_peaks(frame_spectrum)
+            frame_frequencies, frame_magnitudes = spectral_peaks(frame_spectrum)
             frame_dissonance = dissonance(frame_frequencies, frame_magnitudes)
             pool.add( desc_name, frame_dissonance)
 
@@ -97,17 +105,20 @@ def process_file(inputSoundFile, frameSize = 1024, hopSize = 512):
             pool.add(desc_name,l)
 
         #logattacktime
-        #desc_name = 'sfx.logattacktime'
-        #if desc_name in descriptors:
-         #   attacktime = logat(signal_envelope)
-          #  pool.add(desc_name, attacktime)
+        desc_name = 'sfx.logattacktime'
+        if desc_name in descriptors:
+            frame_envelope = envelope(frame)
+            attacktime = logat(frame_envelope)
+            pool.add(desc_name, attacktime)
 
 	#inharmonicity
-        #desc_name = namespace + '.inharmonicity'
-        #if desc_name in descriptors:
-         #   (frame_frequencies, frame_magnitudes) = spectral_peaks(frame_spectrum)
-          #  inharmonic = inharmonicity(frame_frequencies, frame_magnitudes)
-           # pool.add(desc_name, inharmonic)
+        desc_name = 'sfx.inharmonicity'
+        if desc_name in descriptors:
+            pitch = f0_est(frame_windowed)
+            frame_frequencies, frame_magnitudes = spectral_peaks(frame_spectrum)                             
+            harmonic_frequencies, harmonic_magnitudes = harmonic_peaks(frame_frequencies[1:], frame_magnitudes[1:], pitch[0])                         
+            inharmonic = inharmonicity(harmonic_frequencies, harmonic_magnitudes)      
+            pool.add(desc_name, inharmonic)                       
 
         #bpm
         namespace = 'rhythm'
