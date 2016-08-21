@@ -22,6 +22,20 @@ Prueba de concepto (versión inicial) http://www.youtube.com/watch?v=pMBl_4y6UmE
 $ cd data && ./download-test-data.sh
 $ ./run_MIR_analysis.py
 
+$ cd data 
+$ ./WebScrapingDownload.py 
+$ cd /carpetadondeesta/apicultor
+$ ./run_MIR_analysis.py
+
+#Docu
+* WebScrapingDownload.py descarga los primeros diez archivos de la base de datos redpanalera tomando en cuenta el tag. Solamente hay que establecer el tag de archivos para buscar y tener la carpeta creada con el nombre del tag.
+* DoSegmentation.py segmenta los archivos de audio en cuadros de corta duración.
+* RandomSegmentation.py segmenta los archivos de audio en cuadros de duración aleatoria
+* run_MIR_analysis.py te muestra los valores de las pistas en base a conceptos de interés como el ataque, la frecuencia del centroide espectral, los BPM, y muestra muchas cosas mas!
+* SoundSimilarity.py lee los descriptores e intenta encontrar similaridades entre los sonidos para encontrar los sonidos más compatibles para tu experimento
+
+#SuperCollider
+SuperCollider code in "examples/" 
 ## Correr webservice (api rest)
 $ ./MockRedPanalAPI_service.py
 
@@ -37,3 +51,5 @@ Resultado: API-Documentation.html
 ## Supercollider
 
 Ver ejemplos en examples/
+
+
