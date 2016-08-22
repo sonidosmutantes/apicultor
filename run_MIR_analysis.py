@@ -22,10 +22,10 @@ descriptors = [
                 'lowlevel.hfc',
                 'lowlevel.mfcc',
                 'loudness.level',
-                'sfx.logattacktime',  
-                'sfx.inharmonicity', 
-				'rhythm.bpm',
-		'metadata.duration'
+                'sfx.logattacktime',
+                'sfx.inharmonicity',
+                'rhythm.bpm',
+                'metadata.duration'
                 ]
 
 def process_file(inputSoundFile, frameSize = 1024, hopSize = 512):
@@ -102,7 +102,7 @@ def process_file(inputSoundFile, frameSize = 1024, hopSize = 512):
             l = levelExtractor(frame)
             pool.add(desc_name,l)
 
-        #logattacktime
+        #FIXME: logattacktime
 #        desc_name = 'sfx.logattacktime'
 #        if desc_name in descriptors:
 #            frame_envelope = envelope(frame)
