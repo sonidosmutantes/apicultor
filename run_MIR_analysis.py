@@ -8,12 +8,10 @@ import json
 from essentia import *
 from essentia.standard import *
 
-<<<<<<< HEAD
 #files_dir = "data"
 files_dir = "samples"
-=======
-files_dir = "data/bajo"
->>>>>>> c5ad6939e7667e31997ed9625c849ec7bfd3bce1
+#files_dir = "data/bajo"
+
 ext_filter = ['.mp3','.ogg','.ogg','.wav'] #archivos de sonido válidos
 
 # descriptores de interés
@@ -26,7 +24,7 @@ descriptors = [
                 'loudness.level',
                 'sfx.logattacktime',  
                 'sfx.inharmonicity', 
-		'rhythm.bpm',
+				'rhythm.bpm',
 		'metadata.duration'
                 ]
 
@@ -105,20 +103,20 @@ def process_file(inputSoundFile, frameSize = 1024, hopSize = 512):
             pool.add(desc_name,l)
 
         #logattacktime
-        desc_name = 'sfx.logattacktime'
-        if desc_name in descriptors:
-            frame_envelope = envelope(frame)
-            attacktime = logat(frame_envelope)
-            pool.add(desc_name, attacktime)
+#        desc_name = 'sfx.logattacktime'
+#        if desc_name in descriptors:
+#            frame_envelope = envelope(frame)
+#            attacktime = logat(frame_envelope)
+#            pool.add(desc_name, attacktime)
 
-	#inharmonicity
+        #inharmonicity
         desc_name = 'sfx.inharmonicity'
         if desc_name in descriptors:
             pitch = f0_est(frame_windowed)
-            frame_frequencies, frame_magnitudes = spectral_peaks(frame_spectrum)                             
-            harmonic_frequencies, harmonic_magnitudes = harmonic_peaks(frame_frequencies[1:], frame_magnitudes[1:], pitch[0])                         
+            frame_frequencies, frame_magnitudes = spectral_peaks(frame_spectrum)
+            harmonic_frequencies, harmonic_magnitudes = harmonic_peaks(frame_frequencies[1:], frame_magnitudes[1:], pitch[0])
             inharmonic = inharmonicity(harmonic_frequencies, harmonic_magnitudes)      
-            pool.add(desc_name, inharmonic)                       
+            pool.add(desc_name, inharmonic)
 
         #bpm
         namespace = 'rhythm'
@@ -165,3 +163,4 @@ for subdir, dirs, files in os.walk(files_dir):
             audio_input = subdir+'/'+f
             print( audio_input )
             process_file( audio_input )
+
