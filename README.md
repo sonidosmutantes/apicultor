@@ -22,21 +22,24 @@ Prueba de concepto (versión inicial) http://www.youtube.com/watch?v=pMBl_4y6UmE
 $ cd data && ./download-test-data.sh
 $ ./run_MIR_analysis.py
 
+## Descargar por tag, aplicar MIR, procesar señales de salida para guardar los sonidos en base a clusters
 $ cd data 
 $ ./WebScrapingDownload.py 
 $ cd /carpetadondeesta/apicultor
 $ ./run_MIR_analysis.py
+$./SoundSimilarity.py
 
 #Docu
-* WebScrapingDownload.py descarga los primeros diez archivos de la base de datos redpanalera tomando en cuenta el tag. Solamente hay que establecer el tag de archivos para buscar y tener la carpeta creada con el nombre del tag.
+* WebScrapingDownload.py descarga los primeros diez archivos de la base de datos redpanalera tomando en cuenta el tag. Solamente hay que especificar el tag de archivos para buscar.
 * DoSegmentation.py segmenta los archivos de audio en cuadros de corta duración.
-* RandomSegmentation.py segmenta los archivos de audio en cuadros de duración aleatoria
-* run_MIR_analysis.py te muestra los valores de las pistas en base a conceptos de interés como el ataque, la frecuencia del centroide espectral, los BPM, y muestra muchas cosas mas!
-* SoundSimilarity.py lee los descriptores e intenta encontrar similaridades entre los sonidos para encontrar los sonidos más compatibles para tu experimento
+* RandomSegmentation.py segmenta los archivos de audio en cuadros de duración aleatoria.
+* run_MIR_analysis.py te muestra los valores de las pistas en base a conceptos de interés como el ataque, la frecuencia del centroide espectral, los BPM, y otros conceptos. También procesa los sonidos en base a las descripciones hechas.
+* SoundSimilarity.py muestra clusters entre los sonidos para encontrar similitud basandose en descriptores seleccionados, luego guarda esos sonidos en carpetas de clusters.
 
 #SuperCollider
 SuperCollider code in "examples/" 
-## Correr webservice (api rest)
+
+## Correr webservice (requiere api rest)
 $ ./MockRedPanalAPI_service.py
 
 (escucha en localhost, puerto 5000)
@@ -47,9 +50,5 @@ Ver ejemplos de uso en tests/API_Tests.py
 $ cd doc/ && ./update-api-doc.sh
 
 Resultado: API-Documentation.html
-
-## Supercollider
-
-Ver ejemplos en examples/
 
 
