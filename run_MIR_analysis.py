@@ -18,7 +18,7 @@ descriptors = [
                 'lowlevel.hfc',
                 'lowlevel.mfcc',
                 'loudness.level',
-                'sfx.logattacktime',  
+#                'sfx.logattacktime',  doesn't run properly in some systems 
                 'sfx.inharmonicity', 
 		'rhythm.bpm',
 		'metadata.duration'
@@ -107,11 +107,11 @@ def process_file(inputSoundFile, frameSize = 1024, hopSize = 512):
             pool.add(desc_name,l)
 
         #logattacktime
-        desc_name = 'sfx.logattacktime'
-        if desc_name in descriptors:
-            frame_envelope = envelope(frame)
-            attacktime = logat(frame_envelope)
-            pool.add(desc_name, attacktime)
+#        desc_name = 'sfx.logattacktime'
+#        if desc_name in descriptors:
+#            frame_envelope = envelope(frame)
+#            attacktime = logat(frame_envelope)
+#            pool.add(desc_name, attacktime)
 
 	#inharmonicity
         desc_name = 'sfx.inharmonicity'
@@ -283,19 +283,19 @@ def process_file(inputSoundFile, frameSize = 1024, hopSize = 512):
 
     #sound recording with attack marker
 
-    attack_dir = (tag_dir+'/'+'attack')
+#    attack_dir = (tag_dir+'/'+'attack')
 
-    if not os.path.exists(attack_dir):                         
-           os.makedirs(attack_dir)                                
-           print "Creando directorio para marcado de ataque" 
+#    if not os.path.exists(attack_dir):                         
+#           os.makedirs(attack_dir)                                
+#           print "Creando directorio para marcado de ataque" 
 
-    at_s = 10**(float(data['sfx.logattacktime.mean']))  
-    marker = scipy.cos((2*scipy.pi*1000/44100)*scipy.arange(44100*(1.0/44100.0)))                                             
+#    at_s = 10**(float(data['sfx.logattacktime.mean']))  
+#    marker = scipy.cos((2*scipy.pi*1000/44100)*scipy.arange(44100*(1.0/44100.0)))                                             
 
-    audio = offset_filter(input_signal)
-    audio[audio == audio[(at_s)*44100]] = audio[audio == audio[(at_s)*44100]] + marker  
-    print ("Saving File with attack marker") 
-    output = write_wav(audio, 44100, attack_dir + '/' + os.path.splitext(input_filename)[0] + 'attack.wav') 
+#    audio = offset_filter(input_signal)
+#    audio[audio == audio[(at_s)*44100]] = audio[audio == audio[(at_s)*44100]] + marker  
+#    print ("Saving File with attack marker") 
+#    output = write_wav(audio, 44100, attack_dir + '/' + os.path.splitext(input_filename)[0] + 'attack.wav') 
 
 #()    
 
