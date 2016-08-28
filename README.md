@@ -14,6 +14,7 @@ El código da soporte para el procesamiento de los mismos utilizando técnicas d
 * pip install bs4
 * pip install regex
 * pip install wget
+* pip install colorama
 * pip install matplotlib
 * Essentia (ver instrucciones para compilar aquí: http://essentia.upf.edu/documentation/installing.html)
 * pip install numpy scipy scikit-learn
@@ -21,17 +22,20 @@ El código da soporte para el procesamiento de los mismos utilizando técnicas d
 
 # Uso 
 ## Bajar archivos de prueba y aplicar MIR
-$ cd data 
-$ ./WebScrapingDownload.py 
+$ cd apicultor/data 
+$ python WebScrapingDownload.py nombredeltag 
 $ cd /carpetadondeesta/apicultor
-$ ./run_MIR_analysis.py
+$ python run_MIR_analysis.py directoriodesonidosdeltag
+## Similaridad Sonora
+$ cd /apicultor
+$ python SoundSimilarity.py carpetadeltag
 
 #Docu
-* WebScrapingDownload.py descarga los primeros diez archivos de la base de datos redpanalera tomando en cuenta el tag. Solamente hay que establecer el tag de archivos para buscar y tener la carpeta creada con el nombre del tag.
+* WebScrapingDownload.py descarga los primeros diez archivos de la base de datos redpanalera tomando en cuenta el tag. Solamente hay que especificar el tag de archivos para buscar.
 * DoSegmentation.py segmenta los archivos de audio en cuadros de corta duración.
-* RandomSegmentation.py segmenta los archivos de audio en cuadros de duración aleatoria
-* run_MIR_analysis.py te muestra los valores de las pistas en base a conceptos de interés como el ataque, la frecuencia del centroide espectral, los BPM, y muestra muchas cosas mas!
-* SoundSimilarity.py lee los descriptores e intenta encontrar similaridades entre los sonidos para encontrar los sonidos más compatibles para tu experimento
+* RandomSegmentation.py segmenta los archivos de audio en cuadros de duración aleatoria.
+* run_MIR_analysis.py te muestra los valores de las pistas en base a conceptos de interés como el ataque, la frecuencia del centroide espectral, los BPM, y otros conceptos. También procesa los sonidos en base a las descripciones hechas.
+* SoundSimilarity.py muestra clusters entre los sonidos para encontrar similitud basandose en descriptores seleccionados, luego guarda esos sonidos en carpetas de clusters.
 
 #SuperCollider
 SuperCollider code in "examples/" 
