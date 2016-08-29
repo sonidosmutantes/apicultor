@@ -875,7 +875,7 @@ if __name__ == '__main__':
 	    print ("First Descriptor is not lowlevel.mfcc_bands.mean")
 	else:   
 	    try:   
-		mfcc_cluster_files(files_dir, desc1, euclidean_labels)
+		mfcc_cluster_files(files_dir, desc1, euclidean_labels, files)
 	    except OSError:
 		print ("Error: Clusters already saved")
 
@@ -883,7 +883,7 @@ if __name__ == '__main__':
 	    print ("Second Descriptor is not lowlevel.mfcc_bands.mean")
 	else:
 	    try:   
-		mfcc_cluster_files(files_dir, desc2, euclidean_labels)
+		mfcc_cluster_files(files_dir, desc2, euclidean_labels, files)
 	    except OSError:
 		print ("Error: Clusters already saved")
 
@@ -891,7 +891,7 @@ if __name__ == '__main__':
 	    print ("First Descriptor is not lowlevel.mfcc.mean")
 	else:   
 	    try:   
-		mfcc_cluster_files(files_dir, desc1, euclidean_labels)
+		mfcc_cluster_files(files_dir, desc1, euclidean_labels, files)
 	    except OSError:
 		print ("Error: Clusters already saved")
 
@@ -899,7 +899,7 @@ if __name__ == '__main__':
 	    print ("Second Descriptor is not lowlevel.mfcc.mean")
 	else:
 	    try:   
-		mfcc_cluster_files(files_dir, desc2, euclidean_labels)
+		mfcc_cluster_files(files_dir, desc2, euclidean_labels, files)
 	    except OSError:
 		print ("Error: Clusters already saved")
 
@@ -907,7 +907,7 @@ if __name__ == '__main__':
 	    print ("First Descriptor is not lowlevel.spectral_contrast.mean")
 	else:   
 	    try:   
-		contrast_cluster_files(files_dir, desc1, euclidean_labels)
+		contrast_cluster_files(files_dir, desc1, euclidean_labels, files)
 	    except OSError:
 		print ("Error: Clusters already saved")
 
@@ -916,7 +916,7 @@ if __name__ == '__main__':
 	    print ("Second Descriptor is not lowlevel.spectral_contrast.mean")
 	else:
 	    try:   
-		contrast_cluster_files(files_dir, desc2, euclidean_labels)
+		contrast_cluster_files(files_dir, desc2, euclidean_labels, files)
 	    except OSError:
 		print ("Error: Clusters already saved")
 
@@ -924,7 +924,7 @@ if __name__ == '__main__':
 	    print ("First Descriptor is not lowlevel.spectral_valleys.mean")
 	else:
 	    try:   
-		contrast_cluster_files(files_dir, desc1, euclidean_labels)
+		contrast_cluster_files(files_dir, desc1, euclidean_labels, files)
 	    except OSError:
 		print ("Error: Clusters already saved")
 
@@ -932,7 +932,7 @@ if __name__ == '__main__':
 	    print ("Second Descriptor is not lowlevel.spectral_valleys.mean")
 	else:   
 	    try:
-		contrast_cluster_files(files_dir, desc2, euclidean_labels)
+		contrast_cluster_files(files_dir, desc2, euclidean_labels, files)
 	    except OSError:
 		print ("Error: Clusters already saved")
 
@@ -940,7 +940,7 @@ if __name__ == '__main__':
 	    print ("First Descriptor is not lowlevel.spectral_centroid.mean")
 	else:   
 	    try:   
-		centroid_cluster_files(files_dir, desc1, euclidean_labels)
+		centroid_cluster_files(files_dir, desc1, euclidean_labels, files)
 	    except OSError:
 		print ("Error: Clusters already saved")
 
@@ -949,7 +949,7 @@ if __name__ == '__main__':
 	    print ("Second Descriptor is not lowlevel.spectral_centroid.mean")
 	else:
 	    try:   
-		centroid_cluster_files(files_dir, desc2, euclidean_labels)
+		centroid_cluster_files(files_dir, desc2, euclidean_labels, files)
 	    except OSError:
 		print ("Error: Clusters already saved") 
 
@@ -957,7 +957,7 @@ if __name__ == '__main__':
 	    print ("First Descriptor is not loudness.level.mean")
 	else:   
 	    try:   
-		loudness_cluster_files(files_dir, desc1, euclidean_labels)
+		loudness_cluster_files(files_dir, desc1, euclidean_labels, files)
 	    except OSError:
 		print ("Error: Clusters already saved")
 
@@ -966,7 +966,7 @@ if __name__ == '__main__':
 	    print ("Second Descriptor is not loudness.level.mean")
 	else:
 	    try:   
-		loudness_cluster_files(files_dir, desc2, euclidean_labels)
+		loudness_cluster_files(files_dir, desc2, euclidean_labels, files)
 	    except OSError:
 		print ("Error: Clusters already saved")
 
@@ -974,7 +974,7 @@ if __name__ == '__main__':
 	    print ("First Descriptor is not lowlevel.hfc.mean")
 	else:   
 	    try:   
-		contrast_cluster_files(files_dir, desc1, euclidean_labels)
+		contrast_cluster_files(files_dir, desc1, euclidean_labels, files)
 	    except OSError:
 		print ("Error: Clusters already saved")
 
@@ -983,7 +983,7 @@ if __name__ == '__main__':
 	    print ("Second Descriptor is not lowlevel.hfc.mean")
 	else:
 	    try:   
-		hfc_cluster_files(files_dir, desc2, euclidean_labels)
+		hfc_cluster_files(files_dir, desc2, euclidean_labels, files)
 	    except OSError:
 		print ("Error: Clusters already saved") 
 
@@ -991,7 +991,7 @@ if __name__ == '__main__':
 	    print ("First Descriptor is not sfx.inharmonicity.mean")
 	else:   
 	    try:   
-		inharmonicity_cluster_files(files_dir, desc1, euclidean_labels)
+		inharmonicity_cluster_files(files_dir, desc1, euclidean_labels, files)
 	    except OSError:
 		print ("Error: Clusters already saved")
 
@@ -1000,7 +1000,7 @@ if __name__ == '__main__':
 	    print ("Second Descriptor is not sfx.inharmonicity.mean")
 	else:
 	    try:   
-		inharmonicity_cluster_files(files_dir, desc2, euclidean_labels)
+		inharmonicity_cluster_files(files_dir, desc2, euclidean_labels, files)
 	    except OSError:
 		print ("Error: Clusters already saved") 
 
@@ -1008,7 +1008,7 @@ if __name__ == '__main__':
 	    print ("First Descriptor is not lowlevel.dissonance.mean")
 	else:   
 	    try:   
-		dissonance_cluster_files(files_dir, desc1, euclidean_labels)
+		dissonance_cluster_files(files_dir, desc1, euclidean_labels, files)
 	    except OSError:
 		print ("Error: Clusters already saved")
 
@@ -1017,7 +1017,7 @@ if __name__ == '__main__':
 	    print ("Second Descriptor is not lowlevel.dissonance.mean")
 	else:
 	    try:   
-		dissonance_cluster_files(files_dir, desc2, euclidean_labels)
+		dissonance_cluster_files(files_dir, desc2, euclidean_labels, files)
 	    except OSError:
 		print ("Error: Clusters already saved") 
 
@@ -1025,7 +1025,7 @@ if __name__ == '__main__':
 	    print ("First Descriptor is not sfx.logattacktime.mean")
 	else:   
 	    try:   
-		attack_cluster_files(files_dir, desc1, euclidean_labels)
+		attack_cluster_files(files_dir, desc1, euclidean_labels, files)
 	    except OSError:
 		print ("Error: Clusters already saved")
 
@@ -1034,7 +1034,7 @@ if __name__ == '__main__':
 	    print ("Second Descriptor is not sfx.logattacktime.mean")
 	else:
 	    try:   
-		attack_cluster_files(files_dir, desc2, euclidean_labels)
+		attack_cluster_files(files_dir, desc2, euclidean_labels, files)
 	    except OSError:
 		print ("Error: Clusters already saved") 
 
@@ -1042,7 +1042,7 @@ if __name__ == '__main__':
 	    print ("First Descriptor is not metadata.duration.mean")
 	else:   
 	    try:   
-		duration_cluster_files(files_dir, desc1, euclidean_labels)
+		duration_cluster_files(files_dir, desc1, euclidean_labels, files)
 	    except OSError:
 		print ("Error: Clusters already saved")
 
@@ -1051,7 +1051,7 @@ if __name__ == '__main__':
 	    print ("Second Descriptor is not metadata.duration.mean")
 	else:
 	    try:   
-		duration_cluster_files(files_dir, desc2, euclidean_labels)
+		duration_cluster_files(files_dir, desc2, euclidean_labels, files)
 	    except OSError:
 		print ("Error: Clusters already saved") 
 
