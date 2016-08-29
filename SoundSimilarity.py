@@ -100,67 +100,68 @@ def plot_similarity_clusters(files, dics):
 
 # save clusters files in clusters directory
 def bpm_cluster_files(files_dir, descriptor, euclidean_labels, files):
-	"""
-	locate bpm according to clusters in clusters directories
-
-	:param files_dir: directory where sounds are located
-	:param descriptor: descriptor used for similarity
-	:param euclidean_labels: groups of clusters 
-	:param files: the .json files (use get_files)
-	"""
-	first_group = [i for i, x in enumerate(euclidean_labels) if x == 0]                       
-	second_group = [i for i, x in enumerate(euclidean_labels) if x == 1]
-
-	for i, x in enumerate(euclidean_labels):
-	    if x == 2:
-		third_group = [i for i, x in enumerate(euclidean_labels) if x ==2]
-		group3 = map(lambda json: files[0][json], third_group)
-		files3 = [i.split('.json')[0] for i in group3]
-	    else:
-		print ("Reading groups")
-
-	for i, x in enumerate(euclidean_labels):
-	    if x == 3:
-		fourth_group = [i for i, x in enumerate(euclidean_labels) if x ==2]
-		group4 = map(lambda json: files[0][json], fourth_group)
-		files4 = [i.split('.json')[0] for i in group4]
-	    else:
-		print ("Reading groups")
-
-	print ("Saving files in clusters directory")
-
-	group1 = map(lambda json: files[0][json], first_group)
-	group2 = map(lambda json: files[0][json], second_group)
-
-	files1 = [i.split('.json')[0] for i in group1]
-	files2 = [i.split('.json')[0] for i in group2]
-
-	for subdirs, dirs, sounds in os.walk(files_dir+'/tempo'):
-	    for s in list(sounds):
-		sound_names = [s.split('tempo.wav')[0] for s in sounds]   
-		break
-
-	files_1 = set(sound_names).intersection(files1)
-	files_2 = set(sound_names).intersection(files2)
-	files_3 = set(sound_names).intersection(files3)
-
-	if euclidean_labels[0]:                                               
-	    os.mkdir(files_dir+'/tempo/0')
-
-	if euclidean_labels[1]:                                               
-	    os.mkdir(files_dir+'/tempo/1')  
-
-	if euclidean_labels[2]:                                               
-	    os.mkdir(files_dir+'/tempo/2')  
-
-	for e in files_1:
-	    shutil.copy(subdirs+'/'+(str(e))+'tempo.wav', subdirs+'/0/'+(str(e))+'tempo.wav')
-
-	for e in files_2:
-	    shutil.copy(subdirs+'/'+(str(e))+'tempo.wav', subdirs+'/1/'+(str(e))+'tempo.wav')
-
-	for e in files_3:
-	    shutil.copy(subdirs+'/'+(str(e))+'tempo.wav', subdirs+'/2/'+(str(e))+'tempo.wav')
+    """                                                                                     
+    locate bpm according to clusters in clusters directories                                
+                                                                                            
+    :param files_dir: directory where sounds are located                                    
+    :param descriptor: descriptor used for similarity                                       
+    :param euclidean_labels: groups of clusters                                             
+    :param files: the .json files (use get_files)                                           
+    """                                                                                     
+    first_group = [i for i, x in enumerate(euclidean_labels) if x == 0]                       
+    second_group = [i for i, x in enumerate(euclidean_labels) if x == 1]
+                                                                       
+    for i, x in enumerate(euclidean_labels):                           
+        if x == 2:                                                     
+            third_group = [i for i, x in enumerate(euclidean_labels) if x ==2]
+            group3 = map(lambda json: files[0][json], third_group)     
+            files3 = [i.split('.json')[0] for i in group3]             
+        else:                                                                                                                
+            print ("Reading groups")                                                                                         
+                                                                                                                             
+    for i, x in enumerate(euclidean_labels):                                                                                 
+        if x == 3:                                                                                                           
+            fourth_group = [i for i, x in enumerate(euclidean_labels) if x ==3]                                              
+            group4 = map(lambda json: files[0][json], fourth_group)                                                          
+            files4 = [i.split('.json')[0] for i in group4]                                                                   
+        else:                                                                                                                
+            print ("Reading groups")                                                                                         
+                                                                                                                             
+    print ("Saving files in clusters directory")                                                                             
+                                                                                                                             
+    group1 = map(lambda json: files[0][json], first_group)                                                                   
+    group2 = map(lambda json: files[0][json], second_group) 
+                                                           
+    files1 = [i.split('.json')[0] for i in group1]
+    files2 = [i.split('.json')[0] for i in group2]
+                                                  
+    for subdirs, dirs, sounds in os.walk(files_dir+'/tempo'):
+        for s in list(sounds):                               
+            sound_names = [s.split('tempo.wav')[0] for s in sounds]   
+            break                                                     
+                 
+    files_1 = set(sound_names).intersection(files1)
+    files_2 = set(sound_names).intersection(files2)
+    try:                                           
+        files_3 = set(sound_names).intersection(files3)
+        if files_3:                                    
+                  os.mkdir(files_dir+'/tempo/2')
+        for e in files_3:                          
+                  shutil.copy(files_dir+'/tempo/'+(str(e))+'tempo.wav', files_dir+'/tempo/2/'+(str(e))+'tempo.wav')          
+    except:                                                                                                                  
+            print ("Creating two directories of clusters") 
+                                                           
+    if files_1:                                               
+        os.mkdir(files_dir+'/tempo/0')                                    
+                                      
+    if files_2:                                               
+        os.mkdir(files_dir+'/tempo/1')                                                                       
+                                        
+    for e in files_1:
+        shutil.copy(files_dir+'/tempo/'+(str(e))+'tempo.wav', files_dir+'/tempo/0/'+(str(e))+'tempo.wav')
+                                                                                         
+    for e in files_2:
+        shutil.copy(files_dir+'/tempo/'+(str(e))+'tempo.wav', files_dir+'/tempo/1/'+(str(e))+'tempo.wav')
 
 # save mfcc clusters files in mfcc clusters directory
 def mfcc_cluster_files(files_dir, descriptor, euclidean_labels, files):
@@ -185,7 +186,7 @@ def mfcc_cluster_files(files_dir, descriptor, euclidean_labels, files):
 
     for i, x in enumerate(euclidean_labels):
         if x == 3:
-            fourth_group = [i for i, x in enumerate(euclidean_labels) if x ==2]
+            fourth_group = [i for i, x in enumerate(euclidean_labels) if x ==3]
             group4 = map(lambda json: files[0][json], fourth_group)
             files4 = [i.split('.json')[0] for i in group4]
         else:
