@@ -40,6 +40,7 @@ $ sudo ./waf install
 * pip install matplotlib
 * pip install numpy scipy scikit-learn
 * pip install smst
+* pip install colorama
 
 $ sudo pip install bs4 regex wget numpy scipy scikit-learn 
 $ sudo pip install matplotlib smst
