@@ -32,6 +32,7 @@ class Test_REST_API(unittest.TestCase):
         self.assertNotEqual(response.find("126"), -1)
 
     def test_pista_descriptor(self):
+        #INFO: descriptor not in the repo, run mir analysis first to generate json file (WARNING)
         call = '/pistas/76/descriptor' #id 76 (no existente en la DB) retorna 404
         try:
             response = urllib2.urlopen(URL_BASE + call).read()
@@ -41,6 +42,7 @@ class Test_REST_API(unittest.TestCase):
         call = '/pistas/126/descriptor' # id 126 (existente, retorna json)
         response = urllib2.urlopen(URL_BASE + call).read()
         self.assertNotEqual(response.find("lowlevel.dissonance.mean"), -1)
+        print("FIXME: assert value. Return float not integer")
 
     def test_pista_search(self):
         call = '/search/bass/10'
