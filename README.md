@@ -6,7 +6,9 @@ El código da soporte para el procesamiento de los mismos utilizando técnicas d
 
 Servidor OSC + API REST para la consulta externa de archivos y descriptores desde SuperCollider, pd o cualquier otro tipo de entorno.
 
-Prueba de concepto (versión inicial) http://www.youtube.com/watch?v=pMBl_4y6UmE
+Pruebas de concepto (versión inicial):
+* Demo máquina de estados + MIR data + OSC + API + Tests: http://www.youtube.com/watch?v=pMBl_4y6UmE
+* Integración con controlador MIDI + Supercollider + ApicultorWebService: https://www.youtube.com/watch?v=cTnQQONjXrY 
 
 ## Componentes
 * API REST para realizar consultas sobre redpanal (url audios+valores de descriptores)
