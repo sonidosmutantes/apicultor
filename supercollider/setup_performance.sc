@@ -1,18 +1,11 @@
 s.boot; //start server
 
-//create the buffer
-//b = Buffer.alloc(s, s.sampleRate * 8.0, 2); // an 8 second stereo buffer
-// vs (comparar) TODO
+i = "10.142.39.145"; //apicultor ws IP
 
-//TODO: probar las combinaciones de tener en b y c lo mismo. Lugo loopeo uno con el freeze del otro, etc (mismo contenido armónico)
 a = Buffer.read(s, "/Users/hordia/Documents/vmshared/samples/1194_sample1.wav");
 b = Buffer.read(s, "/Users/hordia/Documents/vmshared/samples/126_sample0.wav");
 c = Buffer.read(s, "/Users/hordia/Documents/vmshared/samples/982_sample1.wav");
-d = Buffer.read(s, "/Users/hordia/Documents/vmshared/samples/795_sample1.wav");
-
-//When Buffers are allocated on the server, they're given a unique ID number, so we can reference them later. This number is called the bufnum. It's the second argument to the SynthDef. This way, we know which buffer we're supposed to play
-
-//Buffer.freeAll;
+d = Buffer.read(s, "/Users/hordia/Documents/vmshared/samples/795_sample1.wav"); //Variable buffer!
 
 //play synth
 SynthDef(\playBufMono, {| out = 0, bufnum = 0, rate = 1 |  var scaledRate, player;
@@ -73,8 +66,26 @@ MIDIFunc.noteOn({ |veloc, num, chan, src|
 				r = Synth(\playBufMono, [\out, 0, \bufnum, c.bufnum, \rate, 1]); //c
 				r = Synth(\playBufMono, [\out, 1, \bufnum, c.bufnum, \rate, 1]); //c
 			});
+
+
+	        //Surprise sound (FIXME)
 			if(num == 19,{
+
 	        	("Pad 19").postln;
+
+		        //Get a new sample file from apicultor
+		        format("curl http://%:5000/list/samples -o desc.tmp", i).unixCmd; //mac os
+		       //FIXME: wait to download here? (takes effect next time)
+
+		        f = FileReader.read("./desc.tmp".standardizePath); //array
+		        m = 10; //Length of sound list (TODO: retrieve from API) FIXME
+		        v = f.at(m.rand)[0]; //select a random value from array (0..10 range)
+		        v.postln(); //selected file
+		        f = ("/Users/hordia/Documents/vmshared"+v.replace("./","/")).replace(" ",""); //trim spaces (TODO: check why there is an extra space in the path)
+		        d = Buffer.read(s, f );
+
+
+		        //plays new sample
 				r = Synth(\playBufMono, [\out, 0, \bufnum, d.bufnum, \rate, 1]); //d
 				r = Synth(\playBufMono, [\out, 1, \bufnum, d.bufnum, \rate, 1]); //d
 			});
