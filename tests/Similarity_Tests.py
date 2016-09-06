@@ -19,6 +19,8 @@ dics = get_dics(files_dir)
 class Testfiles(unittest.TestCase):
 
     def test_get_files(self):
+	#TODO: assert expected results
+	print("TODO: compare with expected results (add assertions)")
         self.assertNotEqual(plot_similarity_clusters(files,dics), -1) # make sure clustering doesn't fail
  
 if __name__ == '__main__':
