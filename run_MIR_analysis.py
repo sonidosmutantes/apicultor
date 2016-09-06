@@ -334,6 +334,7 @@ if __name__ == '__main__':
                     print("\n\n*** ERROR: %s***\n\n"%str(e))
                     error_count += 1                          
         print("Errors: %i"%error_count)
+        sys.exit( -error_count )
     except Exception, e:
         print(e)
         exit(1)
