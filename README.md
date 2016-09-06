@@ -10,6 +10,9 @@ Pruebas de concepto (versión inicial):
 * Demo máquina de estados + MIR data + OSC + API + Tests: http://www.youtube.com/watch?v=pMBl_4y6UmE
 * Integración con controlador MIDI + Supercollider + ApicultorWebService: https://www.youtube.com/watch?v=cTnQQONjXrY 
 
+Sonidos Mutantes, propone performances basadas en el uso artístico de bases de datos preexistentes, las mismas construidas por audios o músicas libres, por ejemplo aquellas de la plataforma colaborativa de RedPanal.org, la cuál es de acceso público vía internet. Estos sonidos, analizados y procesados en tiempo real se combinan en una improvisación colectiva con músicos en vivo bajo consignas preestablecidas, dando lugar a composiciones que mutan a lo largo del tiempo y en función de los propios músicos y de la comunidad toda. Ya que el público podrá participar de la performance subiendo audios y haciendo búsquedas o comentarios en la plataforma web de RedPanal.
+
+
 ## Componentes
 * API REST para realizar consultas sobre redpanal (url audios+valores de descriptores)
 * Algoritmos MIR para extraer descriptores de las pistas
@@ -18,39 +21,44 @@ Pruebas de concepto (versión inicial):
 * Server OSC
 * Ejemplos de uso con SuperCollider
 
-# Uso (temporal)
+# Uso (estado experimental)
 
-## Bajar archivos de prueba y aplicar MIR
-$ cd data && ./download-test-data.sh
-$ ./run_MIR_analysis.py
-
-## Descargar por tag, aplicar MIR, procesar señales de salida para guardar los sonidos en base a clusters
+## Descargar pistas/sonidos de RedPanal.org por tag
 $ cd data 
-$ ./WebScrapingDownload.py 
-$ cd /carpetadondeesta/apicultor
+$ #./download-test-data.sh # Predefinidos (testing)
+$ ./WebScrapingDownload.py [TAG]
+
+## Segmentar sonidos
+$ ./RandomSegmentation.py
+
+## Aplicar MIR
 $ ./run_MIR_analysis.py
-$./SoundSimilarity.py
 
-#Docu
-* WebScrapingDownload.py descarga los primeros diez archivos de la base de datos redpanalera tomando en cuenta el tag. Solamente hay que especificar el tag de archivos para buscar.
-* DoSegmentation.py segmenta los archivos de audio en cuadros de corta duración.
-* RandomSegmentation.py segmenta los archivos de audio en cuadros de duración aleatoria.
-* run_MIR_analysis.py te muestra los valores de las pistas en base a conceptos de interés como el ataque, la frecuencia del centroide espectral, los BPM, y otros conceptos. También procesa los sonidos en base a las descripciones hechas.
-* SoundSimilarity.py muestra clusters entre los sonidos para encontrar similitud basandose en descriptores seleccionados, luego guarda esos sonidos en carpetas de clusters.
+### Procesar señales de salida para guardar los sonidos en base a clusters
+$ cd /carpetadondeesta/apicultor
+$ ./SoundSimilarity.py
 
-#SuperCollider
-SuperCollider code in "examples/" 
+# SuperCollider
+Performance and helper scripts in "supercollider/" 
 
 ## Correr webservice (requiere api rest)
 $ ./MockRedPanalAPI_service.py
 
-(escucha en localhost, puerto 5000)
+By default:
+* Listen IP: 0.0.0.0
+* Port: 5000
 
-Ver ejemplos de uso en tests/API_Tests.py
+Ver ejemplos de uso en tests/Test_API.py
 
 ## Generar documentación HTML sobre la API REST
 $ cd doc/ && ./update-api-doc.sh
 
 Resultado: API-Documentation.html
 
+# Descripción de algunos scripts
+* WebScrapingDownload.py descarga los primeros diez archivos de la base de datos redpanalera tomando en cuenta el tag. Solamente hay que especificar el tag de archivos para buscar.
+* DoSegmentation.py segmenta los archivos de audio en cuadros de corta duración.
+* RandomSegmentation.py segmenta los archivos de audio en cuadros de duración aleatoria.
+* run_MIR_analysis.py te muestra los valores de las pistas en base a conceptos de interés como el ataque, la frecuencia del centroide espectral, los BPM, y otros conceptos. También procesa los sonidos en base a las descripciones hechas.
+* SoundSimilarity.py muestra clusters entre los sonidos para encontrar similitud basandose en descriptores seleccionados, luego guarda esos sonidos en carpetas de clusters.
 
