@@ -38,7 +38,7 @@ $ ./run_MIR_analysis.py
 $ cd /carpetadondeesta/apicultor
 $ ./SoundSimilarity.py
 
-# SuperCollider
+## SuperCollider
 Performance and helper scripts in "supercollider/" 
 
 ## Correr webservice (requiere api rest)
