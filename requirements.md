@@ -43,6 +43,7 @@ $ sudo ./waf install
 
 $ sudo pip install bs4 regex wget numpy scipy scikit-learn 
 $ sudo pip install matplotlib smst
+$ sudo apt-get install python-tk
 
 ## State Machine
 

@@ -1,10 +1,12 @@
 #! /usr/bin/env python
 # -*- coding: utf-8 -*-
 
+import sys
 from smst.utils import audio
 import numpy as np
 import essentia
 from essentia.standard import *
+import os
 
 
 def do_segmentation(audio_input):
@@ -25,12 +27,29 @@ def do_segmentation(audio_input):
         baseName = os.path.splitext(audio_input)[0].split('/')[-1]     
         outputFilename = 'samples'+'/'+baseName+'_sample'+'.wav'                                                              
         audio.write_wav(output,44100,outputFilename)
-        print("File generated: %s"%outputFilename)  
+        print("File generated: %s"%outputFilename)
+	break  
 
-files_dir = "bajo/"
-ext_filter = ['.wav'] 
-for subdir, dirs, files in os.walk(files_dir):
-    for f in files:
-        if os.path.splitext(f)[1] in ext_filter:
-            audio_input = subdir+'/'+f
-            do_segmentation( audio_input)
+
+Usage = "./DoSegmentation.py [FILES_DIR]"
+if __name__ == '__main__':
+  
+    if len(sys.argv) < 2:
+        print "\nBad amount of input arguments\n", Usage, "\n"
+        sys.exit(1)
+
+
+    try:
+        files_dir = sys.argv[1] 
+
+    	if not os.path.exists(files_dir):                         
+		raise IOError("Must download sounds")
+
+	for subdir, dirs, files in os.walk(files_dir):
+	    for f in files:
+		    audio_input = subdir+'/'+f
+		    do_segmentation( audio_input)                             
+
+    except Exception, e:
+        print(e)
+        exit(1)
