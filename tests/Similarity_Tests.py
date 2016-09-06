@@ -1,3 +1,6 @@
+#!/usr/bin/python2
+# -*- coding: UTF-8 -*-
+
 import os
 import sys
 import unittest
