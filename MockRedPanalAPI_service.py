@@ -142,6 +142,6 @@ if __name__ == "__main__":
     file_handler = logging.FileHandler('mock_redpanal_api_ws.log')
     app.logger.addHandler(file_handler)
     app.logger.setLevel(logging.INFO)
-    
     #app.run()
-    app.run(debug=True)
+    app.run( debug=True, host="0.0.0.0", port=5000 )
+
