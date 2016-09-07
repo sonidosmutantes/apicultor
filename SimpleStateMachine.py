@@ -12,12 +12,13 @@ URL_BASE = "http://127.0.0.1:5000" #TODO: get from a config file
 
 # OSC Server
 osc_client = OSC.OSCClient()
-#Local SC server
-osc_client.connect( ( '127.0.0.1', 57121 ) )
-#Remote server
-#osc_client.connect( ( '10.142.39.109', 57120 ) )
-#Virtual Box: Network Adapter in NAT mode (not bridge)
-osc_client.connect( ( '10.0.2.3', 57120 ) ) #internal network with host OS
+sc_Port = 57120
+sc_IP = '127.0.0.1' #Local SC server
+#sc_IP = '10.142.39.109' #Remote server
+# Virtual Box: Network device config not in bridge or NAT mode
+# Select 'Network host-only adapter' (Name=vboxnet0)
+sc_IP = '192.168.56.1' # Remote server is the host of the VM
+osc_client.connect( ( sc_IP, sc_Port ) )
 
 # 3 states  (each row must sum 1)
 # idle -> no sound
