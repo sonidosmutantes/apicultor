@@ -10,6 +10,11 @@ from essentia import *
 from essentia.standard import *
 from smst.utils.audio import write_wav
 
+#TODO: add standard logging
+#TODO: add an option to skip processing if json data descriptor file exists or overwrite it (reprocess)
+
+ext_filter = ['.mp3','.ogg','.ogg','.wav']
+
 # descriptores de interés
 descriptors = [ 
                 'lowlevel.spectral_centroid',
@@ -18,10 +23,10 @@ descriptors = [
                 'lowlevel.hfc',
                 'lowlevel.mfcc',
                 'loudness.level',
-#                'sfx.logattacktime',  doesn't run properly in some systems 
+#                'sfx.logattacktime',  doesn't run properly in some systems FIXME
                 'sfx.inharmonicity', 
-		'rhythm.bpm',
-		'metadata.duration'
+                'rhythm.bpm',
+                'metadata.duration'
                 ]
 
 def process_file(inputSoundFile, frameSize = 1024, hopSize = 512):
@@ -106,14 +111,14 @@ def process_file(inputSoundFile, frameSize = 1024, hopSize = 512):
             l = levelExtractor(frame)
             pool.add(desc_name,l)
 
-        #logattacktime
+        #logattacktime FIXME
 #        desc_name = 'sfx.logattacktime'
 #        if desc_name in descriptors:
 #            frame_envelope = envelope(frame)
 #            attacktime = logat(frame_envelope)
 #            pool.add(desc_name, attacktime)
 
-	#inharmonicity
+        #inharmonicity
         desc_name = 'sfx.inharmonicity'
         if desc_name in descriptors:
             pitch = f0_est(frame_windowed)
@@ -303,24 +308,33 @@ Usage = "./run_MIR_analysis.py [FILES_DIR]"
 if __name__ == '__main__':
   
     if len(sys.argv) < 2:
-        print "\nBad amount of input arguments\n", Usage, "\n"
+        print "\nBad amount of input arguments\n\t", Usage, "\n"
+        print("Example:\n\t./run_MIR_analysis.py data\n\t./run_MIR_analysis.py samples\n")
         sys.exit(1)
 
 
     try:
         files_dir = sys.argv[1] 
 
-    	if not os.path.exists(files_dir):                         
-		raise IOError("Must download sounds")
+        if not os.path.exists(files_dir):                         
+            raise IOError("Must download sounds")
 
-	for subdir, dirs, files in os.walk(files_dir):
-	    for f in files:
-		    tag_dir = subdir
-		    input_filename = f
-		    audio_input = subdir+'/'+f
-		    print( audio_input )
-		    process_file( audio_input )                           
-
+        error_count = 0
+        for subdir, dirs, files in os.walk(files_dir):
+            for f in files:
+                if not os.path.splitext(f)[1] in ext_filter:
+                    continue
+                tag_dir = subdir
+                input_filename = f
+                audio_input = subdir+'/'+f
+                try:
+                    print( "\n*** Processing %s\n"%audio_input )
+                    process_file( audio_input )
+                except Exception, e:
+                    print("\n\n*** ERROR: %s***\n\n"%str(e))
+                    error_count += 1                          
+        print("Errors: %i"%error_count)
+        sys.exit( -error_count )
     except Exception, e:
         print(e)
         exit(1)
