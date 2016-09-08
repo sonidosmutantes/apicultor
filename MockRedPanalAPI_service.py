@@ -92,6 +92,16 @@ def get_search_query(query, maxnumber):
     app.logger.warning("Falta implementar")
     return ("Json con %s resultados, cada uno con id y audio+desc url,correspondientes con %s" % (maxnumber, query))
 
+@auto.doc('public')
+@app.route('/search/mir/<querydescriptor>/greaterthan/<int:fixedfloatvalue>/<int:maxnumber>', methods=['GET'])
+def get_search_mir_query(querydescriptor, fixedfloatvalue, maxnumber):
+    """
+        Search result of query
+    """
+    #app.logger.warning("Falta implementar")
+    #return ("Json con %s resultados, cada uno con id y audio+desc url,correspondientes con %s" % (maxnumber, query))
+    comp_value = float(fixedfloatvalue)/1000.
+    return ("JSON con %i pistas con el parxmetro %s mayor que %f" % (maxnumber,querydescriptor,comp_value))
 
 @auto.doc('public')
 @app.route('/search/last/<int:number>', methods=['GET'])
@@ -116,7 +126,7 @@ def list_pistas():
     """
         list audio files
     """
-    app.logger.warning("Falta implementar en formato definitivo")
+    app.logger.warning("Falta implementar en formato definitivo") #todas? o poner un máximo?
     outlist = ""
     for subdir, dirs, files in os.walk(DATA_PATH):
         for f in files:
@@ -130,7 +140,7 @@ def list_samples():
     """
         list sample files (segmented pistas)
     """
-    app.logger.warning("Falta implementar en formato definitivo")
+    app.logger.warning("Falta implementar en formato definitivo") #todos? o poner un máximo?
     outlist = ""
     for subdir, dirs, files in os.walk(SAMPLES_PATH):
         for f in files:

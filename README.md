@@ -51,7 +51,7 @@ By default:
 Ver ejemplos de uso en tests/Test_API.py
 
 ## Generar documentación HTML sobre la API REST
-$ cd doc/ && ./update-api-doc.sh
+$ cd doc/ && ./update_api_doc.sh
 
 Resultado: API-Documentation.html
 
