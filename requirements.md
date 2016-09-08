@@ -1,9 +1,9 @@
 # Requirements
 
-Tested under Ubuntu 15.04 and 16.04
+Tested under Debian, Ubuntu 15.04 and 16.04 but should work in other operating systems
 
 # PIP 
-sudo apt-get install python3-pip python-pip
+$ sudo apt-get install python3-pip python-pip
 
 ## Mock RedPanal WebService 
 
@@ -11,7 +11,7 @@ $ sudo pip2 install flask
 
 ### Doc
 
-sudo pip2 install flask-autodoc
+$ sudo pip2 install flask-autodoc
 
 ## MIR
 
