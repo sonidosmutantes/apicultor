@@ -23,7 +23,7 @@ descriptors = [
                 'lowlevel.hfc',
                 'lowlevel.mfcc',
                 'loudness.level',
-#                'sfx.logattacktime',  doesn't run properly in some systems FIXME
+                'sfx.logattacktime',  # (check) doesn't run properly in some systems FIXME
                 'sfx.inharmonicity', 
                 'rhythm.bpm',
                 'metadata.duration'
@@ -112,11 +112,11 @@ def process_file(inputSoundFile, frameSize = 1024, hopSize = 512):
             pool.add(desc_name,l)
 
         #logattacktime FIXME
-#        desc_name = 'sfx.logattacktime'
-#        if desc_name in descriptors:
-#            frame_envelope = envelope(frame)
-#            attacktime = logat(frame_envelope)
-#            pool.add(desc_name, attacktime)
+        desc_name = 'sfx.logattacktime'
+        if desc_name in descriptors:
+            frame_envelope = envelope(frame)
+            attacktime = logat(frame_envelope)
+            pool.add(desc_name, attacktime)
 
         #inharmonicity
         desc_name = 'sfx.inharmonicity'
@@ -161,17 +161,23 @@ def process_file(inputSoundFile, frameSize = 1024, hopSize = 512):
             data[dn] = str( aggrPool[dn] )
     print data
 
-    descriptors_dir = (tag_dir+'/'+'descriptores')
+
+    descriptors_dir = (tag_dir+'/'+'descriptors')
 
     if not os.path.exists(descriptors_dir):                         
            os.makedirs(descriptors_dir)                                
            print "Creando directorio para archivos .json"
 
-    json_output = descriptors_dir + '/' + os.path.splitext(input_filename)[0] + ".json"
-    with open(json_output, 'w') as outfile:
-         json.dump(data, outfile) #write to file
 
-    print(json_output)
+    #TODO: load from json file
+    json_file = descriptors_dir + '/' + os.path.splitext(input_filename)[0] + ".json"
+    print json_file
+
+    # print(json_output)
+    # data = json.load( open(json_file,'r') )
+    # ticks = data['rhythm.bpm_ticks']
+
+    ### Sonification
 
     #sound recording with tempo marker
 
