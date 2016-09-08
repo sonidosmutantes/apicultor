@@ -19,24 +19,41 @@ class Test_REST_API(unittest.TestCase):
         self.assertNotEqual(response.find("795.ogg"), -1)
 
     def test_mir_samples_hfc_greater(self):
+        """ HFC > 40. """
         call = '/search/mir/samples/HFC/greaterthan/40000/5' #max 5 results
         response = urllib2.urlopen(URL_BASE + call).read()
-        # for file in response.split('\n'):
-        #     print(file)
-        self.assertNotEqual(response.find("984_sample4.json"), -1)
-        self.assertNotEqual(response.find("984_sample1.json"), -1)
+        self.assertNotEqual(response.find("984_sample4.wav"), -1)
+        self.assertNotEqual(response.find("984_sample1.wav"), -1)
 
     def test_mir_samples_hfc_less(self):
+        """ HFC < 1. """
         call = '/search/mir/samples/HFC/lessthan/1000/5' #max 5 results
         response = urllib2.urlopen(URL_BASE + call).read()
-        # for file in response.split('\n'):
-        #     print(file)
-# ./samples/982_sample3.json
-# ./samples/1288_sample3.json
-# ./samples/982_sample0.json
-# ./samples/1288_sample0.json
-        self.assertNotEqual(response.find("982_sample3.json"), -1)
-        self.assertNotEqual(response.find("1288_sample3.json"), -1)
+        self.assertNotEqual(response.find("982_sample3.wav"), -1)
+        self.assertNotEqual(response.find("1288_sample3.wav"), -1)
+
+    def test_mir_samples_duration_greater(self):
+        """ Duration > 2 seg """
+        call = '/search/mir/samples/duration/greaterthan/2000/11' #max 10 results
+        response = urllib2.urlopen(URL_BASE + call).read()
+        self.assertNotEqual(response.find("982_sample3.wav"), -1)
+        self.assertNotEqual(response.find("795_sample0.wav"), -1)
+        self.assertNotEqual(response.find("126_sample1.wav"), -1)
+        self.assertNotEqual(response.find("983_sample3.wav"), -1)
+        self.assertNotEqual(response.find("983_sample2.wav"), -1)
+        self.assertNotEqual(response.find("984_sample4.wav"), -1)
+        self.assertNotEqual(response.find("1288_sample3.wav"), -1)
+        self.assertNotEqual(response.find("982_sample0.wav"), -1)
+        self.assertNotEqual(response.find("982_sample3.wav"), -1)
+        self.assertNotEqual(response.find("126_sample3.wav"), -1)
+
+    def test_mir_samples_duration_less(self):
+        """ Duration < 1 seg """
+        call = '/search/mir/samples/duration/lessthan/1000/5' #max 5 results
+        response = urllib2.urlopen(URL_BASE + call).read()
+        self.assertNotEqual(response.find("126_sample2.wav"), -1)
+        self.assertNotEqual(response.find("795_sample4.wav"), -1)
+        self.assertNotEqual(response.find("795_sample2.wav"), -1)
 
     def test_list_samples(self):
         call = '/list/samples'
