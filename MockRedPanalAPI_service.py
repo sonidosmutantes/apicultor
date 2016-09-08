@@ -8,6 +8,7 @@ import logging
 import os
 import json
 from flask import abort
+import itertools
 
 #TODO: get from config files
 DATA_PATH = "./data"
@@ -37,8 +38,22 @@ def get_list_of_files(FILES_PATH):
                 outlist += subdir+'/'+ f + "\n"
     return(outlist)
 
-def get_list_of_files_greater_than(FILES_PATH, querydescriptor, comp_value):
-    outlist = ""
+#TODO: refactorizar para pasarle a la función un "comparator" en un objeto (para no duplicar código)
+def get_list_of_files_comparing(FILES_PATH, querydescriptor, fixedfloatvalue, comp=">"):
+
+    comp_value = float(fixedfloatvalue)/1000. # convierte al valor real desde el valor en punto fijo
+
+    #TODO: agregar el resto de los descriptores soportados
+    if querydescriptor=="HFC":
+        querydescriptor = "lowlevel.hfc.mean"
+    elif querydescriptor=="duration":
+        # FIXME: por ej el duration no tiene sentido calcularle el 'mean'
+        querydescriptor = "metadata.duration.mean"
+    else:
+        app.logger.error( "Todavía no implementado" )
+        abort(405) #405 - Method Not Allowed
+
+    outlist = list()
     for subdir, dirs, files in os.walk(FILES_PATH):
         for f in files:
             filename, extension = os.path.splitext(f)
@@ -49,9 +64,16 @@ def get_list_of_files_greater_than(FILES_PATH, querydescriptor, comp_value):
             # print filename+extension
         # try:
             value = float(desc[querydescriptor])
-            if value>comp_value:
-                print filename+extension, value
-                outlist += subdir+'/'+ f + "\n"
+            if comp==">":
+                if value>comp_value:
+                    print filename+extension, value
+                    # outlist += subdir+'/'+ f + "\n"
+                    outlist.append(subdir+'/'+ f)
+            elif comp=="<":
+                if value<comp_value:
+                    print filename+extension, value
+                    # outlist += subdir+'/'+ f + "\n"
+                    outlist.append(subdir+'/'+ f)
         # except Exception, e:
         #     app.logger.error( e )
     return outlist
@@ -129,22 +151,39 @@ def get_search_query(query, maxnumber):
 
 @auto.doc('public')
 @app.route('/search/mir/samples/<querydescriptor>/greaterthan/<int:fixedfloatvalue>/<int:maxnumber>', methods=['GET'])
-def get_search_mir_query(querydescriptor, fixedfloatvalue, maxnumber):
+def get_search_mir_query_greater(querydescriptor, fixedfloatvalue, maxnumber):
     """
-        Search result of query
+        Search result of query (mayor)
+        Falta implmementar el formato json, por ahora es una lista!
         JSON con %i pistas con el parxmetro %s mayor que %f" % (maxnumber,querydescriptor,comp_value)
     """
-    comp_value = float(fixedfloatvalue)/1000.
+    outlist = get_list_of_files_comparing(SAMPLES_PATH, querydescriptor, fixedfloatvalue, ">")
+    top5 = itertools.islice(outlist, maxnumber)
+    # TODO: Falta implmementar el formato json, por ahora es una lista!
+    #       o dar como opción PLAIN/JSON, en plano es más cómodo para laburar en SuperCollider?
+    output = ""
+    for f in top5:
+        output += f + "\n"
+    return(output)
 
-    #TODO: agregar el resto de los descriptores soportados
-    if querydescriptor=="HFC":
-        querydescriptor = "lowlevel.hfc.mean"
-    else:
-        app.logger.error( "Todavía no implementado" )
-        abort(405) #405 - Method Not Allowed
 
-    outlist = get_list_of_files_greater_than(SAMPLES_PATH, querydescriptor, comp_value  )
-    return(outlist)
+@auto.doc('public')
+@app.route('/search/mir/samples/<querydescriptor>/lessthan/<int:fixedfloatvalue>/<int:maxnumber>', methods=['GET'])
+def get_search_mir_query_less(querydescriptor, fixedfloatvalue, maxnumber):
+    """
+        Search result of query (menor)
+        Falta implmementar el formato json, por ahora es una lista!
+        JSON con %i pistas con el parxmetro %s mayor que %f" % (maxnumber,querydescriptor,comp_value)
+    """
+    outlist = get_list_of_files_comparing(SAMPLES_PATH, querydescriptor, fixedfloatvalue, "<")
+    top5 = itertools.islice(outlist, maxnumber)
+    # TODO: Falta implmementar el formato json, por ahora es una lista!
+    #       o dar como opción PLAIN/JSON, en plano es más cómodo para laburar en SuperCollider?
+    output = ""
+    for f in top5:
+        output += f + "\n"
+    return(output)
+
 
 @auto.doc('public')
 @app.route('/search/last/<int:number>', methods=['GET'])

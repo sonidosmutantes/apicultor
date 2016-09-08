@@ -19,12 +19,24 @@ class Test_REST_API(unittest.TestCase):
         self.assertNotEqual(response.find("795.ogg"), -1)
 
     def test_mir_samples_hfc_greater(self):
-        call = '/search/mir/samples/HFC/greaterthan/40000/5'
+        call = '/search/mir/samples/HFC/greaterthan/40000/5' #max 5 results
         response = urllib2.urlopen(URL_BASE + call).read()
         # for file in response.split('\n'):
         #     print(file)
         self.assertNotEqual(response.find("984_sample4.json"), -1)
         self.assertNotEqual(response.find("984_sample1.json"), -1)
+
+    def test_mir_samples_hfc_less(self):
+        call = '/search/mir/samples/HFC/lessthan/1000/5' #max 5 results
+        response = urllib2.urlopen(URL_BASE + call).read()
+        # for file in response.split('\n'):
+        #     print(file)
+# ./samples/982_sample3.json
+# ./samples/1288_sample3.json
+# ./samples/982_sample0.json
+# ./samples/1288_sample0.json
+        self.assertNotEqual(response.find("982_sample3.json"), -1)
+        self.assertNotEqual(response.find("1288_sample3.json"), -1)
 
     def test_list_samples(self):
         call = '/list/samples'

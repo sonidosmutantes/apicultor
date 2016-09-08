@@ -147,6 +147,7 @@ def process_file(inputSoundFile, frameSize = 1024, hopSize = 512):
     # Pool stats (mean, var)
     #aggrPool = PoolAggregator(defaultStats = [ 'mean', 'var' ])(pool)
     aggrPool = PoolAggregator(defaultStats = ['mean'])(pool)
+    # FIXME: por ej el duration no tiene sentido calcularle el 'mean'
 
     # write result to file
     # json_output = os.path.splitext(inputSoundFile)[0]+"-new.json"
