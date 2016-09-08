@@ -1,6 +1,6 @@
 s.boot; //start server
 
-i = "10.142.39.145"; //apicultor ws IP
+i= "192.168.56.101"; //APIcultor WebService IP @VM
 
 a = Buffer.read(s, "/Users/hordia/Documents/vmshared/samples/1194_sample1.wav");
 b = Buffer.read(s, "/Users/hordia/Documents/vmshared/samples/126_sample0.wav");
@@ -23,8 +23,10 @@ SynthDef(\mutantefreeze, { arg out=0, soundBufnum=0, point=0, vol=1;
 
 //Trigger sound with pads
 MIDIFunc.noteOn({ |veloc, num, chan, src|
-	//First row of pads
-	        if(num == 48,{
+    // * Bank1: First ROW of pads *
+
+	//1_A
+    if(num == 48,{
 /*		        x.set(\vol, val/127); //volumen 0..1
 	  	        (val/127).postln;
 		*/
@@ -32,43 +34,61 @@ MIDIFunc.noteOn({ |veloc, num, chan, src|
 	      	//TODO: request a new sound to APICULTOR (MIR, etc)
 		        x.free;
 		        x = Synth(\mutantefreeze, [\soundBufnum, a]);
-			});
-			if(num == 49,{
+	});
+
+	//B
+	if(num == 49,{
 	        	("Pad 49").postln;
 		        y.free;
 		        y = Synth(\mutantefreeze, [\soundBufnum, b]);
-			});
-			 if(num == 50,{
+	});
+	if(num == 50,{
 	        	("Pad 50").postln;
                 z.free;
 		        z = Synth(\mutantefreeze, [\soundBufnum, c]);
-			});
-			if(num == 51,{
+	});
+	if(num == 51,{
 	        	("Pad 51").postln;
                 q.free;
 		        q = Synth(\mutantefreeze, [\soundBufnum, d]);
-			});
+	 });
 
-	//Second row
-			if(num == 44,{
+	// * Bank1: Second ROW of pads *
+	//E?
+	if(num == 44,{
 	        	("Pad 44").postln;
 		        //r = Synth(\playBufMono, [\bufnum, a.bufnum, \rate, 0.5]); //a (half speed)
 		        r = Synth(\playBufMono, [\out, 0, \bufnum, a.bufnum, \rate, 1]); //a
 		        r = Synth(\playBufMono, [\out, 1, \bufnum, a.bufnum, \rate, 1]); //a
-			});
+	});
 			if(num == 45,{
 	        	("Pad 45").postln;
 				r = Synth(\playBufMono, [\out, 0, \bufnum, b.bufnum, \rate, 1]); //b
 				r = Synth(\playBufMono, [\out, 1, \bufnum, b.bufnum, \rate, 1]); //b
 			});
+
+
 			if(num == 46,{
 	        	("Pad 46").postln;
+
+				//Get a new sample file from apicultor
+		        format("curl http://%:5000/list/samples -o desc.tmp", i).unixCmd; //mac os
+		       //FIXME: wait to download here? (takes effect next time)
+
+		        f = FileReader.read("./desc.tmp".standardizePath); //array
+		        m = 10; //Length of sound list (TODO: retrieve from API) FIXME
+		        v = f.at(m.rand)[0]; //select a random value from array (0..10 range)
+		        v.postln(); //selected file
+		        f = ("/Users/hordia/Documents/vmshared"+v.replace("./","/")).replace(" ",""); //trim spaces (TODO: check why there is an extra space in the path)
+		        c = Buffer.read(s, f );
+
+
+		        //plays new sample
 				r = Synth(\playBufMono, [\out, 0, \bufnum, c.bufnum, \rate, 1]); //c
 				r = Synth(\playBufMono, [\out, 1, \bufnum, c.bufnum, \rate, 1]); //c
 			});
 
-
-	        //Surprise sound (FIXME)
+	        //Surprise sound (TODO: add MIR parameter)
 			if(num == 19,{
 
 	        	("Pad 19").postln;
@@ -89,6 +109,50 @@ MIDIFunc.noteOn({ |veloc, num, chan, src|
 				r = Synth(\playBufMono, [\out, 0, \bufnum, d.bufnum, \rate, 1]); //d
 				r = Synth(\playBufMono, [\out, 1, \bufnum, d.bufnum, \rate, 1]); //d
 			});
+
+    // * Bank2: First ROW of pads *
+
+	//2_A
+    if(num == 36,{
+	    ("Pad 46").postln;
+		f = "/Users/hordia/Documents/vmshared/samples/1291_sample2.wav";
+        e = Buffer.read(s, f );
+
+				//plays new sample
+				r = Synth(\playBufMono, [\out, 0, \bufnum, e.bufnum, \rate, 1]); //e @ L channel
+				r = Synth(\playBufMono, [\out, 1, \bufnum, e.bufnum, \rate, 1]); //e @ R channel
+	});
+
+	//B
+	if(num == 37,{
+	        	("Pad 37").postln;
+
+	});
+	if(num == 38,{
+	        	("Pad 38").postln;
+	});
+	if(num == 39,{
+	        	("Pad 39").postln;
+	 });
+
+
+	// * Bank2: Second ROW of pads *
+
+	//
+    if(num == 32,{
+	    ("Pad 32").postln;
+	});
+
+	//
+	if(num == 33,{
+	        	("Pad 33").postln;
+	});
+	if(num == 34,{
+		("Pad 34").postln;
+	});
+	if(num == 35,{
+	        	("Pad 35").postln;
+	 });
 });
 
 MIDIIn.control = {arg src, chan, num, val;
@@ -130,17 +194,6 @@ MIDIIn.control = {arg src, chan, num, val;
 };
 
 MIDIIn.connectAll;
-
-// Monitor
-// //Mostrar MIDI input (controls)
-// MIDIIn.control = {arg src, chan, num, val;
-// 	[chan,num,val].postln;
-// };
-//
-// //Mostrar nota + velocity
-// MIDIFunc.noteOn({ |veloc, num, chan, src|
-// 	( "New note received " + num + " with vel "+veloc ).postln;
-// });
 
 // Cleanup
 // s.quit; //stops server
