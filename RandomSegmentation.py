@@ -4,8 +4,14 @@
 import random
 import os
 import numpy as np
-<<<<<<< HEAD
 from scipy.io import wavfile
+
+from smst.utils import audio
+from essentia import *
+from essentia.standard import *
+from scipy.fftpack import *
+import time
+from smst.models.sine import scale_frequencies, scale_time, from_audio, to_audio
 
 #TODO: make MONO samples? (freeze effect)
 def random_segmentation(filename, segments, options):
@@ -39,17 +45,12 @@ def random_segmentation(filename, segments, options):
     except Exception, e:
         #TODO: add standard logging output
         print("Error: %s"%e)
-=======
-from smst.utils import audio
-from essentia import *
-from essentia.standard import *
-from scipy.fftpack import *
-import time
-from smst.models.sine import scale_frequencies, scale_time, from_audio, to_audio
 
+#Del branch mir-dev
 #TODO: freeze effect, time stretching
-def random_segmentation(filename, segments, options, sr):
+def experimental_random_segmentation(filename, segments, options, sr):
     """
+		(del branch mir-dev)
         Segmenta con valores aleatorios según opciones
     """
     sinusoidal_model_anal = SineModelAnal()
@@ -79,32 +80,22 @@ def random_segmentation(filename, segments, options, sr):
             print("File generated: %s"%outputFilename)
             time.sleep(1)
     except Exception, e:
-        print essentia.log.info("Error: %s"%e)
->>>>>>> c5ad6939e7667e31997ed9625c849ec7bfd3bce1
-#random_segmentation()
+        print("Error: %s"%e)
+#experimental_random_segmentation()
 
+#TODO: take files dir as parameter
 files_dir = "data"
 segments = 5
-<<<<<<< HEAD
-options = dict()
-options['outputPath'] = 'samples'
-options['duration'] = (0.1, 5) # min, max (de 100ms a 5 seg)
 ext_filter = ['.wav'] #valid audio files FIXME: convert to wav or support read other formats
-for subdir, dirs, files in os.walk(files_dir):
-    for f in files:
-        if os.path.splitext(f)[1] in ext_filter:
-            audio_input = subdir+'/'+f
-            print( "Processing %s"%audio_input )
-            random_segmentation( audio_input, segments, options)
-=======
 sr = 44100
 options = dict()
 options['outputPath'] = 'samples'
 options['duration'] = (0.1, 5) # min, max (de 100ms a 5 seg)
 for subdir, dirs, files in os.walk(files_dir):
     for f in files:
+        if not os.path.splitext(f)[1] in ext_filter:
+                    continue
         audio_input = subdir+'/'+f
         print( "Processing %s"%audio_input )
-        random_segmentation( audio_input, segments, options, sr)
->>>>>>> c5ad6939e7667e31997ed9625c849ec7bfd3bce1
-#
+        random_segmentation( audio_input, segments, options)
+        #random_segmentation( audio_input, segments, options, sr)
