@@ -10,7 +10,15 @@ MIDIIn.connectAll;
 r = Synth(\playBufMono, [\bufnum, a.bufnum, \rate, 0.5]); //buffer a at half speed
 
 
+//loop and freeze del sonido 3(c)
+volumenes y parametros
+				z.set(\vol, 0);
+        z.set(\vol, 1);
+z.set(\vol, 2);
+z.set(\vol, 3);
+//z.set(
 //-----
+// **** Get new sound, fill de buffer and  play ***
 
 //Get a new sample in a new buffer
 		        //Get a new sample file from apicultor

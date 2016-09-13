@@ -3,9 +3,15 @@ s.boot; //start server
 i= "192.168.56.101"; //APIcultor WebService IP @VM
 
 a = Buffer.read(s, "/Users/hordia/Documents/vmshared/samples/1194_sample1.wav");
-b = Buffer.read(s, "/Users/hordia/Documents/vmshared/samples/126_sample0.wav");
+b = Buffer.read(s, "/Users/hordia/Documents/vmshared/samples/1264_sample0.wav");
 c = Buffer.read(s, "/Users/hordia/Documents/vmshared/samples/982_sample1.wav");
 d = Buffer.read(s, "/Users/hordia/Documents/vmshared/samples/795_sample1.wav"); //Variable buffer!
+
+e = Buffer.read(s, "/Users/hordia/Documents/vmshared/samples/1065_sample.wav" );
+//f -> filename then
+g =Buffer.read(s, "/Users/hordia/Documents/vmshared/samples/Cuesta_caminar_batero_sample2.wav" );
+h=Buffer.read(s, "/Users/hordia/Documents/vmshared/samples/251_sample1.wav" );
+i=Buffer.read(s, "/Users/hordia/Documents/vmshared/samples/1291_sample2.wav" );
 
 //play synth
 SynthDef(\playBufMono, {| out = 0, bufnum = 0, rate = 1 |  var scaledRate, player;
@@ -71,12 +77,14 @@ MIDIFunc.noteOn({ |veloc, num, chan, src|
 			if(num == 46,{
 	        	("Pad 46").postln;
 
-				//Get a new sample file from apicultor
-		        format("curl http://%:5000/list/samples -o desc.tmp", i).unixCmd; //mac os
+				m = 15; //Length of sound list (TODO: retrieve from API) FIXME
+
+		        //Get a new sample file from apicultor (HFC < 1 )
+		        format("curl http://%:5000/search/mir/samples/HFC/lessthan/1000/% -o desc.tmp", i,m).unixCmd; //mac os
 		       //FIXME: wait to download here? (takes effect next time)
 
 		        f = FileReader.read("./desc.tmp".standardizePath); //array
-		        m = 10; //Length of sound list (TODO: retrieve from API) FIXME
+
 		        v = f.at(m.rand)[0]; //select a random value from array (0..10 range)
 		        v.postln(); //selected file
 		        f = ("/Users/hordia/Documents/vmshared"+v.replace("./","/")).replace(" ",""); //trim spaces (TODO: check why there is an extra space in the path)
@@ -93,12 +101,14 @@ MIDIFunc.noteOn({ |veloc, num, chan, src|
 
 	        	("Pad 19").postln;
 
-		        //Get a new sample file from apicultor
-		        format("curl http://%:5000/list/samples -o desc.tmp", i).unixCmd; //mac os
+				m = 15; //Length of sound list (TODO: retrieve from API) FIXME
+
+		        //Get a new sample file from apicultor HFC>40
+		        format("curl http://%:5000/search/mir/samples/HFC/greaterthan/40000/% -o desc.tmp", i,m).unixCmd; //mac os
 		       //FIXME: wait to download here? (takes effect next time)
 
 		        f = FileReader.read("./desc.tmp".standardizePath); //array
-		        m = 10; //Length of sound list (TODO: retrieve from API) FIXME
+
 		        v = f.at(m.rand)[0]; //select a random value from array (0..10 range)
 		        v.postln(); //selected file
 		        f = ("/Users/hordia/Documents/vmshared"+v.replace("./","/")).replace(" ",""); //trim spaces (TODO: check why there is an extra space in the path)
@@ -115,9 +125,6 @@ MIDIFunc.noteOn({ |veloc, num, chan, src|
 	//2_A
     if(num == 36,{
 	    ("Pad 46").postln;
-		f = "/Users/hordia/Documents/vmshared/samples/1291_sample2.wav";
-        e = Buffer.read(s, f );
-
 				//plays new sample
 				r = Synth(\playBufMono, [\out, 0, \bufnum, e.bufnum, \rate, 1]); //e @ L channel
 				r = Synth(\playBufMono, [\out, 1, \bufnum, e.bufnum, \rate, 1]); //e @ R channel
@@ -126,13 +133,21 @@ MIDIFunc.noteOn({ |veloc, num, chan, src|
 	//B
 	if(num == 37,{
 	        	("Pad 37").postln;
-
+				//plays new sample
+				r = Synth(\playBufMono, [\out, 0, \bufnum, g.bufnum, \rate, 1]); //g @ L channel
+				r = Synth(\playBufMono, [\out, 1, \bufnum, g.bufnum, \rate, 1]); //g @ R channel
 	});
 	if(num == 38,{
 	        	("Pad 38").postln;
+						//plays new sample
+				r = Synth(\playBufMono, [\out, 0, \bufnum, h.bufnum, \rate, 1]); //h @ L channel
+				r = Synth(\playBufMono, [\out, 1, \bufnum, h.bufnum, \rate, 1]); //h @ R channel
 	});
 	if(num == 39,{
 	        	("Pad 39").postln;
+						//plays new sample
+				r = Synth(\playBufMono, [\out, 0, \bufnum, i.bufnum, \rate, 1]); //i @ L channel
+				r = Synth(\playBufMono, [\out, 1, \bufnum, i.bufnum, \rate, 1]); //i @ R channel
 	 });
 
 
