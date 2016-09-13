@@ -2,12 +2,16 @@ s.boot; //start server
 
 i= "192.168.56.101"; //APIcultor WebService IP @VM
 
+//TODO configure L & R channels (different synths or configuration (via midi)
+//TODO: add multichannel support
+
 a = Buffer.read(s, "/Users/hordia/Documents/vmshared/samples/1194_sample1.wav");
 b = Buffer.read(s, "/Users/hordia/Documents/vmshared/samples/1264_sample0.wav");
 c = Buffer.read(s, "/Users/hordia/Documents/vmshared/samples/982_sample1.wav");
 d = Buffer.read(s, "/Users/hordia/Documents/vmshared/samples/795_sample1.wav"); //Variable buffer!
 
-e = Buffer.read(s, "/Users/hordia/Documents/vmshared/samples/1065_sample.wav" );
+e
+a= Buffer.read(s, "/Users/hordia/Documents/vmshared/samples/1065_sample.wav" );
 //f -> filename then
 g =Buffer.read(s, "/Users/hordia/Documents/vmshared/samples/Cuesta_caminar_batero_sample2.wav" );
 h=Buffer.read(s, "/Users/hordia/Documents/vmshared/samples/251_sample1.wav" );

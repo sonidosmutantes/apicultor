@@ -9,7 +9,11 @@ MIDIIn.connectAll;
 
 r = Synth(\playBufMono, [\bufnum, a.bufnum, \rate, 0.5]); //buffer a at half speed
 
+//g =Buffer.read(s, "/Users/hordia/Documents/vmshared/samples/Cuesta_caminar_batero_sample2.wav" );
+i=Buffer.read(s, "/Users/hordia/Documents/vmshared/samples/1291_sample2.wav" );
+r = Synth(\playBufMono, [\bufnum, i.bufnum, \rate, 0.5]); //buffer a at half speed
 
+----
 //loop and freeze del sonido 3(c)
 volumenes y parametros
 				z.set(\vol, 0);
