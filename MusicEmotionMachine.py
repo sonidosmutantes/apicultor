@@ -876,7 +876,7 @@ if __name__ == '__main__':
 		            me.not_angry_music_remix(neg_arous_dir)
 		        if me.state == 'not relaxed':              
 		            print me.state                     
-		            me.not_angry_music_remix(pos_arous_dir)
+		            me.not_relaxed_music_remix(pos_arous_dir)
                                                        
     except Exception, e:                     
         logger.exception(e)
