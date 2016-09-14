@@ -62,6 +62,18 @@ $ python Sonification.py carpetadeltag
 $ cd /apicultor
 $ python MusicEmotionMachine.py directoriodondeestadata multitag(verdadero, clasifica Todos los audios descargados/ninguno, clasifica audios de un tag específico/falso, después de haber hecho la clasificación, correr de nuevo para llamar a Johnny (la máquina de estados emocionales) para que comienzen las transiciones emocionales con remixes en tiempo real de Todos los sonidos)
 
+#Dependencias
+* pip install bs4
+* pip install regex
+* pip install wget
+* pip install colorama
+* pip install matplotlib
+* Essentia (ver instrucciones para compilar aquí: http://essentia.upf.edu/documentation/installing.html)
+* pip install numpy scipy scikit-learn
+* pip install smst
+* pip install librosa
+* pip install transitions
+
 # Descripción de algunos scripts
 * WebScrapingDownload.py descarga los primeros diez archivos de la base de datos redpanalera tomando en cuenta el tag. Solamente hay que especificar el tag de archivos para buscar.
 * DoSegmentation.py segmenta los archivos de audio en cuadros de corta duración.
