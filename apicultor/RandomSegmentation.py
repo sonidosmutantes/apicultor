@@ -4,6 +4,8 @@
 import random
 import os
 import numpy as np
+from scipy.io import wavfile
+
 from smst.utils import audio
 from essentia import *
 from essentia.standard import *
@@ -11,9 +13,10 @@ from scipy.fftpack import *
 import time
 from smst.models.sine import scale_frequencies, scale_time, from_audio, to_audio
 
-#TODO: freeze effect, time stretching
-def random_segmentation(filename, segments, options, sr):
+#TODO: freeze effect (time scaling until achieving freeze)
+def experimental_random_segmentation(audio_input, segments, options, sr):
     """
+		(branch mir-dev en Sonidos Mutantes)
         Segmenta con valores aleatorios según opciones
     """
     sinusoidal_model_anal = SineModelAnal()
@@ -43,18 +46,21 @@ def random_segmentation(filename, segments, options, sr):
             print("File generated: %s"%outputFilename)
             time.sleep(1)
     except Exception, e:
-        print essentia.log.info("Error: %s"%e)
-#random_segmentation()
+        print("Error: %s"%e)
 
+#TODO: take files dir as parameter
 files_dir = "data"
 segments = 5
+ext_filter = ['.wav', '.mp3', '.ogg', '.undefined'] #valid audio files 
 sr = 44100
 options = dict()
 options['outputPath'] = 'samples'
 options['duration'] = (0.1, 5) # min, max (de 100ms a 5 seg)
 for subdir, dirs, files in os.walk(files_dir):
     for f in files:
+        if not os.path.splitext(f)[1] in ext_filter:
+                    continue
         audio_input = subdir+'/'+f
         print( "Processing %s"%audio_input )
-        random_segmentation( audio_input, segments, options, sr)
-#
+        experimental_random_segmentation( audio_input, segments, options, sr)
+
