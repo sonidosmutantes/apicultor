@@ -162,8 +162,7 @@ def process_file(inputSoundFile, frameSize = 1024, hopSize = 512):
             data[dn] = str( aggrPool[dn] )
     print data
 
-    #descriptors_dir = (tag_dir+'/'+'descriptors')
-    descriptors_dir = ( subdir )
+    descriptors_dir = (tag_dir+'/'+'descriptores') #standard directory to read mir data
 
     if not os.path.exists(descriptors_dir):                         
            os.makedirs(descriptors_dir)                                
