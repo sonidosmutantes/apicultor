@@ -2,11 +2,10 @@ s.boot; //start server
 
 MIDIIn.connectAll;
 
-// Monitor
-//Mostrar nota + velocity
-MIDIFunc.noteOn({ |veloc, num, chan, src|
-	( "New note received " + num + " with vel "+veloc ).postln;
-});
+// Monitor: Mostrar nota + velocity
+//MIDIFunc.noteOn({ |veloc, num, chan, src|
+//	( "New note received " + num + " with vel "+veloc ).postln;
+//});
 
 // In windows scape with \\
 a = Buffer.read(s, "C:\\Users\\hordia\\git\\apicultor\\samples\\126_sample0.wav");
@@ -19,11 +18,10 @@ scaledRate = rate * BufRateScale.kr(bufnum);  player = PlayBuf.ar(1, bufnum,scal
 //Trigger sound with pads
 MIDIFunc.noteOn({ |veloc, num, chan, src|
     if(num == 30,{
-        	    ("Pad 48").postln;
-		        x.free;
-		        x = Synth(\playBufMono, [\soundBufnum, a]);
+        	    ("Pad 30").postln;
+		        Synth(\playBufMono, [\bufnum, a]);
+		        //Synth(\playBufMono, [\bufnum, a, \out, 1]);
 	});
-
 });
 
 // Cleanup
