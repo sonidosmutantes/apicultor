@@ -10,7 +10,7 @@ b = Buffer.read(s, "/Users/hordia/Documents/vmshared/samples/1264_sample0.wav");
 c = Buffer.read(s, "/Users/hordia/Documents/vmshared/samples/982_sample1.wav");
 d = Buffer.read(s, "/Users/hordia/Documents/vmshared/samples/795_sample1.wav"); //Variable buffer!
 
-e
+
 a= Buffer.read(s, "/Users/hordia/Documents/vmshared/samples/1065_sample.wav" );
 //f -> filename then
 g =Buffer.read(s, "/Users/hordia/Documents/vmshared/samples/Cuesta_caminar_batero_sample2.wav" );
