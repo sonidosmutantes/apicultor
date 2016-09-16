@@ -42,9 +42,9 @@ $ python MusicEmotionMachine.py directoriodondeestadata multitag(verdadero, clas
 * WebScrapingDownload.py descarga los primeros diez archivos de la base de datos redpanalera tomando en cuenta el tag. Solamente hay que especificar el tag de archivos para buscar.
 * DoSegmentation.py segmenta los archivos de audio en cuadros de corta duración.
 * RandomSegmentation.py segmenta los archivos de audio en cuadros de duración aleatoria.
-* run_MIR_analysis.py te muestra los valores de las pistas en base a conceptos de interés como el ataque, la frecuencia del centroide espectral, los BPM, y otros conceptos. También procesa los sonidos en base a las descripciones hechas.
+* run_MIR_analysis.py te muestra los valores de las pistas en base a conceptos de interés como el ataque, la frecuencia del centroide espectral, los BPM, y otros conceptos
 * SoundSimilarity.py muestra clusters entre los sonidos para encontrar similitud basandose en descriptores seleccionados, luego guarda esos sonidos en carpetas de clusters.
-* Sonification.py También procesa los sonidos en base a las descripciones hechas.
+* Sonification.py Procesa los sonidos en base a las descripciones hechas.
 * MusicEmotionMachine.py clasifica los sonidos en base a sus emociones. Si la clasificación es multitag (de todo el audio redpanalero), luego se puede correr la máquina de estados emocionales musicales (Johnny) para remixar todos los sonidos y reproducirlos en tiempo real
 
 #TODO
