@@ -20,8 +20,12 @@ def get_files(files_dir):
 
 	:param files_dir: directory where sounds are located
 	"""
-	files = [(files) for subdir, dirs, files in os.walk(files_dir+'/descriptores')]
-	return files
+	try:
+		files = [(files) for subdir, dirs, files in os.walk(files_dir+'/descriptores')]
+		return files
+	except:
+		if not os.path.exists(files_dir+'/descriptores'):
+			print ("No .json files found")
 
 def get_dics(files_dir):
 	"""
@@ -29,9 +33,13 @@ def get_dics(files_dir):
 
 	:param files_dir: directory where sounds are located
 	"""
-	for subdir, dirs, files in os.walk(files_dir+'/descriptores'):
-		dics = [json.load(open(subdir+'/'+f)) for f in files]  
-	return dics
+	try:
+		for subdir, dirs, files in os.walk(files_dir+'/descriptores'):
+			dics = [json.load(open(subdir+'/'+f)) for f in files]  
+		return dics
+	except:
+		if not os.path.exists(files_dir+'/descriptores'):
+			print ("No readable MIR data found")
 
 # plot sound similarity clusters
 def plot_similarity_clusters(files, dics, plot = None):
