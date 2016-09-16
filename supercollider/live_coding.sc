@@ -12,6 +12,29 @@ r = Synth(\playBufMono, [\bufnum, a.bufnum, \rate, 0.5]); //buffer a at half spe
 //g =Buffer.read(s, "/Users/hordia/Documents/vmshared/samples/Cuesta_caminar_batero_sample2.wav" );
 i=Buffer.read(s, "/Users/hordia/Documents/vmshared/samples/1291_sample2.wav" );
 r = Synth(\playBufMono, [\bufnum, i.bufnum, \rate, 0.5]); //buffer a at half speed
+-------
+
+//Panning
+		LinPan2.ar(in, pos, level);
+		LinPan2.ar(in, -1, 1);
+
+play({ LinPan2.ar(PinkNoise.ar(0.4), FSinOsc.kr(2)) }); //oscilating pink noise
+
+SynthDef("help-LinPan2", {  Out.ar(0, LinPan2.ar(FSinOsc.ar(800, 0, 0.1), FSinOsc.kr(3))) }).play;
+
+// You'll only hear the front two channels on a stereo setup.
+(
+SynthDef("help-Pan4", {
+    Out.ar(0, Pan4.ar(PinkNoise.ar, FSinOsc.kr(2), FSinOsc.kr(1.2), 0.3))
+}).play;
+)
+
+play({ Pan4.ar(PinkNoise.ar, -1,  0, 0.3) }); // left pair
+play({ Pan4.ar(PinkNoise.ar,  1,  0, 0.3) }); // right pair
+play({ Pan4.ar(PinkNoise.ar,  0, -1, 0.3) }); // back pair
+play({ Pan4.ar(PinkNoise.ar,  0,  1, 0.3) }); // front pair
+
+play({ Pan4.ar(PinkNoise.ar,  0,  0, 0.3) }); // center
 
 ----
 //loop and freeze del sonido 3(c)
