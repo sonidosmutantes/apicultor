@@ -19,22 +19,25 @@ website = 'http://redpanal.org'
 host = 'http://redpanal.org/tag/'
 
 def searchfiles(website, host, tag, search):
-      resp = urllib2.urlopen(host+search) 
-      htmlcode = BeautifulSoup(resp)
-      links = []
+    resp = urllib2.urlopen(host+search) 
+    htmlcode = BeautifulSoup(resp)
+    links = []
 
-      for link in htmlcode.findAll('a', attrs={'href': re.compile("^/a/")}):
-            links.append(link.get('href'))
+    for link in htmlcode.findAll('a', attrs={'href': re.compile("^/a/")}):
+        links.append(link.get('href'))
 
-      urls = [website+link for link in links]
+    urls = [website+link for link in links]
 
-      openurl = [urllib2.urlopen(url) for url in urls]
+    openurl = [urllib2.urlopen(url) for url in urls]
 
-      htmlcodes = [BeautifulSoup(openurl) for i, openurl in enumerate(openurl)]
+    htmlcodes = [BeautifulSoup(openurl) for i, openurl in enumerate(openurl)]
 
-      audiopaths = re.findall('<a href="/media?\'?([^"\'>]*)', str(htmlcodes))
+    audiopaths = re.findall('<a href="/media?\'?([^"\'>]*)', str(htmlcodes))
+      
+    while i in audiopaths:
+        del audiopaths[i.endswith('.jpg')] #avoid downloading pictures
 
-      return  list(set([website+'/media'+audiopath for audiopath in audiopaths]))
+    return  list(set([website+'/media'+audiopath for audiopath in audiopaths]))
 
 def download_files(tag):
     paths_in_website = searchfiles(website, host, tag, search)
