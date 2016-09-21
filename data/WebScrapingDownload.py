@@ -9,26 +9,34 @@ import re
 import wget
 
 """
-    Descarga los primeros diez archivos de la base de datos redpanalera tomando
+    Descarga hasta 193 sonidos de la base de datos redpanalera tomando
     en cuenta el tag
     Los guarda en una carpeta con el mismo nombre (del tag)
 """
 
-website = 'http://redpanal.org'
+host = 'http://redpanal.org'
 
-host = 'http://redpanal.org/tag/'
+tags_url = host+'/tag/'
 
-def searchfiles(website, host, tag, search):
-    resp = urllib2.urlopen(host+search) 
-    htmlcode = BeautifulSoup(resp)
+def searchfiles(tags_url, host, tag, search):
+    page = '/?page=' 
+    index = 0
+    resp = urllib2.urlopen(tags_url+search+page)
+    resp_pages = []
+    while index < 20: #look for 20 pages
+        index += 1
+        resp_pages.append(urllib2.urlopen(resp.geturl()+str(index)))
+    htmlcodes = [BeautifulSoup(i) for i in resp_pages]
+
     links = []
 
-    for link in htmlcode.findAll('a', attrs={'href': re.compile("^/a/")}):
-        links.append(link.get('href'))
+    for htmlcode in set(htmlcodes):
+        for link in htmlcode.findAll('a', attrs={'href': re.compile("^/a/")}):
+            links.append(link.get('href'))
 
-    urls = [website+link for link in links]
+    urls = [host+link for link in links]
 
-    openurl = [urllib2.urlopen(url) for url in urls]
+    openurl = [urllib2.urlopen(url) for url in set(urls)]
 
     htmlcodes = [BeautifulSoup(openurl) for i, openurl in enumerate(openurl)]
 
@@ -37,10 +45,10 @@ def searchfiles(website, host, tag, search):
     while i in audiopaths:
         del audiopaths[i.endswith('.jpg')] #avoid downloading pictures
 
-    return  list(set([website+'/media'+audiopath for audiopath in audiopaths]))
+    return  list(set([host+'/media'+audiopath for audiopath in audiopaths]))
 
 def download_files(tag):
-    paths_in_website = searchfiles(website, host, tag, search)
+    paths_in_website = searchfiles(tags_url, host, tag, search)
 
     [wget.download(path_in_website, out = tag) for path_in_website in paths_in_website]
 
@@ -56,23 +64,15 @@ if __name__ == '__main__':
     try:
         tagName = sys.argv[1]
 
-        #tagName = 'teclado' # Example 
-
         try:
             os.mkdir(tagName)
         except:
             pass
 
         search = tagName+'/audios' 
-        print( "Downloading first 10 files with tag %s"%tagName )
+        print( "Downloading most files with tag %s"%tagName )
         download_files(tagName)
 
     except Exception, e:
         print(e)
         exit(1)
-
-
-
-
-
-
