@@ -9,7 +9,7 @@ import re
 import wget
 
 """
-    Descarga hasta 193 sonidos de la base de datos redpanalera tomando
+    Descarga hasta 310 sonidos de la base de datos redpanalera tomando
     en cuenta el tag
     Los guarda en una carpeta con el mismo nombre (del tag)
 """
@@ -23,7 +23,7 @@ def searchfiles(tags_url, host, tag, search):
     index = 0
     resp = urllib2.urlopen(tags_url+search+page)
     resp_pages = []
-    while index < 20: #look for 20 pages
+    while index < 30: #look for 30 pages
         index += 1
         resp_pages.append(urllib2.urlopen(resp.geturl()+str(index)))
     htmlcodes = [BeautifulSoup(i) for i in resp_pages]
@@ -76,3 +76,8 @@ if __name__ == '__main__':
     except Exception, e:
         print(e)
         exit(1)
+
+
+
+
+
