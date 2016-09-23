@@ -26,6 +26,7 @@ def get_files(files_dir):
 	except:
 		if not os.path.exists(files_dir+'/descriptores'):
 			print ("No .json files found")
+
 def get_dics(files_dir):
 	"""
 	return a list containing all descriptions of tag directory reading the .json files
@@ -91,7 +92,7 @@ def plot_similarity_clusters(files, dics, plot = None):
 	first_descriptor_values = (zip(*files_features)[first_descriptor_key])                                                                  
 	second_descriptor_values = (zip(*files_features)[second_descriptor_key])            
 
-	min_max = preprocessing.scale(np.vstack((first_descriptor_values,second_descriptor_values)).T)          
+	min_max = preprocessing.scale(np.vstack((first_descriptor_values,second_descriptor_values)).T, with_mean=False, with_std=False)          
 	pca = PCA(n_components=2, whiten=True)
 	y = pca.fit(min_max).transform(min_max)     
 	euclidean = AffinityPropagation(convergence_iter=10, affinity='euclidean')                           
