@@ -10,6 +10,7 @@ import os, sys
 from essentia.standard import *
 from smst.utils.audio import write_wav    
 from sklearn import svm
+from sklearn.cluster import KMeans
 import librosa
 from librosa import *                                       
 import shutil
@@ -40,31 +41,43 @@ def plot_emotion_clusters(files_dir, multitag = None):
 		if multitag == False:
 			pass
 
+	for i,x in enumerate(np.vstack((files, [len(i) for i in dics])).T):
+         if x[1] != str(13): #if dictionary of a file is shorter...
+             fname = i
+             for i in files:
+                 fname = i[fname] #...finds the name of the .json file
+             for tag in tags_dirs:
+                 for subdir, dirs, sounds in os.walk(tag+'/descriptores'):
+                     for s in sounds:
+                         if fname == s:
+                             print (os.path.abspath(tag+'/descriptores/'+s) +" has less descriptors and will be discarded for clustering and classification. This happens because there was an error in MIR analysis, so the sound has to be analyzed again after being processed")
+                             os.remove((os.path.abspath(tag+'/descriptores/'+s))) #... and deletes the less suitable .json file
+
 	print ("Selecting 'metadata.duration.mean' is not meaningful if you want to use the data for emotions classification")
 
 	similar = plot_similarity_clusters(files, dics)
-	labels = similar[2]
-	y = similar[4]
-	z_mean = labels-np.mean(labels) 
-	labels[z_mean<0] = 0 
-	labels[z_mean>0] = 1  
-	clf = svm.SVC(kernel = 'poly', decision_function_shape = 'ovr', gamma = 2, class_weight = 'balanced').fit(y, labels)
+	y = similar[4] #from similarity get pca values
+	labels = KMeans(n_clusters=2).fit(y).labels_ #only two labels based on mean values
+	clf = svm.SVC(kernel = 'poly', decision_function_shape = 'ovr', gamma = 2, class_weight = 'balanced', cache_size = 512, C = 1.0/(2*y.size)).fit(y, labels)#fit a svm with polynomial kernel
+	#at least 12 features into two
 	h = plot_similarity_clusters(files, dics)[4]
 	l = plot_similarity_clusters(files, dics)[4]
 	v = plot_similarity_clusters(files, dics)[4]
 	x = plot_similarity_clusters(files, dics)[4]
 	z = plot_similarity_clusters(files, dics)[4]
 	xyz = np.sum([y, h, l, v, x, z], axis=0)
+	#predict - or + with a sum of all PCAs
 	labels = clf.predict(xyz)
-	clf = svm.SVC(kernel = 'poly', decision_function_shape = 'ovr', gamma = 2, class_weight = 'balanced').fit(xyz, labels)
 
+	clf = svm.SVC(kernel = 'poly', decision_function_shape = 'ovr', gamma = 2, class_weight = 'balanced', cache_size = 512, C=0.2).fit(xyz, labels) #fit the new values
 	x_min, x_max = xyz[:, 0].min() - 1, xyz[:, 0].max() + 1 
 	y_min, y_max = xyz[:, 1].min() - 1, xyz[:, 1].max() + 1 
+
 	xx, yy = np.meshgrid(np.arange(x_min, x_max, 0.2), np.arange(y_min, y_max, 0.2))
 	Z = clf.predict(np.c_[xx.ravel(), yy.ravel()])
-	Z = Z.reshape(xx.shape) 
+	Z = Z.reshape(xx.shape) #compute x,y and z for contour plotting of separation
  
-	plt.contour(xx, yy, Z) 
+	plt.contour(xx, yy, Z)  
 	plt.scatter(xyz[:, 0], xyz[:, 1], c = labels)  
 
 	print (Fore.WHITE + "El grupo negativo '0' esta coloreado en azul, el grupo positivo '1' esta coloreado en rojo")
@@ -106,7 +119,7 @@ def emotions_data_dir():
         os.makedirs(files_dir+'/emotions/not relaxed')
 
 #look for all downloaded audio
-tags_dirs = [os.path.join('data',dirs) for dirs in next(os.walk(os.path.abspath('data')))[1]]
+tags_dirs = lambda files_dir: [os.path.join(files_dir,dirs) for dirs in next(os.walk(os.path.abspath(files_dir)))[1]]
 
 #classify all downloaded audio in tags
 def multitag_emotion_classifier(tags_dirs):
@@ -702,8 +715,8 @@ from transitions import Machine
 import random
 import subprocess
 
-neg_arous_dir = 'data/emotions/negative_arousal'   #directory where all data with positive arousal value will be placed                    
-pos_arous_dir = 'data/emotions/positive_arousal'   #directory where all data with negative arousal value will be placed
+neg_arous_dir = 'data/emotions/negative_arousal'   #directory where all data with negative arousal value will be placed                    
+pos_arous_dir = 'data/emotions/positive_arousal'   #directory where all data with positive arousal value will be placed
 
 #Johnny, Music Emotional State Machine
 class MusicEmotionStateMachine(object):
@@ -713,7 +726,9 @@ class MusicEmotionStateMachine(object):
                 self.machine = Machine(model=self, states=MusicEmotionStateMachine.states, initial='angry')
             def sad_music_remix(self, neg_arous_dir, harmonic = None):
                     for subdirs, dirs, sounds in os.walk(neg_arous_dir):                            
-                             negative_arousal_audio = [MonoLoader(filename=neg_arous_dir+'/'+s)() for s in sounds]                        
+                             x = MonoLoader(filename=neg_arous_dir+'/'+random.choice(sounds[:-1]))() 
+                             y = MonoLoader(filename=neg_arous_dir+'/'+random.choice(sounds[:]))() 
+                    negative_arousal_audio = np.array((x,y))                        
                     negative_arousal_N = min([len(i) for i in negative_arousal_audio])                                            
                     negative_arousal_samples = [i[:negative_arousal_N]/i.max() for i in negative_arousal_audio]  
                     negative_arousal_x = np.array(negative_arousal_samples).sum(axis=0)                     
@@ -723,11 +738,14 @@ class MusicEmotionStateMachine(object):
                     	return negative_arousal_Harmonic
                     if harmonic is False or harmonic is None:
                     	sad_percussive = istft(negative_arousal_Percussive)
-                    	MonoWriter(filename='data/emotions/sad/multitag_remix.ogg', format = 'ogg', sampleRate = 44100)(sad_percussive)
-                    	subprocess.call(["ffplay", "-nodisp", "-autoexit", 'data/emotions/sad/multitag_remix.ogg'])
+                    	remix_filename = 'data/emotions/sad/'+str(time.strftime("%Y%m%d-%H:%M:%S"))+'multitag_remix.ogg'
+                    	MonoWriter(filename=remix_filename, format = 'ogg', sampleRate = 44100)(sad_percussive)
+                    	subprocess.call(["ffplay", "-nodisp", "-autoexit", remix_filename])
             def happy_music_remix(self, pos_arous_dir, harmonic = None):
                 for subdirs, dirs, sounds in os.walk(pos_arous_dir):  
-                    positive_arousal_audio = [MonoLoader(filename=pos_arous_dir+'/'+s)() for s in sounds]
+                    x = MonoLoader(filename=pos_arous_dir+'/'+random.choice(sounds[:-1]))()
+                    y = MonoLoader(filename=pos_arous_dir+'/'+random.choice(sounds[:]))()
+                positive_arousal_audio = np.array((x,y))
                 positive_arousal_N = min([len(i) for i in positive_arousal_audio])  
                 positive_arousal_samples = [i[:positive_arousal_N]/i.max() for i in positive_arousal_audio]  
                 positive_arousal_x = np.array(positive_arousal_samples).sum(axis=0) 
@@ -737,18 +755,21 @@ class MusicEmotionStateMachine(object):
 			return positive_arousal_Harmonic
 		if harmonic is False or harmonic is None:
 		        happy_percussive = istft(positive_arousal_Percussive)
-		        MonoWriter(filename='data/emotions/happy/multitag_remix.ogg', format = 'ogg', sampleRate = 44100)(happy_percussive)
-		        subprocess.call(["ffplay", "-nodisp", "-autoexit", 'data/emotions/happy/multitag_remix.ogg'])
+		        remix_filename = 'data/emotions/happy/'+str(time.strftime("%Y%m%d-%H:%M:%S"))+'multitag_remix.ogg'
+		        MonoWriter(filename=remix_filename, format = 'ogg', sampleRate = 44100)(happy_percussive)
+		        subprocess.call(["ffplay", "-nodisp", "-autoexit", remix_filename])
             def relaxed_music_remix(self, neg_arous_dir):
                 neg_arousal_h = MusicEmotionStateMachine('remix').sad_music_remix(neg_arous_dir, harmonic = True)
                 relaxed_harmonic = istft(neg_arousal_h)
-                MonoWriter(filename='data/emotions/relaxed/multitag_remix.ogg', format = 'ogg', sampleRate = 44100)(relaxed_harmonic)
-                subprocess.call(["ffplay", "-nodisp", "-autoexit", 'data/emotions/relaxed/multitag_remix.ogg'])
+                remix_filename = 'data/emotions/relaxed/'+str(time.strftime("%Y%m%d-%H:%M:%S"))+'multitag_remix.ogg'
+                MonoWriter(filename=remix_filename, format = 'ogg', sampleRate = 44100)(relaxed_harmonic)
+                subprocess.call(["ffplay", "-nodisp", "-autoexit", remix_filename])
             def angry_music_remix(self, pos_arous_dir):
                 pos_arousal_h = MusicEmotionStateMachine('remix').happy_music_remix(pos_arous_dir, harmonic = True)
                 angry_harmonic = istft(pos_arousal_h)
-                MonoWriter(filename='data/emotions/angry/multitag_remix.ogg', format = 'ogg', sampleRate = 44100)(angry_harmonic)
-                subprocess.call(["ffplay", "-nodisp", "-autoexit", 'data/emotions/angry/multitag_remix.ogg'])
+                remix_filename = 'data/emotions/angry/'+str(time.strftime("%Y%m%d-%H:%M:%S"))+'multitag_remix.ogg'
+                MonoWriter(filename=remix_filename, format = 'ogg', sampleRate = 44100)(angry_harmonic)
+                subprocess.call(["ffplay", "-nodisp", "-autoexit", remix_filename])
             def not_happy_music_remix(self, neg_arous_dir):
                 for subdirs, dirs, sounds in os.walk(neg_arous_dir):  
                     	x = MonoLoader(filename=neg_arous_dir+'/'+random.choice(sounds[:-1]))()
@@ -771,8 +792,9 @@ class MusicEmotionStateMachine(object):
                         y = np.resize(y, x.size)
                 not_happy_x = np.sum((x,y),axis=0) 
                 not_happy_X = 0.5*not_happy_x/not_happy_x.max()
-                MonoWriter(filename='data/emotions/not happy/multitag_remix.ogg', format = 'ogg', sampleRate = 44100)(not_happy_X)
-                subprocess.call(["ffplay", "-nodisp", "-autoexit", 'data/emotions/not happy/multitag_remix.ogg'])
+                remix_filename = 'data/emotions/not happy/'+str(time.strftime("%Y%m%d-%H:%M:%S"))+'multitag_remix.ogg'
+                MonoWriter(filename=remix_filename, sampleRate = 44100)(not_happy_X)
+                subprocess.call(["ffplay", "-nodisp", "-autoexit", remix_filename])
             def not_sad_music_remix(self, pos_arous_dir):
                 for subdirs, dirs, sounds in os.walk(pos_arous_dir):  
                     	x = MonoLoader(filename=pos_arous_dir+'/'+random.choice(sounds[:-1]))()
@@ -795,8 +817,9 @@ class MusicEmotionStateMachine(object):
                         y = np.resize(y, x.size)
                 not_sad_x = np.sum((x,y),axis=0) 
                 not_sad_X = 0.5*not_sad_x/not_sad_x.max()
-                MonoWriter(filename='data/emotions/not sad/multitag_remix.ogg', format = 'ogg', sampleRate = 44100)(not_sad_X)
-                subprocess.call(["ffplay", "-nodisp", "-autoexit", 'data/emotions/not sad/multitag_remix.ogg'])
+                remix_filename = 'data/emotions/not sad/'+str(time.strftime("%Y%m%d-%H:%M:%S"))+'multitag_remix.ogg'
+                MonoWriter(filename=remix_filename, sampleRate = 44100)(not_sad_X)
+                subprocess.call(["ffplay", "-nodisp", "-autoexit", remix_filename])
             def not_angry_music_remix(self, neg_arous_dir):
                 for subdirs, dirs, sounds in os.walk(neg_arous_dir):  
                     	x = MonoLoader(filename=neg_arous_dir+'/'+random.choice(sounds[:-1]))()
@@ -804,8 +827,9 @@ class MusicEmotionStateMachine(object):
                 x_tempo = beat.beat_track(x)[0] 
                 y_tempo = beat.beat_track(y)[0] 
                 morph = stft.morph(x1 = x,x2 = y,fs = 44100,w1=np.hanning(1025),N1=2048,w2=np.hanning(1025),N2=2048,H1=512,smoothf=0.1,balancef=0.7)
-                write_wav(morph,44100, 'data/emotions/not angry/multitag_remix.wav') 
-                subprocess.call(["ffplay", "-nodisp", "-autoexit", 'data/emotions/not angry/multitag_remix.wav'])
+                remix_filename = 'data/emotions/not angry/'+str(time.strftime("%Y%m%d-%H:%M:%S"))+'multitag_remix.ogg'
+                write_wav(morph,44100, remix_filename) 
+                subprocess.call(["ffplay", "-nodisp", "-autoexit", remix_filename])
             def not_relaxed_music_remix(self, pos_arous_dir):
                 for subdirs, dirs, sounds in os.walk(pos_arous_dir):  
                     	x = MonoLoader(filename=pos_arous_dir+'/'+random.choice(sounds[:-1]))()
@@ -813,8 +837,9 @@ class MusicEmotionStateMachine(object):
                 x_tempo = beat.beat_track(x)[0] 
                 y_tempo = beat.beat_track(y)[0] 
                 morph = stft.morph(x1 = x,x2 = y,fs = 44100,w1=np.hanning(1025),N1=2048,w2=np.hanning(1025),N2=2048,H1=512,smoothf=0.01,balancef=0.7)
-                write_wav(morph,44100, 'data/emotions/not relaxed/multitag_remix.wav') 
-                subprocess.call(["ffplay", "-nodisp", "-autoexit", 'data/emotions/not relaxed/multitag_remix.wav'])
+                remix_filename = 'data/emotions/not relaxed/'+str(time.strftime("%Y%m%d-%H:%M:%S"))+'multitag_remix.ogg'
+                write_wav(morph,44100, remix_filename) 
+                subprocess.call(["ffplay", "-nodisp", "-autoexit", remix_filename])
 
 
 Usage = "./MusicEmotionMachine.py [FILES_DIR] [MULTITAG CLASSIFICATION False/True/None]"
@@ -832,6 +857,7 @@ if __name__ == '__main__':
             raise IOError("Must run MIR analysis") 
 
         if sys.argv[2] in ('True'):
+            tags_dirs = tags_dirs(files_dir)
             neg_and_pos = multitag_emotion_classifier(tags_dirs)
             emotions_data_dir()
             multitag_emotions_dir(tags_dirs, neg_and_pos[0], neg_and_pos[1], neg_arous_dir, pos_arous_dir)
