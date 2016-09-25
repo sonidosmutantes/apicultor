@@ -1,14 +1,23 @@
 s.boot; //start server
 
+
 MIDIIn.connectAll;
 
-// Monitor: Mostrar nota + velocity
-//MIDIFunc.noteOn({ |veloc, num, chan, src|
-//	( "New note received " + num + " with vel "+veloc ).postln;
-//});
+// Monitor
+//Mostrar nota + velocity
+MIDIFunc.noteOn({ |veloc, num, chan, src|
+	( "New note received " + num + " with vel "+veloc ).postln;
+});
+//Mostrar MIDI input (controls)
+MIDIIn.control = {arg src, chan, num, val;
+	[chan,num,val].postln;
+};
+
 
 // In windows scape with \\
-a = Buffer.read(s, "C:\\Users\\hordia\\git\\apicultor\\samples\\126_sample0.wav");
+a = Buffer.read(s, "C:\\Users\\hordia\\git\\apicultor\\samples\\drums\\snare-punch.wav");
+b = Buffer.read(s, "C:\\Users\\hordia\\git\\apicultor\\samples\\drums\\crash-tape.wav");
+c = Buffer.read(s, "C:\\Users\\hordia\\git\\apicultor\\samples\\1194_sample3.wav");
 
 //play synth
 SynthDef(\playBufMono, {| out = 0, bufnum = 0, rate = 1 |  var scaledRate, player;
@@ -22,7 +31,24 @@ MIDIFunc.noteOn({ |veloc, num, chan, src|
 		        Synth(\playBufMono, [\bufnum, a]);
 		        //Synth(\playBufMono, [\bufnum, a, \out, 1]);
 	});
+    if(num == 46,{
+        	    ("Pad 46").postln;
+		        Synth(\playBufMono, [\bufnum, b]);
+		        //Synth(\playBufMono, [\bufnum, a, \out, 1]);
+	});
+
 });
 
+MIDIIn.control = {arg src, chan, num, val;
+			if(num == 7,{
+		        r.set(\vol, val/127); //volumen 0..1
+	  	       (val/127).postln;
+			});
+}
 // Cleanup
 // s.quit; //stops server
+
+//playing
+r = Synth(\playBufMono, [\bufnum, c.bufnum, \rate, 1]); //buffer c
+r = Synth(\mutantefreeze, [\bufnum, c.bufnum, \rate, 1]); //
+r.free;

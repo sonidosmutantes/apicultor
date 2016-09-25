@@ -9,7 +9,7 @@ MIDIIn.connectAll;
 
 
 r = Synth(\playBufMono, [\bufnum, a.bufnum, \rate, 0.5]); //buffer a at half speed
-r = Synth(\playBufMono, [\bufnum, a.bufnum, \rate, 1]); //buffer
+
 r = Synth(\mutantefreeze, [\bufnum, a.bufnum, \rate, 1]); //
 
 //g =Buffer.read(s, "/Users/hordia/Documents/vmshared/samples/Cuesta_caminar_batero_sample2.wav" );
