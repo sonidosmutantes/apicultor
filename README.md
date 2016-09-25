@@ -55,10 +55,31 @@ $ cd doc/ && ./update_api_doc.sh
 
 Resultado: API-Documentation.html
 
+## Sonificación
+$ cd /apicultor
+$ python Sonification.py carpetadeltag
+## MÁQUINA DE ESTADOS EMOCIONALES DE LA MÚSICA
+$ cd /apicultor
+$ python MusicEmotionMachine.py directoriodondeestadata multitag(verdadero, clasifica Todos los audios descargados/ninguno, clasifica audios de un tag específico/falso, después de haber hecho la clasificación, correr de nuevo para llamar a Johnny (la máquina de estados emocionales) para que comienzen las transiciones emocionales con remixes en tiempo real de Todos los sonidos)
+
+#Dependencias
+* pip install bs4
+* pip install regex
+* pip install wget
+* pip install colorama
+* pip install matplotlib
+* Essentia (ver instrucciones para compilar aquí: http://essentia.upf.edu/documentation/installing.html)
+* pip install numpy scipy scikit-learn
+* pip install smst
+* pip install librosa
+* pip install transitions
+
 # Descripción de algunos scripts
 * WebScrapingDownload.py descarga los primeros diez archivos de la base de datos redpanalera tomando en cuenta el tag. Solamente hay que especificar el tag de archivos para buscar.
 * DoSegmentation.py segmenta los archivos de audio en cuadros de corta duración.
 * RandomSegmentation.py segmenta los archivos de audio en cuadros de duración aleatoria.
-* run_MIR_analysis.py te muestra los valores de las pistas en base a conceptos de interés como el ataque, la frecuencia del centroide espectral, los BPM, y otros conceptos. También procesa los sonidos en base a las descripciones hechas.
+* run_MIR_analysis.py te muestra los valores de las pistas en base a conceptos de interés como el ataque, la frecuencia del centroide espectral, los BPM, y otros conceptos
 * SoundSimilarity.py muestra clusters entre los sonidos para encontrar similitud basandose en descriptores seleccionados, luego guarda esos sonidos en carpetas de clusters.
+* Sonification.py Procesa los sonidos en base a las descripciones hechas.
+* MusicEmotionMachine.py clasifica los sonidos en base a sus emociones. Si la clasificación es multitag (de todo el audio redpanalero), luego se puede correr la máquina de estados emocionales musicales (Johnny) para remixar todos los sonidos y reproducirlos en tiempo real
 

@@ -1,80 +1,119 @@
 s.boot; //start server
 
+//----------------------
+//----------------------
+
 i= "192.168.56.101"; //APIcultor WebService IP @VM
 
 //TODO configure L & R channels (different synths or configuration (via midi)
 //TODO: add multichannel support
 
-a = Buffer.read(s, "/Users/hordia/Documents/vmshared/samples/1194_sample1.wav");
-b = Buffer.read(s, "/Users/hordia/Documents/vmshared/samples/1264_sample0.wav");
-c = Buffer.read(s, "/Users/hordia/Documents/vmshared/samples/982_sample1.wav");
-d = Buffer.read(s, "/Users/hordia/Documents/vmshared/samples/795_sample1.wav"); //Variable buffer!
+~bank1a = Buffer.read(s, "/Users/hordia/Documents/vmshared/samples/1194_sample1.wav");
+~bank1b = Buffer.read(s, "/Users/hordia/Documents/vmshared/samples/1264_sample0.wav");
+~bank1c = Buffer.read(s, "/Users/hordia/Documents/vmshared/samples/982_sample1.wav");
+~bank1d = Buffer.read(s, "/Users/hordia/Documents/vmshared/samples/795_sample1.wav"); //Variable buffer!
 
 
-a= Buffer.read(s, "/Users/hordia/Documents/vmshared/samples/1065_sample.wav" );
+~bank2a= Buffer.read(s, "/Users/hordia/Documents/vmshared/samples/1065_sample.wav" );
 //f -> filename then
 g =Buffer.read(s, "/Users/hordia/Documents/vmshared/samples/Cuesta_caminar_batero_sample2.wav" );
 h=Buffer.read(s, "/Users/hordia/Documents/vmshared/samples/251_sample1.wav" );
 i=Buffer.read(s, "/Users/hordia/Documents/vmshared/samples/1291_sample2.wav" );
 
+
+//--- synths
 //play synth
 SynthDef(\playBufMono, {| out = 0, bufnum = 0, rate = 1 |  var scaledRate, player;
 scaledRate = rate * BufRateScale.kr(bufnum);  player = PlayBuf.ar(1, bufnum,scaledRate, doneAction:2);  Out.ar(out, player).dup }).add;
 
+/*
+Testing PAN
+
+SynthDef(\playBufMono, {| out = 0, bufnum = 0, rate = 1, pan = 2, channels=2 |  var scaledRate, player;
+	scaledRate = rate * BufRateScale.kr(bufnum);  player = PlayBuf.ar(1, bufnum,scaledRate, doneAction:2); Out.ar(out, Mix.ar(PanAz.ar(2, [player,player], [1,-1+.3]))).dup  }).add; //pan range 0..1 (mapea a -1..1)*/
+
+// SynthDef(\playBufMono, {| out = 0, bufnum = 0, rate = 1, pan = 1, channels=2 |  var scaledRate, player;
+// scaledRate = rate * BufRateScale.kr(bufnum);  player = PlayBuf.ar(1, bufnum,scaledRate, doneAction:2); Out.ar(out, Mix.ar(PanAz.ar(2, [player, player], [pan, pan+0.3]))).dup  }).add;
+//
+// SynthDef(\playBufMono, {| out = 0, bufnum = 0, rate = 1, pan = 1, channels=2 |  var scaledRate, player;
+// scaledRate = rate * BufRateScale.kr(bufnum);  player = PlayBuf.ar(1, bufnum,scaledRate, doneAction:2); Out.ar(out, Mix.ar(PanAz.ar(2, player, [pan, pan+0.3]))).dup  }).add;
+//
+// SynthDef(\playBufMono, {| out = 0, bufnum = 0, rate = 1, pan = 0, channels=2 |  var scaledRate, player;
+// scaledRate = rate * BufRateScale.kr(bufnum);  player = PlayBuf.ar(1, bufnum,scaledRate, doneAction:2); Out.ar(out, Mix.ar(PanAz.ar(2, player, [-1+pan, pan]))).dup  }).add;
+//
+// PanAz.ar(
+// 	5, 				// numChans
+// 	ClipNoise.ar, 	// in
+// 	LFSaw.kr(MouseX.kr(0.2, 8, 'exponential')), // pos
+// 	0.5,			// level
+// 	3			// width
+// );
+
+
 //freeze synth
-SynthDef(\mutantefreeze, { arg out=0, soundBufnum=0, point=0, vol=1;
+SynthDef(\mutantefreeze, { arg out=0, bufnum=0, point=0, vol=1, fftwidth=4096, pan=0;
     var in, chain;
-    in = PlayBuf.ar(1, soundBufnum, BufRateScale.kr(soundBufnum),loop: 1);
+    in = PlayBuf.ar(1, bufnum, BufRateScale.kr(bufnum),loop: 1);
     chain = FFT(LocalBuf(4096), in);
     chain = PV_MagFreeze(chain, point);
-	Out.ar(out, vol * IFFT(chain).dup);
+	//Out.ar(out, vol * IFFT(chain).dup);
+	Out.ar(out, Pan2.ar(vol * IFFT(chain).dup, pan));
 }).add;
 
+~fftwidth = 4096;
+/*~fftwidth = 512;
+~fftwidth = 1024;
+~fftwidth = 2048;
+~fftwidth = 4096;
+~fftwidth = 8192;*/
+
+~channel = 0;
+// ~channel = 1;
+~rate = 1; //normal
+// ~rate = 0.5; //half speed
 
 //Trigger sound with pads
 MIDIFunc.noteOn({ |veloc, num, chan, src|
     // * Bank1: First ROW of pads *
-
-	//1_A
     if(num == 48,{
-/*		        x.set(\vol, val/127); //volumen 0..1
-	  	        (val/127).postln;
-		*/
-	        	("Pad 48").postln;
-	      	//TODO: request a new sound to APICULTOR (MIR, etc)
+	        	("Bank1 / A / Pad 48").postln;
 		        x.free;
-		        x = Synth(\mutantefreeze, [\soundBufnum, a]);
+		        x = Synth(\mutantefreeze, [\bufnum, ~bank1a, \out, ~channel, \fftwidth, ~fftwidth]);
 	});
-
-	//B
 	if(num == 49,{
-	        	("Pad 49").postln;
+	        	("Bank1 / B / Pad 49").postln;
 		        y.free;
-		        y = Synth(\mutantefreeze, [\soundBufnum, b]);
+		        y = Synth(\mutantefreeze, [\bufnum, ~bank1b, \out, ~channel]);
 	});
 	if(num == 50,{
-	        	("Pad 50").postln;
+	        	("Bank1 / C / Pad 50").postln;
                 z.free;
-		        z = Synth(\mutantefreeze, [\soundBufnum, c]);
+		        z = Synth(\mutantefreeze, [\bufnum, ~bank1c, \out, ~channel]);
 	});
 	if(num == 51,{
-	        	("Pad 51").postln;
+	        	format("Bank1 / D / Pad %",num).postln;
                 q.free;
-		        q = Synth(\mutantefreeze, [\soundBufnum, d]);
+		        q = Synth(\mutantefreeze, [\bufnum, ~bank1d, \out, ~channel]);
 	 });
 
 	// * Bank1: Second ROW of pads *
-	//E?
 	if(num == 44,{
-	        	("Pad 44").postln;
-		        //r = Synth(\playBufMono, [\bufnum, a.bufnum, \rate, 0.5]); //a (half speed)
-		        r = Synth(\playBufMono, [\out, 0, \bufnum, a.bufnum, \rate, 1]); //a
-		        r = Synth(\playBufMono, [\out, 1, \bufnum, a.bufnum, \rate, 1]); //a
+	        //	("Pad 44").postln;
+		    //Synth(\playBufMono, [\out, 0, \bufnum, ~bank1a, \rate, ~rate, \out, ~channel]);
+            //x.get(\point, { arg value; ("point is now:" + value).postln; });
+            x.get(\point, { arg value;
+				if( value >0,{ //on (0 off,  >0 on)
+			 		x.set(\point, 0);
+					("Bank1 / A / freeze OFF").postln;
+	    		}, {
+					 x.set(\point, 1);
+					("Bank1 / A / freeze ON").postln;
+			    });
+			});
 	});
 			if(num == 45,{
 	        	("Pad 45").postln;
-				r = Synth(\playBufMono, [\out, 0, \bufnum, b.bufnum, \rate, 1]); //b
-				r = Synth(\playBufMono, [\out, 1, \bufnum, b.bufnum, \rate, 1]); //b
+				Synth(\playBufMono, [\out, 0, \bufnum, ~bank1b, \rate, ~rate, \out, ~channel]);
 			});
 
 
@@ -180,35 +219,32 @@ MIDIIn.control = {arg src, chan, num, val;
 	  	       // (val/127).postln;
 			});
 			if(num == 10,{
-			   x.set(\point, val/127); // PAN value 0..127
-		       //(val/127).postln;
+		        //x.set(\point, val/127); // point 0..1
+		        //(val/127*8192).postln;
+	         	//if(val/127>0.5,x.set(\out, 1), x.set(\out, 0) ); //TODO: ver
+		        if(val/127>0.5,x.set(\pan, -1), x.set(\pan, 0) ); //TODO: ver
 			});
 
 			if(num == 8,{
 		        y.set(\vol, val/127); //volumen 0..1
-	  	        //(val/127).postln;
 			});
 			if(num == 1,{
-			   y.set(\point, val/127); // PAN value 0..127
-		       //(val/127).postln;
+			   y.set(\point, val/127); // point 0..1
 			});
 
 			if(num == 12,{
 		        z.set(\vol, val/127); //volumen 0..1
-	  	        //(val/127).postln;
 			});
 			if(num == 13,{
-			   z.set(\point, val/127); // PAN value 0..127
-		       //(val/127).postln;
+			   z.set(\point, val/127); // point 0..1
 			});
 
 			if(num == 11,{
 		        q.set(\vol, val/127); //volumen 0..1
-	  	        //(val/127).postln;
+
 			});
 			if(num == 33,{
-			   q.set(\point, val/127); // PAN value 0..127
-		       (val/127).postln;
+			   q.set(\point, val/127); // point 0..1
 			});
 };
 
