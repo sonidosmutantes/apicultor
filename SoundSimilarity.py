@@ -20,8 +20,12 @@ def get_files(files_dir):
 
 	:param files_dir: directory where sounds are located
 	"""
-	files = [(files) for subdir, dirs, files in os.walk(files_dir+'/descriptores')]
-	return files
+	try:
+		files = [(files) for subdir, dirs, files in os.walk(files_dir+'/descriptores')]
+		return files
+	except:
+		if not os.path.exists(files_dir+'/descriptores'):
+			print ("No .json files found")
 
 def get_dics(files_dir):
 	"""
@@ -29,9 +33,13 @@ def get_dics(files_dir):
 
 	:param files_dir: directory where sounds are located
 	"""
-	for subdir, dirs, files in os.walk(files_dir+'/descriptores'):
-		dics = [json.load(open(subdir+'/'+f)) for f in files]  
-	return dics
+	try:
+		for subdir, dirs, files in os.walk(files_dir+'/descriptores'):
+			dics = [json.load(open(subdir+'/'+f)) for f in files]  
+		return dics
+	except:
+		if not os.path.exists(files_dir+'/descriptores'):
+			print ("No readable MIR data found")
 
 # plot sound similarity clusters
 def plot_similarity_clusters(files, dics, plot = None):
@@ -84,7 +92,7 @@ def plot_similarity_clusters(files, dics, plot = None):
 	first_descriptor_values = (zip(*files_features)[first_descriptor_key])                                                                  
 	second_descriptor_values = (zip(*files_features)[second_descriptor_key])            
 
-	min_max = preprocessing.scale(np.vstack((first_descriptor_values,second_descriptor_values)).T)          
+	min_max = preprocessing.scale(np.vstack((first_descriptor_values,second_descriptor_values)).T, with_mean=False, with_std=False)          
 	pca = PCA(n_components=2, whiten=True)
 	y = pca.fit(min_max).transform(min_max)     
 	euclidean = AffinityPropagation(convergence_iter=10, affinity='euclidean')                           
