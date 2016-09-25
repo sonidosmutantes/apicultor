@@ -33,6 +33,10 @@ $ ./waf
 To install the C++ library and the python bindings (if configured successfully; you might need to run this command with sudo):
 $ sudo ./waf install
 
+# Database
+$ sudo apt-get install python-mysqldb
+
+
 ### Analysis
 * pip install bs4
 * pip install regex
