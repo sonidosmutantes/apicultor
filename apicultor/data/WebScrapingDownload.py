@@ -42,8 +42,9 @@ def searchfiles(tags_url, host, tag, search):
 
     audiopaths = re.findall('<a href="/media?\'?([^"\'>]*)', str(htmlcodes))
       
-    while i in audiopaths:
-        del audiopaths[i.endswith('.jpg')] #avoid downloading pictures
+    for i in audiopaths:
+        if i.endswith('.jpg'):
+            audiopaths.remove(i) #avoid downloading pictures
 
     return  list(set([host+'/media'+audiopath for audiopath in audiopaths]))
 
