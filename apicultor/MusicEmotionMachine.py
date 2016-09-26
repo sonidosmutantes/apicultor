@@ -1,7 +1,7 @@
 #! /usr/bin/env python
 # -*- coding: utf-8 -*-
 
-from SoundSimilarity import *
+from SoundSimilarity import get_files, get_dics, desc_pair
 import time
 from colorama import Fore
 import numpy as np                                                      
@@ -9,7 +9,8 @@ import matplotlib.pyplot as plt
 import os, sys                                                           
 from essentia.standard import *
 from smst.utils.audio import write_wav    
-from sklearn import svm
+from sklearn import svm, preprocessing
+from sklearn.decomposition.pca import PCA
 from sklearn.cluster import KMeans
 import librosa
 from librosa import *                                       
@@ -23,7 +24,7 @@ logger = logging.getLogger(__name__)
 #emotion classification
 def plot_emotion_clusters(files_dir, multitag = None):
 	"""
-	classify sounds based on emotivity (emotive or non-emotive)
+	classify sounds based on emotivity (emotive or non-emotive)using Affinity Propagation labels
 
 	:param files_dir: data tag dir if not performing multitag classification. data dir if performing multitag classification
 	:param multitag: if True, will classify all downloaded files and remix when performing emotional state transition
@@ -53,37 +54,62 @@ def plot_emotion_clusters(files_dir, multitag = None):
                              print (os.path.abspath(tag+'/descriptores/'+s) +" has less descriptors and will be discarded for clustering and classification. This happens because there was an error in MIR analysis, so the sound has to be analyzed again after being processed")
                              os.remove((os.path.abspath(tag+'/descriptores/'+s))) #... and deletes the less suitable .json file
 
-	print ("Selecting 'metadata.duration.mean' is not meaningful if you want to use the data for emotions classification")
+	files_features = desc_pair(files,dics).files_features 
 
-	similar = plot_similarity_clusters(files, dics)
-	y = similar[4] #from similarity get pca values
-	labels = KMeans(n_clusters=2).fit(y).labels_ #only two labels based on mean values
-	clf = svm.SVC(kernel = 'poly', decision_function_shape = 'ovr', gamma = 2, class_weight = 'balanced', cache_size = 512, C = 1.0/(2*y.size)).fit(y, labels)#fit a svm with polynomial kernel
+	keys = [3,9],[0,2],[1,7],[4,10],[5,8],[11,12]
+	key_gen = [i for i in keys]
+
+	def get_desc_pair(files_features, key1, key2):
+		desc1 = (zip(*files_features)[key1])                                                                  
+		desc2 = (zip(*files_features)[key2])
+
+		min_max = preprocessing.scale(np.vstack((desc1,desc2)).T, with_mean=False, with_std=False)    
+
+		return min_max
+
+	pca = lambda scale: PCA(n_components = 2, whiten = True).fit(scale)
+
+	y = get_desc_pair(files_features, key_gen[0][0], key_gen[0][1]) #get scalar
+	labels = KMeans(init = pca(y).components_, n_clusters=2, n_init=1).fit(pca(y).transform(y)).labels_ #labels to supervise svm
+	clf = svm.SVC(kernel = 'poly', degree = 5, decision_function_shape = 'ovr', gamma = 0.5, class_weight = 'balanced', coef0 = np.min(1-np.min(y),0), cache_size = 512, C = 1.0/(2*y.size), verbose = True).fit(pca(y).transform(y), labels) #fit a svm with polynomial kernel
 	#at least 12 features into two
-	h = plot_similarity_clusters(files, dics)[4]
-	l = plot_similarity_clusters(files, dics)[4]
-	v = plot_similarity_clusters(files, dics)[4]
-	x = plot_similarity_clusters(files, dics)[4]
-	z = plot_similarity_clusters(files, dics)[4]
-	xyz = np.sum([y, h, l, v, x, z], axis=0)
-	#predict - or + with a sum of all PCAs
+	h = get_desc_pair(files_features, key_gen[1][0], key_gen[1][1])
+	l = get_desc_pair(files_features, key_gen[2][0], key_gen[2][1])
+	v = get_desc_pair(files_features, key_gen[3][0], key_gen[3][1])
+	x = get_desc_pair(files_features, key_gen[4][0], key_gen[4][1])
+	z = get_desc_pair(files_features, key_gen[5][0], key_gen[5][1])
+	xyz = np.sum([pca(y).transform(y), pca(h).transform(h), pca(l).transform(l), pca(v).transform(v), pca(x).transform(x), pca(z).transform(z)], axis=0)#predict - or + with a sum of all PCAs
 	labels = clf.predict(xyz)
 
-	clf = svm.SVC(kernel = 'poly', decision_function_shape = 'ovr', gamma = 2, class_weight = 'balanced', cache_size = 512, C=0.2).fit(xyz, labels) #fit the new values
-	x_min, x_max = xyz[:, 0].min() - 1, xyz[:, 0].max() + 1 
-	y_min, y_max = xyz[:, 1].min() - 1, xyz[:, 1].max() + 1 
+	clf = svm.SVC(kernel = 'poly', degree = 5, decision_function_shape = 'ovr', gamma = 0.5, coef0 =1, class_weight = 'balanced', cache_size = 512, C=1.0/(2*xyz.size)).fit(xyz, labels) #fit the new values
+	
+	w = clf.dual_coef_.dot(clf.support_vectors_)[0]
+	a = -w[0] / w[1]
+	xx = np.linspace(xyz[:,0].min()-1, xyz[:,1].max()+1)
 
-	xx, yy = np.meshgrid(np.arange(x_min, x_max, 0.2), np.arange(y_min, y_max, 0.2))
-	Z = clf.predict(np.c_[xx.ravel(), yy.ravel()])
-	Z = Z.reshape(xx.shape) #compute x,y and z for contour plotting of separation
+	yy = a * xx + (clf.intercept_[0]) # this intercept finds it out correctly in polynomial
  
-	plt.contour(xx, yy, Z)  
-	plt.scatter(xyz[:, 0], xyz[:, 1], c = labels)  
+	#calculate the parallels of separation
+	b = clf.support_vectors_[0]                                   
+	yy_down = a * xx + (b[1] - a * b[0])
+	b = clf.support_vectors_[-1]
+	yy_up = a * xx + (b[1] - a * b[0])
+
+	#plot separation of vectors and parallels
+	plt.plot(xx, yy, 'k-')                                         
+	plt.plot(xx, yy_down, 'k--')        
+	plt.plot(xx, yy_up, 'k--')                                            
+  
+	plt.scatter(xyz[:, 0], xyz[:, 1], c=labels, cmap=plt.cm.Paired)
+
+	plt.axis('tight') 
+
+	time.sleep(3)
 
 	print (Fore.WHITE + "El grupo negativo '0' esta coloreado en azul, el grupo positivo '1' esta coloreado en rojo")
 	print np.vstack((labels,files)).T
 
-	time.sleep(6)
+	time.sleep(3)
 
 	plt.show()
 
