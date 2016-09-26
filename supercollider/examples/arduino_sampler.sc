@@ -15,25 +15,26 @@ MIDIIn.control = {arg src, chan, num, val;
 
 
 // In windows scape with \\
-a = Buffer.read(s, "C:\\Users\\hordia\\git\\apicultor\\samples\\drums\\snare-punch.wav");
-b = Buffer.read(s, "C:\\Users\\hordia\\git\\apicultor\\samples\\drums\\crash-tape.wav");
+b = Buffer.read(s, "C:\\Users\\hordia\\git\\apicultor\\samples\\drums\\snare-punch.wav");
+a = Buffer.read(s, "C:\\Users\\hordia\\git\\apicultor\\samples\\drums\\crash-tape.wav");
 c = Buffer.read(s, "C:\\Users\\hordia\\git\\apicultor\\samples\\1194_sample3.wav");
+//a.free;
 
 //play synth
-SynthDef(\playBufMono, {| out = 0, bufnum = 0, rate = 1 |  var scaledRate, player;
-scaledRate = rate * BufRateScale.kr(bufnum);  player = PlayBuf.ar(1, bufnum,scaledRate, doneAction:2);  Out.ar(out, player).dup }).add;
+SynthDef(\playBufMono, {| out = 0, bufnum = 0, vol=1, rate = 1 |  var scaledRate, player;
+scaledRate = rate * BufRateScale.kr(bufnum);  player = PlayBuf.ar(1, bufnum,scaledRate, doneAction:2);  Out.ar(out, vol * player).dup }).add;
 
 
 //Trigger sound with pads
 MIDIFunc.noteOn({ |veloc, num, chan, src|
     if(num == 30,{
         	    ("Pad 30").postln;
-		        Synth(\playBufMono, [\bufnum, a]);
+		        Synth(\playBufMono, [\bufnum, a, \vol, veloc/127]);
 		        //Synth(\playBufMono, [\bufnum, a, \out, 1]);
 	});
     if(num == 46,{
         	    ("Pad 46").postln;
-		        Synth(\playBufMono, [\bufnum, b]);
+		        Synth(\playBufMono, [\bufnum, a, \vol, veloc/127]);
 		        //Synth(\playBufMono, [\bufnum, a, \out, 1]);
 	});
 
