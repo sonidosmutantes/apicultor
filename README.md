@@ -42,10 +42,29 @@ $ python MusicEmotionMachine.py directoriodondeestadata multitag(verdadero, clas
 * WebScrapingDownload.py descarga los primeros diez archivos de la base de datos redpanalera tomando en cuenta el tag. Solamente hay que especificar el tag de archivos para buscar.
 * DoSegmentation.py segmenta los archivos de audio en cuadros de corta duración.
 * RandomSegmentation.py segmenta los archivos de audio en cuadros de duración aleatoria.
-* run_MIR_analysis.py te muestra los valores de las pistas en base a conceptos de interés como el ataque, la frecuencia del centroide espectral, los BPM, y otros conceptos
+* run_MIR_analysis.py te muestra los valores de las pistas en base a conceptos de interés como el ataque, la frecuencia del centroide espectral, los BPM, y otros conceptos. También procesa los sonidos en base a las descripciones hechas.
 * SoundSimilarity.py muestra clusters entre los sonidos para encontrar similitud basandose en descriptores seleccionados, luego guarda esos sonidos en carpetas de clusters.
-* Sonification.py Procesa los sonidos en base a las descripciones hechas.
+* Sonification.py También procesa los sonidos en base a las descripciones hechas.
 * MusicEmotionMachine.py clasifica los sonidos en base a sus emociones. Si la clasificación es multitag (de todo el audio redpanalero), luego se puede correr la máquina de estados emocionales musicales (Johnny) para remixar todos los sonidos y reproducirlos en tiempo real
+
+#Crear una base de datos:
+
+Si es tu primera vez utilizando bases de datos de MySQL, tenés que instalar MySQL en tu sistema y luego crear un usuario con una password para acceder y después crear la base de datos a la que accederás utilizando el usuario y la password.
+
+Luego de correr sudo apt-get install mysql-server:
+
+$mysql // a veces el comando puede ser mysqld de acuerdo al paquete instalado
+
+mysql> CREATE USER 'usuario'@'localhost' IDENTIFIED BY 'password';
+
+mysql> CREATE DATABASE nombredelabasededatos;
+
+mysql> GRANT ALL PRIVILEGES ON nombredelabasededatos.* TO 'usuario'@'localhost';
+
+mysql> quit;
+
+Luego se puede usar Fill_DB.py para crear la base de datos del MIR
+
 
 #TODO
 agregar el diccionario de emociones luego de una clasificación multitag para actualizar la base de datos redpanalera. A medida que vayamos mejorando muchísimo mas el Apicultor vamos a hacer el primer release 
@@ -54,4 +73,3 @@ agregar el diccionario de emociones luego de una clasificación multitag para ac
 si ya tenés instaladas todas las dependencias podés correr: 
 $ sudo python setup.py install
 y tener Apicultor instalado en el sistema
-
