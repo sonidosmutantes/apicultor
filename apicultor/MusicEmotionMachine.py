@@ -24,7 +24,7 @@ logger = logging.getLogger(__name__)
 #emotion classification
 def plot_emotion_clusters(files_dir, multitag = None):
 	"""
-	classify sounds based on emotivity (emotive or non-emotive)using Affinity Propagation labels
+	classify sounds based on emotivity (emotive or non-emotive) using Support Vector Machines
 
 	:param files_dir: data tag dir if not performing multitag classification. data dir if performing multitag classification
 	:param multitag: if True, will classify all downloaded files and remix when performing emotional state transition
