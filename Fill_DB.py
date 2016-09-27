@@ -42,9 +42,9 @@ if __name__ == '__main__':
     # statement = "INSERT INTO sample (%s)  VALUES (\"%s\", %s);"%(fields[:-1],"sample.json",values[:-1])
     #print statement
     conn = MySQLdb.connect(host= "localhost",
-                  user="hordia",
-                  passwd="admin",
-                  db="mir")
+                  user="hordia", #username to access created database
+                  passwd="admin", #password to access created database
+                  db="mir") #default database name
     x = conn.cursor()
 
 
