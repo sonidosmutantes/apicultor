@@ -11,6 +11,7 @@ fields_list = [ "`name`",
   "`lowlevel.dissonance.mean`",
   "`lowlevel.mfcc_bands.mean`",
   "`sfx.inharmonicity.mean` ",
+  "`sfx.logattacktime.mean` ",
   "`rhythm.bpm.mean` ",
   "`lowlevel.spectral_contrast.mean` ",
   "`lowlevel.spectral_centroid.mean` ",
@@ -21,7 +22,7 @@ fields_list = [ "`name`",
   "`lowlevel.spectral_valleys.mean`",
   "`lowlevel.hfc.mean`"]
 
-Usage = "./Fill_DB.py [FILES_DIR]"
+Usage = "sudo python Fill_DB.py [FILES_DIR]"
 if __name__ == '__main__':
 
     if len(sys.argv) < 2:
@@ -42,9 +43,9 @@ if __name__ == '__main__':
     # statement = "INSERT INTO sample (%s)  VALUES (\"%s\", %s);"%(fields[:-1],"sample.json",values[:-1])
     #print statement
     conn = MySQLdb.connect(host= "localhost",
-                  user="hordia",
-                  passwd="admin",
-                  db="mir")
+                  user="apicultor", #by default here, you can change it to your username
+                  passwd="", #whatever you like
+                  db="mir") #databasename
     x = conn.cursor()
 
 
@@ -54,30 +55,14 @@ if __name__ == '__main__':
         if not os.path.exists(files_dir):                         
             raise IOError("Must download sounds")
 
-# fields_list = [ "`name`",
-#   "`lowlevel.dissonance.mean`",
-#   "`lowlevel.mfcc_bands.mean`",
-#   "`sfx.inharmonicity.mean` ",
-#   "`rhythm.bpm.mean` ",
-
-#   "`lowlevel.spectral_contrast.mean` ",
-
-#   "`lowlevel.spectral_centroid.mean` ",
-#   "`rhythm.bpm_ticks.mean` ",
-
-#   "`lowlevel.mfcc.mean` ",
-#   "`loudness.level.mean` ",
-#   "`metadata.duration.mean` ",
-#   "`lowlevel.spectral_valleys.mean`",
-#   "`lowlevel.hfc.mean`"]
         for subdir, dirs, files in os.walk(files_dir):
             for f in files:
                 if os.path.splitext(f)[1]==".json":
                     data = json.load( open(files_dir + "/" + f,'r') )
 
                     try:
-                        statement = "INSERT INTO sample (%s)  VALUES (\"%s\", %f, %f, %f, %f, %f, %f, %f, %f, %f, %f, %f, %f);"%(fields[:-1],f,float(data["lowlevel.dissonance.mean"]),float(data["lowlevel.mfcc_bands.mean"]),float(data["sfx.inharmonicity.mean"]),float(data["rhythm.bpm.mean"]),float(data["lowlevel.spectral_contrast.mean"]),float(data["lowlevel.spectral_centroid.mean"]),float(data["rhythm.bpm_ticks.mean"]),float(data["lowlevel.mfcc.mean"]),float(data["loudness.level.mean"]),float(data["metadata.duration.mean"]),float(data["lowlevel.spectral_valleys.mean"]),float(data["lowlevel.hfc.mean"]) )
-                        #print(statement)
+                        statement = "INSERT INTO sample (%s)  VALUES (\"%s\", %f, %f, %f, %f, %f, %f, %f, %f, %f, %f, %f, %f);"%(fields[:-1],f,float(data["lowlevel.dissonance.mean"]),float(data["lowlevel.mfcc_bands.mean"]),float(data["sfx.logattacktime.mean"]),float(data["sfx.inharmonicity.mean"]),float(data["rhythm.bpm.mean"]),float(data["lowlevel.spectral_contrast.mean"]),float(data["lowlevel.spectral_centroid.mean"]),float(data["rhythm.bpm_ticks.mean"]),float(data["lowlevel.mfcc.mean"]),float(data["loudness.level.mean"]),float(data["metadata.duration.mean"]),float(data["lowlevel.spectral_valleys.mean"]),float(data["lowlevel.hfc.mean"]) )
+                        print(statement)
                         try:
                            x.execute(statement)
                            conn.commit()
