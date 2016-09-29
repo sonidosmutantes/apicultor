@@ -7,7 +7,8 @@ Buffer.freeAll; // no sound
 
 MIDIIn.connectAll;
 
-r = Synth(\playBufMono, [\bufnum, a.bufnum, \rate, 0.5]); //buffer a at half speed
+r = Synth(\playBufMono, [\bufnum, ~bank1a.bufnum, \rate, 0.5]); //buffer a at half speed
+r = Synth(\playBufMono, [\bufnum, ~bank1a.bufnum, \rate, 1, \out, 3]); //buffer full speed
 
 //g =Buffer.read(s, "/Users/hordia/Documents/vmshared/samples/Cuesta_caminar_batero_sample2.wav" );
 i=Buffer.read(s, "/Users/hordia/Documents/vmshared/samples/1291_sample2.wav" );

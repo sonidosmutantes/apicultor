@@ -8,17 +8,21 @@ i= "192.168.56.101"; //APIcultor WebService IP @VM
 //TODO configure L & R channels (different synths or configuration (via midi)
 //TODO: add multichannel support
 
-~bank1a = Buffer.read(s, "/Users/hordia/Documents/vmshared/samples/1194_sample1.wav");
+~bank1a = Buffer.read(s, "/Users/hordia/Documents/vmshared/samples/1194_sample1.wav"); // tabla
 ~bank1b = Buffer.read(s, "/Users/hordia/Documents/vmshared/samples/1264_sample0.wav");
 ~bank1c = Buffer.read(s, "/Users/hordia/Documents/vmshared/samples/982_sample1.wav");
 ~bank1d = Buffer.read(s, "/Users/hordia/Documents/vmshared/samples/795_sample1.wav"); //Variable buffer!
 
+// Buffer.read(s, "/Users/hordia/Documents/vmshared/samples/1264_sample0.wav");
+// Buffer.read(s, "/Users/hordia/Documents/vmshared/samples/506_sample0.wav"); // tic
+// Buffer.read(s, "/Users/hordia/Documents/vmshared/samples/982_sample3.wav"); // bajo
+// Buffer.read(s, "/Users/hordia/Documents/vmshared/samples/1291_sample2.wav"); // chingi chingi
 
 ~bank2a= Buffer.read(s, "/Users/hordia/Documents/vmshared/samples/1065_sample.wav" );
 //f -> filename then
 g =Buffer.read(s, "/Users/hordia/Documents/vmshared/samples/Cuesta_caminar_batero_sample2.wav" );
 h=Buffer.read(s, "/Users/hordia/Documents/vmshared/samples/251_sample1.wav" );
-i=Buffer.read(s, "/Users/hordia/Documents/vmshared/samples/1291_sample2.wav" );
+i=Buffer.read(s, "/Users/hordia/Documents/vmshared/samples/1291_sample2.wav" ); // chingi chingi
 
 
 //--- synths
@@ -49,15 +53,19 @@ SynthDef(\playBufMono, {| out = 0, bufnum = 0, rate = 1, pan = 2, channels=2 |  
 // 	3			// width
 // );
 
-
+//which means that the following should give us the length of the sample in seconds:
+//(b.numFrames / b.numChannels ) / 44100
+//player = PlayBuf.ar(1, bufnum, scaledRate, startPos: startPos, loop: 1, doneAction:2);
 //freeze synth
-SynthDef(\mutantefreeze, { arg out=0, bufnum=0, point=0, vol=1, fftwidth=4096, pan=0;
+SynthDef(\mutantefreeze, { arg out=0, bufnum=0, point=0, vol=1, fftwidth=4096, pan=0, startPos=0;
     var in, chain;
     in = PlayBuf.ar(1, bufnum, BufRateScale.kr(bufnum),loop: 1);
-    chain = FFT(LocalBuf(4096), in);
+	//startPos is the number of the sample to start from
+    //in = PlayBuf.ar(1, bufnum, BufRateScale.kr(bufnum), startPos: startPos, loop: 1);
+	chain = FFT(LocalBuf(4096), in);
     chain = PV_MagFreeze(chain, point);
-	//Out.ar(out, vol * IFFT(chain).dup);
-	Out.ar(out, Pan2.ar(vol * IFFT(chain).dup, pan));
+	Out.ar(out, vol * IFFT(chain).dup);
+	//Out.ar(out, Pan2.ar(vol * IFFT(chain).dup, pan));
 }).add;
 
 ~fftwidth = 4096;
@@ -222,7 +230,13 @@ MIDIIn.control = {arg src, chan, num, val;
 		        //x.set(\point, val/127); // point 0..1
 		        //(val/127*8192).postln;
 	         	//if(val/127>0.5,x.set(\out, 1), x.set(\out, 0) ); //TODO: ver
+
 		        if(val/127>0.5,x.set(\pan, -1), x.set(\pan, 0) ); //TODO: ver
+
+		        //~newStart = (~bank1a.numFrames / ~bank1a.numChannels )*val/127;
+		        //x.set(\startPos, ~newStart); //freeze start position
+
+
 			});
 
 			if(num == 8,{
