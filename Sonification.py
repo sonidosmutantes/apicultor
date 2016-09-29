@@ -8,53 +8,21 @@ import numpy as np
 import scipy
 from essentia import *
 from essentia.standard import *
-from smst.utils.audio import write_wav
+import logging
 
-#TODO: add standard logging
-#TODO: add an option to skip processing if json data descriptor file exists or overwrite it (reprocess)
+logging.basicConfig(level=logging.DEBUG)
+logger = logging.getLogger(__name__)  
 
-ext_filter = ['.mp3','.ogg','.ogg','.wav']
-
-# descriptores de interés
-descriptors = [ 
-                'lowlevel.spectral_centroid',
-                'lowlevel.spectral_contrast',
-                'lowlevel.dissonance',
-                'lowlevel.hfc',
-                'lowlevel.mfcc',
-                'loudness.level',
-                'sfx.logattacktime',  # (check) doesn't run properly in some systems FIXME
-                'sfx.inharmonicity', 
-                'rhythm.bpm',
-                'metadata.duration'
-                ]
-
-def process_file(inputSoundFile, frameSize = 1024, hopSize = 512):
+def mir_sonification(inputSoundFile, data):
     input_signal = MonoLoader(filename = inputSoundFile)()
     sampleRate = 44100
     
     #filter direct current noise
-    offset_filter = DCRemoval()    
-    #method alias for extractors
-    centroid = SpectralCentroidTime()
-    contrast = SpectralContrast(frameSize = frameSize+1)
-    levelExtractor = LevelExtractor()
-    mfcc = MFCC()    
-    hfc = HFC()
-    dissonance = Dissonance()
-    bpm = RhythmExtractor2013()
-    timelength = Duration()
-    logat = LogAttackTime()
-    harmonic_peaks = HarmonicPeaks()                                   
+    offset_filter = DCRemoval()                                     
     f0_est = PitchYin()    
-    inharmonicity = Inharmonicity()
-
     #++++helper functions++++
-    envelope = Envelope()
-#    w = Windowing() #default windows
     w_hann = Windowing(type = 'hann')
     spectrum = Spectrum()
-    spectral_peaks = SpectralPeaks(sampleRate = sampleRate, orderBy='frequency')
     audio = offset_filter(input_signal)
 
     #++++more helpers++++
@@ -65,119 +33,9 @@ def process_file(inputSoundFile, frameSize = 1024, hopSize = 512):
     cartesian_to_polar = CartesianToPolar()
     audio_f0 = PitchYinFFT()(spectrum(w_hann(audio)))[0]
 
-    # compute for all frames in our audio and add it to the pool
-    pool = essentia.Pool()
-    for frame in FrameGenerator(audio, frameSize, hopSize):
-        frame_windowed = w_hann(frame)
-        frame_spectrum = spectrum(frame_windowed)
-    
-        #low level
-        namespace = 'lowlevel'
+    marker = scipy.cos((2*scipy.pi*1000/sampleRate)*scipy.arange(sampleRate*(1.0/float(sampleRate)))) 
 
-        desc_name = namespace + '.spectral_centroid'
-        if desc_name in descriptors:
-            c = centroid( frame_spectrum )
-            pool.add(desc_name, c)
-
-        desc_name = namespace + '.spectral_contrast'
-        if desc_name in descriptors:
-            contrasts, valleys = contrast(frame_spectrum)
-            pool.add(desc_name, contrasts)
-            pool.add('lowlevel.spectral_valleys', valleys)
-
-        desc_name = namespace + '.mfcc'
-        if desc_name in descriptors:
-            mfcc_melbands, mfcc_coeffs = mfcc( frame_spectrum )
-            pool.add(desc_name, mfcc_coeffs)
-            pool.add('lowlevel.mfcc_bands', mfcc_melbands)
-
-        desc_name = namespace + '.hfc'
-        if desc_name in descriptors:
-            h = hfc( frame_spectrum )
-            pool.add(desc_name, h)
-
-        # dissonance
-        desc_name = namespace + '.dissonance'
-        if desc_name in descriptors:
-            frame_frequencies, frame_magnitudes = spectral_peaks(frame_spectrum)
-            frame_dissonance = dissonance(frame_frequencies, frame_magnitudes)
-            pool.add( desc_name, frame_dissonance)
-
-        
-        # t frame
-        namespace = 'loudness'
-        desc_name = namespace + '.level'
-        if desc_name in descriptors:
-            l = levelExtractor(frame)
-            pool.add(desc_name,l)
-
-        #logattacktime FIXME
-        desc_name = 'sfx.logattacktime'
-        if desc_name in descriptors:
-            frame_envelope = envelope(frame)
-            attacktime = logat(frame_envelope)
-            pool.add(desc_name, attacktime)
-
-        #inharmonicity
-        desc_name = 'sfx.inharmonicity'
-        if desc_name in descriptors:
-            pitch = f0_est(frame_windowed)
-            frame_frequencies, frame_magnitudes = spectral_peaks(frame_spectrum)                             
-            harmonic_frequencies, harmonic_magnitudes = harmonic_peaks(frame_frequencies[1:], frame_magnitudes[1:], pitch[0])                         
-            inharmonic = inharmonicity(harmonic_frequencies, harmonic_magnitudes)      
-            pool.add(desc_name, inharmonic)                       
-
-        #bpm
-        namespace = 'rhythm'
-        desc_name = namespace + '.bpm'
-        if desc_name in descriptors:
-            beatsperminute, ticks = bpm(audio)[0], bpm(audio)[1]
-            pool.add(desc_name, beatsperminute)
-            pool.add('rhythm.bpm_ticks', ticks)
-
-        #duration
-        namespace = 'metadata'
-        desc_name = namespace + '.duration'
-        if desc_name in descriptors:
-            duration = timelength(audio)
-            pool.add(desc_name, duration)
-
-    #end of frame computation
-
-    # Pool stats (mean, var)
-    #aggrPool = PoolAggregator(defaultStats = [ 'mean', 'var' ])(pool)
-    aggrPool = PoolAggregator(defaultStats = ['mean'])(pool)
-
-    # write result to file
-    # json_output = os.path.splitext(inputSoundFile)[0]+"-new.json"
-    # YamlOutput(filename = json_output, format = 'json')(aggrPool)
-
-    data = dict()
-    #for dn in pool.descriptorNames(): data[dn] = pool[dn].tolist()
-    for dn in aggrPool.descriptorNames():
-        try:
-            data[dn] = str( aggrPool[dn][0] )
-        except:
-            data[dn] = str( aggrPool[dn] )
-    print data
-
-
-    descriptors_dir = (tag_dir+'/'+'descriptors')
-
-    if not os.path.exists(descriptors_dir):                         
-           os.makedirs(descriptors_dir)                                
-           print "Creando directorio para archivos .json"
-
-
-    #TODO: load from json file
-    json_file = descriptors_dir + '/' + os.path.splitext(input_filename)[0] + ".json"
-    print json_file
-
-    # print(json_output)
-    # data = json.load( open(json_file,'r') )
-    # ticks = data['rhythm.bpm_ticks']
-
-    ### Sonification
+    descriptors_dir = (tag_dir+'/'+'descriptores') #descriptors directory of tag
 
     #sound recording with tempo marker
 
@@ -187,11 +45,12 @@ def process_file(inputSoundFile, frameSize = 1024, hopSize = 512):
            os.makedirs(tempo_dir)                                
            print "Creando directorio para marcado de tempo"
 
+    ticks = RhythmExtractor2013()(audio)[1] 
     mark_ticks = AudioOnsetsMarker(onsets=ticks, type='beep')                                             
                                               
     signal_bpm = mark_ticks(audio)
     print ("Saving File with tempo beeps") 
-    output = write_wav(signal_bpm, 44100, tempo_dir + '/' + os.path.splitext(input_filename)[0] + 'tempo.wav')
+    output = MonoWriter(filename = tempo_dir + '/' + os.path.splitext(input_filename)[0] + 'tempo.ogg', format = 'ogg')(signal_bpm)
 
     #spectral centroid of sound recording
 
@@ -204,7 +63,7 @@ def process_file(inputSoundFile, frameSize = 1024, hopSize = 512):
     band_pass_filter = BandPass(cutoffFrequency = float(data['lowlevel.spectral_centroid.mean']))
     print ("Filtering Signal")
     signal_centroid = band_pass_filter(audio)
-    output = write_wav(signal_centroid, 44100, centroid_dir + '/' + os.path.splitext(input_filename)[0] + 'centroid.wav')
+    output = MonoWriter(filename = centroid_dir + '/' + os.path.splitext(input_filename)[0] + 'centroid.ogg', format = 'ogg')(signal_centroid)
 
     #mfccs of sound recording
 
@@ -217,7 +76,7 @@ def process_file(inputSoundFile, frameSize = 1024, hopSize = 512):
     melband_pass_filter = BandPass(cutoffFrequency = abs(float(data['lowlevel.mfcc.mean'])))
     print ("Filtering Signal according to Mel bands mean")
     signal_mfcc = melband_pass_filter(audio)
-    output = write_wav(signal_mfcc, 44100, mfcc_dir + '/' + os.path.splitext(input_filename)[0] + 'mfcc.wav')
+    output = MonoWriter(filename = mfcc_dir + '/' + os.path.splitext(input_filename)[0] + 'mfcc.ogg', format = 'ogg')(signal_mfcc)
 
     #inharmonicity of sound recording
 
@@ -231,7 +90,7 @@ def process_file(inputSoundFile, frameSize = 1024, hopSize = 512):
  * (1 + float(data['sfx.inharmonicity.mean'])), bandwidth = 55)
     print ("Filtering Signal according to Inharmonicity mean")
     signal_inharmonicity = inharmonicity_pass_filter(audio)
-    output = write_wav(signal_inharmonicity, 44100, inharmonicity_dir + '/' + os.path.splitext(input_filename)[0] + 'inharmonicity.wav')
+    output = MonoWriter(filename = inharmonicity_dir + '/' + os.path.splitext(input_filename)[0] + 'inharmonicity.ogg', format = 'ogg')(signal_inharmonicity)
 
     #dissonance of sound recording
 
@@ -245,7 +104,7 @@ def process_file(inputSoundFile, frameSize = 1024, hopSize = 512):
     dissonance_pass_filter = BandPass(cutoffFrequency = dissonant_f, bandwidth = 55)
     print ("Filtering Signal according to Dissonance mean")
     signal_dissonance = dissonance_pass_filter(audio)
-    output = write_wav(signal_dissonance, 44100, dissonance_dir + '/' + os.path.splitext(input_filename)[0] + 'dissonance.wav')
+    output = MonoWriter(filename = dissonance_dir + '/' + os.path.splitext(input_filename)[0] + 'dissonance.ogg', format = 'ogg')(signal_dissonance)
 
     #loudness sound recording
 
@@ -259,7 +118,7 @@ def process_file(inputSoundFile, frameSize = 1024, hopSize = 512):
     maximum = np.max(np.abs(audio_loud))/-1 
     loud_sound = np.true_divide(audio_loud, maximum) 
     print ("Saving Loud Sound")
-    output = write_wav(loud_sound, 44100, loudness_dir + '/' + os.path.splitext(input_filename)[0] + 'loudness.wav') 
+    output = MonoWriter(filename = loudness_dir + '/' + os.path.splitext(input_filename)[0] + 'loudness.ogg', format = 'ogg')(loud_sound) 
 
     #sound recording based on valleys
 
@@ -271,11 +130,11 @@ def process_file(inputSoundFile, frameSize = 1024, hopSize = 512):
 
     from smst.models.harmonic import from_audio
     from smst.models.sine import to_audio
-    freq, mag, phase = from_audio(audio, 44100, scipy.hanning(1023), 2048, hopSize, -70, 20, audio_f0, audio_f0*2, 10, abs(float(data['lowlevel.spectral_contrast.mean'])))   
-    contrast_enhancement = ((1.6 * mag) - (0.6*float(data['lowlevel.spectral_valleys.mean']))) 
-    contrast = to_audio(freq, mag + contrast_enhancement, phase, frameSize, hopSize, 44100)  
+    freq, mag, phase = from_audio(audio, sampleRate, scipy.hanning(1023), 2048, 512, -70, 20, audio_f0, audio_f0*2, 10, abs(float(data['lowlevel.spectral_contrast.mean'])))   
+    contrast_enhancement = ((1.3 * mag) - (0.3*float(data['lowlevel.spectral_valleys.mean']))) 
+    contrast = to_audio(freq, mag + contrast_enhancement, phase, 1025, 512, sampleRate)  
     print ("Saving recording Contrast")
-    output = write_wav(contrast, 44100, valleys_dir + '/' + os.path.splitext(input_filename)[0] + 'contrast.wav') 
+    output = MonoWriter(filename = valleys_dir + '/' + os.path.splitext(input_filename)[0] + 'contrast.ogg', format = 'ogg')(array(contrast)) 
 
     #sound recording with hfc marker
 
@@ -285,62 +144,54 @@ def process_file(inputSoundFile, frameSize = 1024, hopSize = 512):
            os.makedirs(hfc_dir)                                
            print "Creando directorio para marcado de contenido de frecuencia alta" 
 
-    ctp_mag, ctp_phase = cartesian_to_polar(fft(w_hann(audio)))   
-    marker = scipy.cos((2*scipy.pi*1000/44100)*scipy.arange(44100*(1.0/44100.0)))                                             
+    ctp_mag, ctp_phase = cartesian_to_polar(fft(w_hann(audio)))                                                
 
     audio[audio == audio[int(np.array(detect_by_hfc(ctp_mag, ctp_phase)).astype(int))]  ] = audio[audio == audio[int(np.array(detect_by_hfc(ctp_mag, ctp_phase)).astype(int))]  ] + marker  
     print ("Saving File with hfc bursts") 
-    output = write_wav(audio, 44100, hfc_dir + '/' + os.path.splitext(input_filename)[0] + 'hfc.wav') 
+    output = MonoWriter(filename = hfc_dir + '/' + os.path.splitext(input_filename)[0] + 'hfc.ogg', format = 'ogg')(audio) 
 
     #sound recording with attack marker
 
-#    attack_dir = (tag_dir+'/'+'attack')
+    attack_dir = (tag_dir+'/'+'attack')
 
-#    if not os.path.exists(attack_dir):                         
-#           os.makedirs(attack_dir)                                
-#           print "Creando directorio para marcado de ataque" 
+    if not os.path.exists(attack_dir):                         
+           os.makedirs(attack_dir)                                
+           print "Creando directorio para marcado de ataque" 
 
-#    at_s = 10**(float(data['sfx.logattacktime.mean']))  
-#    marker = scipy.cos((2*scipy.pi*1000/44100)*scipy.arange(44100*(1.0/44100.0)))                                             
+    at_s = 10**(float(data['sfx.logattacktime.mean']))                                              
 
-#    audio = offset_filter(input_signal)
-#    audio[audio == audio[(at_s)*44100]] = audio[audio == audio[(at_s)*44100]] + marker  
-#    print ("Saving File with attack marker") 
-#    output = write_wav(audio, 44100, attack_dir + '/' + os.path.splitext(input_filename)[0] + 'attack.wav') 
+    audio = offset_filter(input_signal)
+    audio[audio == audio[(at_s)*sampleRate]] = audio[audio == audio[(at_s)*sampleRate]] + marker  
+    print ("Saving File with attack marker") 
+    output = MonoWriter(filename = attack_dir + '/' + os.path.splitext(input_filename)[0] + 'attack.ogg', format = 'ogg')(audio) 
 
 #()    
 
-Usage = "./run_MIR_analysis.py [FILES_DIR]"
+Usage = "./Sonification.py [FILES_DIR]"
 if __name__ == '__main__':
   
     if len(sys.argv) < 2:
-        print "\nBad amount of input arguments\n\t", Usage, "\n"
-        print("Example:\n\t./run_MIR_analysis.py data\n\t./run_MIR_analysis.py samples\n")
+        print "\nNeed tag dir\n", Usage, "\n"
         sys.exit(1)
 
 
     try:
-        files_dir = sys.argv[1] 
+        files_dir = sys.argv[1]
+        descriptors_dir = files_dir+'/descriptores/' 
 
-        if not os.path.exists(files_dir):                         
-            raise IOError("Must download sounds")
+    	if not os.path.exists(files_dir):                         
+		raise IOError("Must download sounds")
 
-        error_count = 0
-        for subdir, dirs, files in os.walk(files_dir):
-            for f in files:
-                if not os.path.splitext(f)[1] in ext_filter:
-                    continue
-                tag_dir = subdir
-                input_filename = f
-                audio_input = subdir+'/'+f
-                try:
-                    print( "\n*** Processing %s\n"%audio_input )
-                    process_file( audio_input )
-                except Exception, e:
-                    print("\n\n*** ERROR: %s***\n\n"%str(e))
-                    error_count += 1                          
-        print("Errors: %i"%error_count)
-        sys.exit( -error_count )
+	for subdir, dirs, files in os.walk(files_dir):
+	    for f in files:
+		    tag_dir = subdir
+		    input_filename = f
+		    audio_input = subdir+'/'+f
+		    print( audio_input )
+		    with open(descriptors_dir+f.split('.')[0]+'.json') as mir_data:
+		    	data = json.load(mir_data)
+		    mir_sonification(audio_input, data)                           
+
     except Exception, e:
-        print(e)
+        logger.exception(e)
         exit(1)

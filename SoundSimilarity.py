@@ -1,7 +1,6 @@
 #! /usr/bin/env python
 # -*- coding: utf-8 -*-
 
-
 import time
 from colorama import Fore
 import numpy as np                                                      
@@ -9,9 +8,11 @@ import matplotlib.pyplot as plt
 import os, sys                                                          
 import json    
 import re                                                         
-from sklearn import preprocessing                                       
+from sklearn import preprocessing
+from sklearn.decomposition.pca import PCA                                      
 from sklearn.cluster import AffinityPropagation
 import shutil                                  
+                                 
 
 def get_files(files_dir):
 	"""
@@ -19,8 +20,12 @@ def get_files(files_dir):
 
 	:param files_dir: directory where sounds are located
 	"""
-	files = [(files) for subdir, dirs, files in os.walk(files_dir+'/descriptores')]
-	return files
+	try:
+		files = [(files) for subdir, dirs, files in os.walk(files_dir+'/descriptores')]
+		return files
+	except:
+		if not os.path.exists(files_dir+'/descriptores'):
+			print ("No .json files found")
 
 def get_dics(files_dir):
 	"""
@@ -28,12 +33,16 @@ def get_dics(files_dir):
 
 	:param files_dir: directory where sounds are located
 	"""
-	for subdir, dirs, files in os.walk(files_dir+'/descriptores'):
-		dics = [json.load(open(subdir+'/'+f)) for f in files]  
-	return dics
+	try:
+		for subdir, dirs, files in os.walk(files_dir+'/descriptores'):
+			dics = [json.load(open(subdir+'/'+f)) for f in files]  
+		return dics
+	except:
+		if not os.path.exists(files_dir+'/descriptores'):
+			print ("No readable MIR data found")
 
 # plot sound similarity clusters
-def plot_similarity_clusters(files, dics):
+def plot_similarity_clusters(files, dics, plot = None):
 	"""
 	find similar sounds using Affinity Propagation clusters
 
@@ -42,18 +51,22 @@ def plot_similarity_clusters(files, dics):
 	:returns:
 	  - descriptors[first_descriptor_key], descriptors[second_descriptor_key]: the first descriptor used for clustering, the second descriptor used for clustering
 	  - euclidean_labels: labels of clusters
+	  - min_max: scaled values of features
+	  - y: principal component analysis of features
 	"""
 	descriptors = ['lowlevel.dissonance.mean', 'lowlevel.mfcc_bands.mean', 'sfx.inharmonicity.mean', 'rhythm.bpm.mean', 'lowlevel.spectral_contrast.mean', 'lowlevel.spectral_centroid.mean', 'metadata.duration.mean', 'lowlevel.mfcc.mean', 'loudness.level.mean', 'rhythm.bpm_ticks.mean', 'lowlevel.spectral_valleys.mean', 'sfx.logattacktime.mean', 'lowlevel.hfc.mean'] # modify according to features_and_keys 
 
 	features = re.findall(r"[+-]? *(?:\d+(?:\.\d*)?|\.\d+)(?:[eE][+-]?\d+)?", str(dics))    
 	files_features = np.array_split(features, np.array(files).size)  
-	      
-	zip_features_names = zip(*dics)
-	features_and_keys = [{'features':x, 'key':i} for i,x in enumerate(zip_features_names)]                
-	keys = [i for i,x in enumerate(features_and_keys)]
+               
+	keys = [i for i,x in enumerate(descriptors)]
 
-	print "Before clustering, it is necessary to know which descriptors are going to be used. First descriptor will be at the x axis of the plot and Second descriptor will be at the y axis of the plot."
-	print (Fore.GREEN + "(Descriptors on the left and Keys on the right)")
+	if plot == True:
+		print "Before clustering, it is necessary to know which descriptors are going to be used. First descriptor will be at the x axis of the plot and Second descriptor will be at the y axis of the plot"
+		print (Fore.GREEN + "(Descriptors on the left and Keys on the right)")
+	else:
+		pass
+
 	print np.vstack((descriptors,keys)).T
 
 	first_descriptor_key = input("Key of first list of descriptors: ")                                                                      
@@ -65,37 +78,46 @@ def plot_similarity_clusters(files, dics):
 	if second_descriptor_key not in keys:                                                                     
 		raise IndexError("Need keys of descriptors") 
 
-	print ("First descriptor is" + repr(descriptors[first_descriptor_key]))
-	print ("Second descriptor is" + repr(descriptors[second_descriptor_key]))
+	if plot == True:
 
-	time.sleep(2)
+		print ("First descriptor is" + repr(descriptors[first_descriptor_key]))
+		print ("Second descriptor is" + repr(descriptors[second_descriptor_key]))
 
-	print (Fore.MAGENTA + "Clustering")
+		time.sleep(2)
+
+		print (Fore.MAGENTA + "Clustering")
+	else:
+		pass
 		 
 	first_descriptor_values = (zip(*files_features)[first_descriptor_key])                                                                  
 	second_descriptor_values = (zip(*files_features)[second_descriptor_key])            
 
-	min_to_max = preprocessing.MinMaxScaler(feature_range=(-1, 1))          
-	lowest_to_highest = min_to_max.fit_transform(np.vstack((first_descriptor_values,second_descriptor_values)).T)   
+	min_max = preprocessing.scale(np.vstack((first_descriptor_values,second_descriptor_values)).T, with_mean=False, with_std=False)          
+	pca = PCA(n_components=2, whiten=True)
+	y = pca.fit(min_max).transform(min_max)     
 	euclidean = AffinityPropagation(convergence_iter=10, affinity='euclidean')                           
-	euclidean_labels= euclidean.fit_predict(lowest_to_highest)
+	euclidean_labels= euclidean.fit_predict(y)
 
-	time.sleep(5)  
+	if plot == True:
 
-	print (Fore.WHITE + "Cada número representa el grupo al que pertence el sonido como ejemplar de otro/s. El grupo '0' esta coloreado en azul, el grupo '1' esta coloreado en rojo, el grupo '2' esta coloreado en amarillo. Observa el ploteo para ver qué sonidos son ejemplares de otros")
-	print np.vstack((euclidean_labels,files)).T
+		time.sleep(5)  
 
-	time.sleep(6)
+		print (Fore.WHITE + "Cada número representa el grupo al que pertence el sonido como ejemplar de otro/s. El grupo '0' esta coloreado en azul, el grupo '1' esta coloreado en rojo, el grupo '2' esta coloreado en amarillo. Observa el ploteo para ver qué sonidos son ejemplares de otros")
+		print np.vstack((euclidean_labels,files)).T
 
-	plt.scatter(lowest_to_highest[euclidean_labels==0,0], lowest_to_highest[euclidean_labels==0,1], c='b')
-	plt.scatter(lowest_to_highest[euclidean_labels==1,0], lowest_to_highest[euclidean_labels==1,1], c='r')
-	plt.scatter(lowest_to_highest[euclidean_labels==2,0], lowest_to_highest[euclidean_labels==2,1], c='y')
-	plt.scatter(lowest_to_highest[euclidean_labels==3,0], lowest_to_highest[euclidean_labels==3,1], c='g')
-	plt.xlabel(str(descriptors[first_descriptor_key])+"(scaled)")
-	plt.ylabel(str(descriptors[second_descriptor_key])+"(scaled)")
-	plt.show()
+		time.sleep(6)
 
-	return descriptors[first_descriptor_key], descriptors[second_descriptor_key], euclidean_labels
+		plt.scatter(y[euclidean_labels==0,0], y[euclidean_labels==0,1], c='b')
+		plt.scatter(y[euclidean_labels==1,0], y[euclidean_labels==1,1], c='r')
+		plt.scatter(y[euclidean_labels==2,0], y[euclidean_labels==2,1], c='y')
+		plt.scatter(y[euclidean_labels==3,0], y[euclidean_labels==3,1], c='g')
+		plt.xlabel(str(descriptors[first_descriptor_key])+"(scaled)")
+		plt.ylabel(str(descriptors[second_descriptor_key])+"(scaled)")
+		plt.show()
+	else:
+		pass
+
+	return descriptors[first_descriptor_key], descriptors[second_descriptor_key], euclidean_labels, min_max, y
 
 
 # save clusters files in clusters directory
@@ -136,32 +158,40 @@ def bpm_cluster_files(files_dir, descriptor, euclidean_labels, files):
     files2 = [i.split('.json')[0] for i in group2]
                                                   
     for subdirs, dirs, sounds in os.walk(files_dir+'/tempo'):
-        for s in list(sounds):                               
-            sound_names = [s.split('tempo.wav')[0] for s in sounds]   
-            break                                                     
+        if subdirs == (files_dir+'/tempo'):
+            for s in sounds:
+                sound_names = [s.split('tempo.ogg')[0] for s in sounds]                                                  
                  
     files_1 = set(sound_names).intersection(files1)
     files_2 = set(sound_names).intersection(files2)
     try:                                           
         files_3 = set(sound_names).intersection(files3)
         if files_3:                                    
-                  os.mkdir(files_dir+'/tempo/2')
+                  os.makedirs(files_dir+'/tempo/2')
         for e in files_3:                          
-                  shutil.copy(files_dir+'/tempo/'+(str(e))+'tempo.wav', files_dir+'/tempo/2/'+(str(e))+'tempo.wav')          
+                  shutil.copy(files_dir+'/tempo/'+(str(e))+'tempo.ogg', files_dir+'/tempo/2/'+(str(e))+'tempo.ogg')          
     except:                                                                                                                  
             print ("Creating two directories of clusters") 
+    try:                                           
+        files_4 = set(sound_names).intersection(files4)
+        if files_4:                                    
+                  os.makedirs(files_dir+'/tempo/3')
+        for e in files_4:                          
+                  shutil.copy(files_dir+'/tempo/'+(str(e))+'tempo.ogg', files_dir+'/tempo/3/'+(str(e))+'tempo.ogg')          
+    except:                                                                                                                  
+            print ("Creating three directories of clusters") 
                                                            
     if files_1:                                               
-        os.mkdir(files_dir+'/tempo/0')                                    
+        os.makedirs(files_dir+'/tempo/0')                                    
                                       
     if files_2:                                               
-        os.mkdir(files_dir+'/tempo/1')                                                                       
+        os.makedirs(files_dir+'/tempo/1')                                                                       
                                         
     for e in files_1:
-        shutil.copy(files_dir+'/tempo/'+(str(e))+'tempo.wav', files_dir+'/tempo/0/'+(str(e))+'tempo.wav')
+        shutil.copy(files_dir+'/tempo/'+(str(e))+'tempo.ogg', files_dir+'/tempo/0/'+(str(e))+'tempo.ogg')
                                                                                          
     for e in files_2:
-        shutil.copy(files_dir+'/tempo/'+(str(e))+'tempo.wav', files_dir+'/tempo/1/'+(str(e))+'tempo.wav')
+        shutil.copy(files_dir+'/tempo/'+(str(e))+'tempo.ogg', files_dir+'/tempo/1/'+(str(e))+'tempo.ogg')
 
 # save mfcc clusters files in mfcc clusters directory
 def mfcc_cluster_files(files_dir, descriptor, euclidean_labels, files):
@@ -200,10 +230,10 @@ def mfcc_cluster_files(files_dir, descriptor, euclidean_labels, files):
     files1 = [i.split('.json')[0] for i in group1]
     files2 = [i.split('.json')[0] for i in group2]
 
-    for subdirs, dirs, sounds in os.walk(files_dir+'/mfcc'): 
-        for s in list(sounds):
-            sound_names = [s.split('mfcc.wav')[0] for s in sounds]
-            break
+    for subdirs, dirs, sounds in os.walk(files_dir+'/mfcc'):
+        if subdirs == (files_dir+'/mfcc'):
+            for s in sounds:
+                sound_names = [s.split('mfcc.ogg')[0] for s in sounds]
             
     files_1 = set(sound_names).intersection(files1)
     files_2 = set(sound_names).intersection(files2)
@@ -212,7 +242,7 @@ def mfcc_cluster_files(files_dir, descriptor, euclidean_labels, files):
         if files_3:
             os.mkdir(files_dir+'/mfcc/2')
         for e in files_3:
-            shutil.copy(files_dir+'/mfcc/'+(str(e))+'mfcc.wav', files_dir+'/mfcc/2/'+(str(e))+'mfcc.wav')
+            shutil.copy(files_dir+'/mfcc/'+(str(e))+'mfcc.ogg', files_dir+'/mfcc/2/'+(str(e))+'mfcc.ogg')
     except:
         print ("Creating two directories of clusters") 
 
@@ -223,10 +253,10 @@ def mfcc_cluster_files(files_dir, descriptor, euclidean_labels, files):
         os.mkdir(files_dir+'/mfcc/1')
 
     for e in files_1:
-        shutil.copy(files_dir+'/mfcc/'+(str(e))+'mfcc.wav', files_dir+'/mfcc/0/'+(str(e))+'mfcc.wav')
+        shutil.copy(files_dir+'/mfcc/'+(str(e))+'mfcc.ogg', files_dir+'/mfcc/0/'+(str(e))+'mfcc.ogg')
 
     for e in files_2:
-        shutil.copy(files_dir+'/mfcc/'+(str(e))+'mfcc.wav', files_dir+'/mfcc/1/'+(str(e))+'mfcc.wav')
+        shutil.copy(files_dir+'/mfcc/'+(str(e))+'mfcc.ogg', files_dir+'/mfcc/1/'+(str(e))+'mfcc.ogg')
 
 # save contrast cluster files in contrast cluster directory
 def contrast_cluster_files(files_dir, descriptor, euclidean_labels, files):
@@ -265,10 +295,10 @@ def contrast_cluster_files(files_dir, descriptor, euclidean_labels, files):
     files1 = [i.split('.json')[0] for i in group1]
     files2 = [i.split('.json')[0] for i in group2]
 
-    for subdirs, dirs, sounds in os.walk(files_dir+'/valleys'): 
-        for s in list(sounds):
-            sound_names = [s.split('contrast.wav')[0] for s in sounds]
-            break
+    for subdirs, dirs, sounds in os.walk(files_dir+'/valleys'):
+        if subdirs == (files_dir+'/valleys'):
+            for s in sounds:
+                sound_names = [s.split('contrast.ogg')[0] for s in sounds]
             
     files_1 = set(sound_names).intersection(files1)
     files_2 = set(sound_names).intersection(files2)
@@ -277,7 +307,7 @@ def contrast_cluster_files(files_dir, descriptor, euclidean_labels, files):
         if files_3:
             os.mkdir(files_dir+'/valleys/2')
         for e in files_3:
-            shutil.copy(files_dir+'/valleys/'+(str(e))+'contrast.wav', files_dir+'/valleys/2/'+(str(e))+'contrast.wav')
+            shutil.copy(files_dir+'/valleys/'+(str(e))+'contrast.ogg', files_dir+'/valleys/2/'+(str(e))+'contrast.ogg')
     except:
         print ("Creating two directories of clusters") 
 
@@ -288,10 +318,10 @@ def contrast_cluster_files(files_dir, descriptor, euclidean_labels, files):
         os.mkdir(files_dir+'/valleys/1')
 
     for e in files_1:
-        shutil.copy(files_dir+'/valleys/'+(str(e))+'contrast.wav', files_dir+'/valleys/0/'+(str(e))+'contrast.wav')
+        shutil.copy(files_dir+'/valleys/'+(str(e))+'contrast.ogg', files_dir+'/valleys/0/'+(str(e))+'contrast.ogg')
 
     for e in files_2:
-        shutil.copy(files_dir+'/valleys/'+(str(e))+'contrast.wav', files_dir+'/valleys/1/'+(str(e))+'contrast.wav')
+        shutil.copy(files_dir+'/valleys/'+(str(e))+'contrast.ogg', files_dir+'/valleys/1/'+(str(e))+'contrast.ogg')
 
 # save centroid cluster files in centroid cluster directory
 def centroid_cluster_files(files_dir, descriptor, euclidean_labels, files):
@@ -330,10 +360,10 @@ def centroid_cluster_files(files_dir, descriptor, euclidean_labels, files):
     files1 = [i.split('.json')[0] for i in group1]
     files2 = [i.split('.json')[0] for i in group2]
 
-    for subdirs, dirs, sounds in os.walk(files_dir+'/centroid'): 
-        for s in list(sounds):
-            sound_names = [s.split('centroid.wav')[0] for s in sounds]
-            break
+    for subdirs, dirs, sounds in os.walk(files_dir+'/centroid'):
+        if subdirs == (files_dir+'/centroid'):
+            for s in sounds:
+                sound_names = [s.split('centroid.ogg')[0] for s in sounds]
             
     files_1 = set(sound_names).intersection(files1)
     files_2 = set(sound_names).intersection(files2)
@@ -342,7 +372,7 @@ def centroid_cluster_files(files_dir, descriptor, euclidean_labels, files):
         if files_3:
             os.mkdir(files_dir+'/centroid/2')
         for e in files_3:
-            shutil.copy(files_dir+'/centroid/'+(str(e))+'centroid.wav', files_dir+'/centroid/2/'+(str(e))+'centroid.wav')
+            shutil.copy(files_dir+'/centroid/'+(str(e))+'centroid.ogg', files_dir+'/centroid/2/'+(str(e))+'centroid.ogg')
     except:
         print ("Creating two directories of clusters")
 
@@ -351,7 +381,7 @@ def centroid_cluster_files(files_dir, descriptor, euclidean_labels, files):
         if files_4:
             os.mkdir(files_dir+'/centroid/3')
         for e in files_4:
-            shutil.copy(files_dir+'/centroid/'+(str(e))+'centroid.wav', files_dir+'/centroid/3/'+(str(e))+'centroid.wav')
+            shutil.copy(files_dir+'/centroid/'+(str(e))+'centroid.ogg', files_dir+'/centroid/3/'+(str(e))+'centroid.ogg')
     except:
         print ("Creating directories of clusters")  
 
@@ -362,10 +392,10 @@ def centroid_cluster_files(files_dir, descriptor, euclidean_labels, files):
         os.mkdir(files_dir+'/centroid/1')
 
     for e in files_1:
-        shutil.copy(files_dir+'/centroid/'+(str(e))+'centroid.wav', files_dir+'/centroid/0/'+(str(e))+'centroid.wav')
+        shutil.copy(files_dir+'/centroid/'+(str(e))+'centroid.ogg', files_dir+'/centroid/0/'+(str(e))+'centroid.ogg')
 
     for e in files_2:
-        shutil.copy(files_dir+'/centroid/'+(str(e))+'centroid.wav', files_dir+'/centroid/1/'+(str(e))+'centroid.wav')
+        shutil.copy(files_dir+'/centroid/'+(str(e))+'centroid.ogg', files_dir+'/centroid/1/'+(str(e))+'centroid.ogg')
 
 # save loudness cluster files in loudness cluster directory
 def loudness_cluster_files(files_dir, descriptor, euclidean_labels, files):
@@ -405,10 +435,10 @@ def loudness_cluster_files(files_dir, descriptor, euclidean_labels, files):
     files1 = [i.split('.json')[0] for i in group1]
     files2 = [i.split('.json')[0] for i in group2]
 
-    for subdirs, dirs, sounds in os.walk(files_dir+'/loudness'): 
-        for s in list(sounds):
-            sound_names = [s.split('loudness.wav')[0] for s in sounds]
-            break
+    for subdirs, dirs, sounds in os.walk(files_dir+'/loudness'):
+        if subdirs == (files_dir+'/loudness'):
+            for s in sounds:
+                sound_names = [s.split('loudness.ogg')[0] for s in sounds]
             
     files_1 = set(sound_names).intersection(files1)
     files_2 = set(sound_names).intersection(files2)
@@ -417,7 +447,7 @@ def loudness_cluster_files(files_dir, descriptor, euclidean_labels, files):
         if files_3:
             os.mkdir(files_dir+'/loudness/2')
         for e in files_3:
-            shutil.copy(files_dir+'/loudness/'+(str(e))+'loudness.wav', files_dir+'/loudness/2/'+(str(e))+'loudness.wav')
+            shutil.copy(files_dir+'/loudness/'+(str(e))+'loudness.ogg', files_dir+'/loudness/2/'+(str(e))+'loudness.ogg')
     except:
         print ("Creating two directories of clusters") 
 
@@ -426,7 +456,7 @@ def loudness_cluster_files(files_dir, descriptor, euclidean_labels, files):
         if files_4:
             os.mkdir(files_dir+'/loudness/3')
         for e in files_4:
-            shutil.copy(files_dir+'/loudness/'+(str(e))+'loudness.wav', files_dir+'/loudness/3/'+(str(e))+'loudness.wav')
+            shutil.copy(files_dir+'/loudness/'+(str(e))+'loudness.ogg', files_dir+'/loudness/3/'+(str(e))+'loudness.ogg')
     except:
         print ("Creating directories of clusters") 
 
@@ -437,10 +467,10 @@ def loudness_cluster_files(files_dir, descriptor, euclidean_labels, files):
         os.mkdir(files_dir+'/loudness/1')
 
     for e in files_1:
-        shutil.copy(files_dir+'/loudness/'+(str(e))+'loudness.wav', files_dir+'/loudness/0/'+(str(e))+'loudness.wav')
+        shutil.copy(files_dir+'/loudness/'+(str(e))+'loudness.ogg', files_dir+'/loudness/0/'+(str(e))+'loudness.ogg')
 
     for e in files_2:
-        shutil.copy(files_dir+'/loudness/'+(str(e))+'loudness.wav', files_dir+'/loudness/1/'+(str(e))+'loudness.wav') 
+        shutil.copy(files_dir+'/loudness/'+(str(e))+'loudness.ogg', files_dir+'/loudness/1/'+(str(e))+'loudness.ogg') 
 
 # save hfc cluster files in hfc cluster directory
 def hfc_cluster_files(files_dir, descriptor, euclidean_labels, files):
@@ -479,10 +509,10 @@ def hfc_cluster_files(files_dir, descriptor, euclidean_labels, files):
     files1 = [i.split('.json')[0] for i in group1]
     files2 = [i.split('.json')[0] for i in group2]
 
-    for subdirs, dirs, sounds in os.walk(files_dir+'/hfc'): 
-        for s in list(sounds):
-            sound_names = [s.split('hfc.wav')[0] for s in sounds]
-            break
+    for subdirs, dirs, sounds in os.walk(files_dir+'/hfc'):
+        if subdirs == (files_dir+'/hfc'):
+            for s in sounds:
+                sound_names = [s.split('hfc.ogg')[0] for s in sounds]
             
     files_1 = set(sound_names).intersection(files1)
     files_2 = set(sound_names).intersection(files2)
@@ -491,7 +521,7 @@ def hfc_cluster_files(files_dir, descriptor, euclidean_labels, files):
         if files_3:
             os.mkdir(files_dir+'/hfc/2')
         for e in files_3:
-            shutil.copy(files_dir+'/hfc/'+(str(e))+'hfc.wav', files_dir+'/hfc/2/'+(str(e))+'hfc.wav')
+            shutil.copy(files_dir+'/hfc/'+(str(e))+'hfc.ogg', files_dir+'/hfc/2/'+(str(e))+'hfc.ogg')
     except:
         print ("Creating two directories of clusters") 
 
@@ -500,7 +530,7 @@ def hfc_cluster_files(files_dir, descriptor, euclidean_labels, files):
         if files_4:
             os.mkdir(files_dir+'/hfc/3')
         for e in files_4:
-            shutil.copy(files_dir+'/hfc/'+(str(e))+'hfc.wav', files_dir+'/hfc/3/'+(str(e))+'hfc.wav')
+            shutil.copy(files_dir+'/hfc/'+(str(e))+'hfc.ogg', files_dir+'/hfc/3/'+(str(e))+'hfc.ogg')
     except:
         print ("Creating directories of clusters") 
 
@@ -511,10 +541,10 @@ def hfc_cluster_files(files_dir, descriptor, euclidean_labels, files):
         os.mkdir(files_dir+'/hfc/1')
 
     for e in files_1:
-        shutil.copy(files_dir+'/hfc/'+(str(e))+'hfc.wav', files_dir+'/hfc/0/'+(str(e))+'hfc.wav')
+        shutil.copy(files_dir+'/hfc/'+(str(e))+'hfc.ogg', files_dir+'/hfc/0/'+(str(e))+'hfc.ogg')
 
     for e in files_2:
-        shutil.copy(files_dir+'/hfc/'+(str(e))+'hfc.wav', files_dir+'/hfc/1/'+(str(e))+'hfc.wav')
+        shutil.copy(files_dir+'/hfc/'+(str(e))+'hfc.ogg', files_dir+'/hfc/1/'+(str(e))+'hfc.ogg')
 
 
 # save inharmonicity cluster files in inharmonicity cluster directory
@@ -554,10 +584,10 @@ def inharmonicity_cluster_files(files_dir, descriptor, euclidean_labels, files):
     files1 = [i.split('.json')[0] for i in group1]
     files2 = [i.split('.json')[0] for i in group2]
 
-    for subdirs, dirs, sounds in os.walk(files_dir+'/inharmonicity'): 
-        for s in list(sounds):
-            sound_names = [s.split('inharmonicity.wav')[0] for s in sounds]
-            break
+    for subdirs, dirs, sounds in os.walk(files_dir+'/inharmonicity'):
+        if subdirs == (files_dir+'/inharmonicity'):
+            for s in sounds:
+                sound_names = [s.split('inharmonicity.ogg')[0] for s in sounds]
             
     files_1 = set(sound_names).intersection(files1)
     files_2 = set(sound_names).intersection(files2)
@@ -566,7 +596,7 @@ def inharmonicity_cluster_files(files_dir, descriptor, euclidean_labels, files):
         if files_3:
             os.mkdir(files_dir+'/inharmonicity/2')
         for e in files_3:
-            shutil.copy(files_dir+'/inharmonicity/'+(str(e))+'inharmonicity.wav', files_dir+'/inharmonicity/2/'+(str(e))+'inharmonicity.wav')
+            shutil.copy(files_dir+'/inharmonicity/'+(str(e))+'inharmonicity.ogg', files_dir+'/inharmonicity/2/'+(str(e))+'inharmonicity.ogg')
     except:
         print ("Creating two directories of clusters") 
 
@@ -575,7 +605,7 @@ def inharmonicity_cluster_files(files_dir, descriptor, euclidean_labels, files):
         if files_4:
             os.mkdir(files_dir+'/inharmonicity/3')
         for e in files_4:
-            shutil.copy(files_dir+'/inharmonicity/'+(str(e))+'inharmonicity.wav', files_dir+'/inharmonicity/3/'+(str(e))+'inharmonicity.wav')
+            shutil.copy(files_dir+'/inharmonicity/'+(str(e))+'inharmonicity.ogg', files_dir+'/inharmonicity/3/'+(str(e))+'inharmonicity.ogg')
     except:
         print ("Creating directories of clusters") 
 
@@ -586,10 +616,10 @@ def inharmonicity_cluster_files(files_dir, descriptor, euclidean_labels, files):
         os.mkdir(files_dir+'/inharmonicity/1')
 
     for e in files_1:
-        shutil.copy(files_dir+'/inharmonicity/'+(str(e))+'inharmonicity.wav', files_dir+'/inharmonicity/0/'+(str(e))+'inharmonicity.wav')
+        shutil.copy(files_dir+'/inharmonicity/'+(str(e))+'inharmonicity.ogg', files_dir+'/inharmonicity/0/'+(str(e))+'inharmonicity.ogg')
 
     for e in files_2:
-        shutil.copy(files_dir+'/inharmonicity/'+(str(e))+'inharmonicity.wav', files_dir+'/inharmonicity/1/'+(str(e))+'inharmonicity.wav')
+        shutil.copy(files_dir+'/inharmonicity/'+(str(e))+'inharmonicity.ogg', files_dir+'/inharmonicity/1/'+(str(e))+'inharmonicity.ogg')
 
 
 # save dissonance cluster files in dissonance cluster directory
@@ -629,10 +659,10 @@ def dissonance_cluster_files(files_dir, descriptor, euclidean_labels, files):
     files1 = [i.split('.json')[0] for i in group1]
     files2 = [i.split('.json')[0] for i in group2]
 
-    for subdirs, dirs, sounds in os.walk(files_dir+'/dissonance'): 
-        for s in list(sounds):
-            sound_names = [s.split('dissonance.wav')[0] for s in sounds]
-            break
+    for subdirs, dirs, sounds in os.walk(files_dir+'/dissonance'):
+        if subdirs == (files_dir+'/dissonance'):
+            for s in sounds:
+                sound_names = [s.split('dissonance.ogg')[0] for s in sounds]
             
     files_1 = set(sound_names).intersection(files1)
     files_2 = set(sound_names).intersection(files2)
@@ -641,7 +671,7 @@ def dissonance_cluster_files(files_dir, descriptor, euclidean_labels, files):
         if files_3:
             os.mkdir(files_dir+'/dissonance/2')
         for e in files_3:
-            shutil.copy(files_dir+'/dissonance/'+(str(e))+'dissonance.wav', files_dir+'/dissonance/2/'+(str(e))+'dissonance.wav')
+            shutil.copy(files_dir+'/dissonance/'+(str(e))+'dissonance.ogg', files_dir+'/dissonance/2/'+(str(e))+'dissonance.ogg')
     except:
         print ("Creating two directories of clusters") 
 
@@ -650,7 +680,7 @@ def dissonance_cluster_files(files_dir, descriptor, euclidean_labels, files):
         if files_4:
             os.mkdir(files_dir+'/dissonance/3')
         for e in files_4:
-            shutil.copy(files_dir+'/dissonance/'+(str(e))+'dissonance.wav', files_dir+'/dissonance/3/'+(str(e))+'dissonance.wav')
+            shutil.copy(files_dir+'/dissonance/'+(str(e))+'dissonance.ogg', files_dir+'/dissonance/3/'+(str(e))+'dissonance.ogg')
     except:
         print ("Creating directories of clusters") 
 
@@ -661,10 +691,10 @@ def dissonance_cluster_files(files_dir, descriptor, euclidean_labels, files):
         os.mkdir(files_dir+'/dissonance/1')
 
     for e in files_1:
-        shutil.copy(files_dir+'/dissonance/'+(str(e))+'dissonance.wav', files_dir+'/dissonance/0/'+(str(e))+'dissonance.wav')
+        shutil.copy(files_dir+'/dissonance/'+(str(e))+'dissonance.ogg', files_dir+'/dissonance/0/'+(str(e))+'dissonance.ogg')
 
     for e in files_2:
-        shutil.copy(files_dir+'/dissonance/'+(str(e))+'dissonance.wav', files_dir+'/dissonance/1/'+(str(e))+'dissonance.wav')
+        shutil.copy(files_dir+'/dissonance/'+(str(e))+'dissonance.ogg', files_dir+'/dissonance/1/'+(str(e))+'dissonance.ogg')
 
 
 # save attack cluster files in attack cluster directory
@@ -704,10 +734,10 @@ def attack_cluster_files(files_dir, descriptor, euclidean_labels, files):
     files1 = [i.split('.json')[0] for i in group1]
     files2 = [i.split('.json')[0] for i in group2]
 
-    for subdirs, dirs, sounds in os.walk(files_dir+'/attack'): 
-        for s in list(sounds):
-            sound_names = [s.split('attack.wav')[0] for s in sounds]
-            break
+    for subdirs, dirs, sounds in os.walk(files_dir+'/attack'):
+        if subdirs == (files_dir+'/attack'):
+            for s in sounds:
+                sound_names = [s.split('attack.ogg')[0] for s in sounds]
             
     files_1 = set(sound_names).intersection(files1)
     files_2 = set(sound_names).intersection(files2)
@@ -716,7 +746,7 @@ def attack_cluster_files(files_dir, descriptor, euclidean_labels, files):
         if files_3:
             os.mkdir(files_dir+'/attack/2')
         for e in files_3:
-            shutil.copy(files_dir+'/attack/'+(str(e))+'attack.wav', files_dir+'/attack/2/'+(str(e))+'attack.wav')
+            shutil.copy(files_dir+'/attack/'+(str(e))+'attack.ogg', files_dir+'/attack/2/'+(str(e))+'attack.ogg')
     except:
         print ("Creating two directories of clusters") 
 
@@ -725,7 +755,7 @@ def attack_cluster_files(files_dir, descriptor, euclidean_labels, files):
         if files_4:
             os.mkdir(files_dir+'/attack/3')
         for e in files_4:
-            shutil.copy(files_dir+'/attack/'+(str(e))+'attack.wav', files_dir+'/attack/3/'+(str(e))+'attack.wav')
+            shutil.copy(files_dir+'/attack/'+(str(e))+'attack.ogg', files_dir+'/attack/3/'+(str(e))+'attack.ogg')
     except:
         print ("Creating directories of clusters") 
 
@@ -736,10 +766,10 @@ def attack_cluster_files(files_dir, descriptor, euclidean_labels, files):
         os.mkdir(files_dir+'/attack/1')
 
     for e in files_1:
-        shutil.copy(files_dir+'/attack/'+(str(e))+'attack.wav', files_dir+'/attack/0/'+(str(e))+'attack.wav')
+        shutil.copy(files_dir+'/attack/'+(str(e))+'attack.ogg', files_dir+'/attack/0/'+(str(e))+'attack.ogg')
 
     for e in files_2:
-        shutil.copy(files_dir+'/attack/'+(str(e))+'attack.wav', files_dir+'/attack/1/'+(str(e))+'attack.wav')
+        shutil.copy(files_dir+'/attack/'+(str(e))+'attack.ogg', files_dir+'/attack/1/'+(str(e))+'attack.ogg')
  
 
 # save duration cluster files in dissonance cluster directory
@@ -779,10 +809,10 @@ def duration_cluster_files(files_dir, descriptor, euclidean_labels, files):
     files1 = [i.split('.json')[0] for i in group1]
     files2 = [i.split('.json')[0] for i in group2]
 
-    for subdirs, dirs, sounds in os.walk(files_dir+'/duration'): 
-        for s in list(sounds):
-            sound_names = [s.split('.ogg')[0] for s in sounds]
-            break
+    for subdirs, dirs, sounds in os.walk(files_dir+'/duration'):
+        if subdirs == (files_dir+'/duration'):
+            for s in sounds:
+                sound_names = [s.split('duration.ogg')[0] for s in sounds]
             
     files_1 = set(sound_names).intersection(files1)
     files_2 = set(sound_names).intersection(files2)
@@ -833,7 +863,7 @@ if __name__ == '__main__':
 
 	files = get_files(files_dir)
 	dics = get_dics(files_dir)
-	desc1, desc2, euclidean_labels = plot_similarity_clusters(files, dics)
+	desc1, desc2, euclidean_labels, min_max, y = plot_similarity_clusters(files, dics, plot = True)
 
 	time.sleep(2)
 
