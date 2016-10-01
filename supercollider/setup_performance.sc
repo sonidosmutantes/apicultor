@@ -29,6 +29,10 @@ s.boot; //start server
 SynthDef(\playBufMono, {| out = 0, bufnum = 0, vol=1, rate = 1 |  var scaledRate, player;
 scaledRate = rate * BufRateScale.kr(bufnum);  player = PlayBuf.ar(1, bufnum,scaledRate, doneAction:2);  Out.ar(out, vol * player).dup }).add;
 
+SynthDef(\playBufMonoM, {| out = 0, bufnum = 0, vol=1, rate = 1 |  var scaledRate, player;
+scaledRate = rate * BufRateScale.kr(bufnum);  player = PlayBuf.ar(1, bufnum,scaledRate, doneAction:2);  Out.ar(out, vol * player) }).add;
+
+
 /*
 Testing PAN
 
@@ -94,9 +98,11 @@ j = Synth(\mutantefreeze, [\bufnum, ~bank2d, \out, ~channel, \vol, 0]);
 //SOUNDS MODS
 x.set(\out, 2);
 x.set(\out, 0);
-x.set(\out, 4);
+x.set(\out, 7);
 
-x.set(\vol, 0.5);
+x.set(\vol, 0.3);
+
+x.set(\vol, 0);
 // ~rate = 0.5; //half speed
 
 //Trigger sound with pads
@@ -233,13 +239,35 @@ MIDIFunc.noteOn({ |veloc, num, chan, src|
 				~speaker2 = 1;
 		        //r = Synth(\playBufMono, [\out, ~speaker0, \bufnum, a.bufnum, \rate, 1]); //e @ L channel
 				r = Synth(\playBufMono, [\out, ~speaker1, \bufnum, a, \rate, 1]); //e @ R channel
+	x.free;
+		r.free;
 	});
 	//B
 	if(num == 37,{
 	        	("Pad 37").postln;
+
+				m = 15; //Length of sound list (TODO: retrieve from API) FIXME
+
+		//Get a new sample file from apicultor (duration < 1 )
+		format("curl http://%:5000/search/mir/samples/duration/lessthan/1000/% -o /Users/hordia/desc.tmp", ~ip,m).unixCmd; //mac os
+
+		//FIXME: wait to download here? (takes effect next time)
+
+		f = FileReader.read("/Users/hordia/desc.tmp".standardizePath); //array
+        v = f.at(m.rand)[0]; //select a random value from array (0..10 range)
+        v.postln(); //selected file
+        f = ("/Users/hordia/Documents/vmshared"+v.replace("./","/")).replace(" ",""); //trim spaces (TODO: check why there is an extra space in the path)
+
+        a = Buffer.read(s, f ); // new buffer A
+
+		//plays new sample (two channels)
+		y = Synth(\mutantefreeze, [\bufnum, a, \out, ~channel, \vol, 0]);
+		        //plays new sample
 				//plays new sample
-				r = Synth(\playBufMono, [\out, 0, \bufnum, g.bufnum, \rate, 1]); //g @ L channel
-				r = Synth(\playBufMono, [\out, 1, \bufnum, g.bufnum, \rate, 1]); //g @ R channel
+		        ~speaker1 = 0;
+				~speaker2 = 1;
+		        r = Synth(\playBufMono, [\out, ~speaker1, \bufnum, a, \rate, 21.5]); //e @ L channel
+				r = Synth(\playBufMono, [\out, ~speaker2, \bufnum, a, \rate, 0.1]); //e @ R channel
 	});
 	if(num == 38,{
 	        	("Pad 38").postln;
@@ -316,7 +344,7 @@ MIDIFunc.noteOn({ |veloc, num, chan, src|
 };*/
 
 MIDIIn.control = {arg src, chan, num, val;
-	//[chan,num,val].postln; //monitor
+	[chan,num,val].postln; //monitor
 
 	//TODO: add PAN control (spacialization)
 

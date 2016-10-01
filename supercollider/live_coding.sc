@@ -7,16 +7,28 @@ Buffer.freeAll; // no sound
 
 MIDIIn.connectAll;
 
+///-------------------------
+//Live coding
+// Sonidos disparados a mano, con difrente rate
+//dinosaurio jurasico
+r = Synth(\playBufMono, [\out, ~speaker1, \bufnum, ~bank1a, \rate, 0.1]); //e @ L channel
+r = Synth(\playBufMono, [\out, ~speaker2, \bufnum, ~bank1a, \rate, 0.1]); //e @ R channel
+
+
+
+r = Synth(\playBufMono, [\out, ~speaker1, \bufnum, ~bank1d, \rate, 0.5]); //e @ R channel
+
+
+---------
 //function
 	f = { arg a, b = 2; a + b; };
 	a = f.value(2);
     a;
 
-r = Synth(\playBufMono, [\bufnum, ~bank1a.bufnum, \rate, 0.5]); //buffer a at half speed
-r = Synth(\playBufMono, [\bufnum, ~bank1a.bufnum, \rate, 1, \out, 3]); //buffer full speed
-r = Synth(\playBufMono, [\bufnum, a.bufnum, \rate, 0.5]); //buffer a at half speed
+//----------
 
-r = Synth(\mutantefreeze, [\bufnum, a.bufnum, \rate, 1]); //
+  r = Synth(\playBufMono, [\out, ~speaker1, \bufnum, a, \rate, 21.5]); //e @ L channel
+
 
 //g =Buffer.read(s, "/Users/hordia/Documents/vmshared/samples/Cuesta_caminar_batero_sample2.wav" );
 i=Buffer.read(s, "/Users/hordia/Documents/vmshared/samples/1291_sample2.wav" );
