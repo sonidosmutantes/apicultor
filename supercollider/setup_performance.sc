@@ -8,7 +8,11 @@ s.boot; //start server
 //TODO configure L & R channels (different synths or configuration (via midi)
 //TODO: add multichannel support
 
-~bank1a = Buffer.read(s, "/Users/hordia/Documents/vmshared/samples/1194_sample1.wav"); // tabla
+~samples = "/home/hordia/dev/apicultor/samples/"; //linux
+~samples = "C:\\Users\\hordia\\Documents\\Mutantes\\samples\\"; //windows
+~samples = "/Users/hordia/Documents/vmshared/samples/"; //mac
+
+~bank1a = Buffer.read(s, (~samples+"1194_sample1.wav").replace(" ","")); // tabla
 ~bank1b = Buffer.read(s, "/Users/hordia/Documents/vmshared/samples/1264_sample0.wav");
 ~bank1c = Buffer.read(s, "/Users/hordia/Documents/vmshared/samples/982_sample1.wav");
 ~bank1d = Buffer.read(s, "/Users/hordia/Documents/vmshared/samples/795_sample1.wav"); //Variable buffer!
