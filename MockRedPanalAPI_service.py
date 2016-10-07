@@ -59,21 +59,24 @@ def get_list_of_files_comparing(FILES_PATH, querydescriptor, fixedfloatvalue, co
             filename, extension = os.path.splitext(f)
             if extension!=".json":
                 continue
-            desc = json.load( open(FILES_PATH + "/" + filename + ".json",'r') )
-
+            try:
+                #FIXME: lista .json q después no puede abrir (?)
+                desc = json.load( open(FILES_PATH + "/" + filename + ".json",'r') )
             # print filename+extension
         # try:
-            value = float(desc[querydescriptor])
-            if comp==">":
-                if value>comp_value:
-                    print filename+extension, value
-                    # outlist += subdir+'/'+ f + "\n"
-                    outlist.append(subdir+'/'+ filename + ".wav") #TODO: check if it's always a wav file (or filter it)
-            elif comp=="<":
-                if value<comp_value:
-                    print filename+extension, value
-                    # outlist += subdir+'/'+ f + "\n"
+                value = float(desc[querydescriptor])
+                if comp==">":
+                    if value>comp_value:
+                        print filename+extension, value
+                        # outlist += subdir+'/'+ f + "\n"
+                        outlist.append(subdir+'/'+ filename + ".wav") #TODO: check if it's always a wav file (or filter it)
+                elif comp=="<":
+                    if value<comp_value:
+                        print filename+extension, value
+                        # outlist += subdir+'/'+ f + "\n"
                     outlist.append(subdir+'/'+ filename + ".wav")
+            except Exception, e:
+                app.logger.error( e )
         # except Exception, e:
         #     app.logger.error( e )
     return outlist
@@ -182,6 +185,8 @@ def get_search_mir_query_less(querydescriptor, fixedfloatvalue, maxnumber):
     output = ""
     for f in top5:
         output += f + "\n"
+    print "output"
+    print output
     return(output)
 
 
