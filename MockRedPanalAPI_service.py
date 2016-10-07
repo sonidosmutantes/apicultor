@@ -17,6 +17,10 @@ SAMPLES_PATH = "./samples"
 app = flask.Flask(__name__)
 auto = Autodoc(app)
 
+"""
+Allowed extensions by redpanal.org are: mp3, ogg, oga, flac
+.wav is not included, but useful for internal representations
+"""
 ext_filter = ['.mp3','.ogg','.ogg','.wav']
 
 #########################
