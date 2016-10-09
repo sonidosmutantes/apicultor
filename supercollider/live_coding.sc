@@ -3,6 +3,31 @@ s.boot; //start server
 
 ~ip.postln; //apicultor ws ip
 
+// create a server object that will run on the local host using port #58009
+s = Server(\myServer, NetAddr("10.142.39.136", 4559));
+s.boot; //start the server
+s.quit; // quit the server
+
+
+(
+SynthDef("sine", { arg freq=800;
+	var osc;
+	osc = SinOsc.ar(freq, 0, 0.1); // 800 Hz sine oscillator
+	Out.ar(0, osc); // send output to audio bus zero.
+}).writeDefFile; // write the def to disk in the default directory synthdefs/
+)
+
+//Send the SynthDef to the server.
+s.sendSynthDef("sine");
+
+//Start the sound. The /s_new command creates a new Synth which is an instance of the "sine" SynthDef. Each synth running on the server needs to have a unique ID. The simplest and safest way to do this is to get an ID from the server's NodeIDAllocator. This will automatically allow IDs to be reused, and will prevent conflicts both with your own nodes, and with nodes created automatically for purposes such as visual scoping and recording. Each synth needs to be installed in a Group. We install it in group one which is the default group. There is a group zero, called the RootNode, which contains the default group, but it is generally best not to use it as doing so can result in order of execution issues with automatically created nodes such as those mentioned above. (For more detail see the default_group, RootNode, and Order-of-execution helpfiles.)
+s.sendMsg("/s_new", "sine", x = s.nextNodeID, 1, 1);
+
+//Stop the sound.
+s.sendMsg("/n_free", x);
+
+---------
+
 Buffer.freeAll; // no sound
 
 MIDIIn.connectAll;
@@ -15,8 +40,10 @@ r = Synth(\playBufMono, [\out, ~speaker1, \bufnum, ~bank1a, \rate, 0.1]); //e @ 
 r = Synth(\playBufMono, [\out, ~speaker2, \bufnum, ~bank1a, \rate, 0.1]); //e @ R channel
 
 
+r = Synth(\playBufMono, [\out, ~speaker2, \bufnum, ~bank1c, \rate, 0.01]); //e @ R channel
 
-r = Synth(\playBufMono, [\out, ~speaker1, \bufnum, ~bank1d, \rate, 0.5]); //e @ R channel
+//TODO: ventanear bank1d (el sample, corta mucho) pero se escucha bien, como explosiones
+r = Synth(\playBufMono, [\out, ~speaker1, \bufnum, ~bank1d, \rate, 0.1]); //e @ R channel
 
 
 ---------
