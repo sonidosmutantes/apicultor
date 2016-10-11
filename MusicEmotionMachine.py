@@ -128,11 +128,29 @@ class deep_support_vector_machines(object):
 	:returns:
 	  - pk: inner product
 	"""
+        c = 0.5
+
+        degree = 5
+
         gamma = 1.0/x.shape[1]
+
         pk = ssd(x, y.T, dense_output = True)
+
         pk *= gamma
-        pk += 1
-        pk **= 5
+
+        while np.all(pk + c > 1) == True:
+            c -= 0.1
+            if c == 0:
+                pass
+
+        pk += c
+
+        while np.all(pk ** degree == 0.0) == True:
+           degree -= 1
+           if degree == 2:
+                pass
+
+        pk **= degree
         return pk
     def support_vectors(self, layer_support, data):
 	"""
@@ -155,15 +173,19 @@ class deep_support_vector_machines(object):
 	  - theta: w
 	"""              
         theta = w   
-        for j in range(0, 15):
+        for j in range(0, 150):
             dataIndex = range(features.shape[0])
             for i in range(features.shape[0]):
                 alpha = 4/(1.0+j+i)+0.01
                 randIndex = int(random.uniform(0,len(dataIndex)))
-                h = 1 / (1 + np.exp(1-(features[randIndex]*theta)))  
+                h = 1 / (1 + np.exp(1-(sum(features[randIndex]*theta))))  
                 error = labels[randIndex] - h
-                theta = theta + alpha * error * features[randIndex].T 
+                theta = theta + (alpha * features[randIndex] * error) - (2 * np.mean(theta))
                 del(dataIndex[randIndex])
+                if np.all(theta >= 0.1) == True:                                   
+                    return theta      
+                if np.all(theta >= 0.1) == False:      
+                    continue   
         return theta
     def gradient_descent(self, features, labels, w):
 	"""
@@ -897,7 +919,7 @@ def multitag_emotions_dir(tags_dirs, negative_emotion_files, positive_emotion_fi
     :param pos_arous_dir: directory where sounds with positive arousal value will be placed
                                                                                                                                                                          
     """                                                                                         
-    files_format = ['.mp3', '.ogg', '.undefined', '.wav']
+    files_format = ['.mp3', '.ogg', '.undefined', '.wav', '.mid', '.wma', '.amr']
 
     if positive_emotion_files:
         print (repr(positive_emotion_files)+"By arousal, emotion is happy and angry, not sad and not relaxed")
