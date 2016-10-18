@@ -3,25 +3,29 @@ s.boot; //start server
 //----------------------
 //----------------------
 
-~ip= "192.168.56.101"; //APIcultor WebService IP @VM
+~ip= "2101"; //APIcultor WebService IP @VM
 
 //TODO configure L & R channels (different synths or configuration (via midi)
 //TODO: add multichannel support
 
-~bank1a = Buffer.read(s, "/Users/hordia/Documents/vmshared/samples/1194_sample1.wav"); // tabla
-~bank1b = Buffer.read(s, "/Users/hordia/Documents/vmshared/samples/1264_sample0.wav");
-~bank1c = Buffer.read(s, "/Users/hordia/Documents/vmshared/samples/982_sample1.wav");
-~bank1d = Buffer.read(s, "/Users/hordia/Documents/vmshared/samples/795_sample1.wav"); //Variable buffer!
+~samples = "/home/hordia/dev/apicultor/samples/"; //linux
+~samples = "C:\\Users\\hordia\\Documents\\Mutantes\\samples\\"; //windows
+~samples = "/Users/hordia/Documents/vmshared/samples/"; //mac
+
+~bank1a = Buffer.read(s, (~samples+"1194_sample1.wav").replace(" ","")); // tabla
+~bank1b = Buffer.read(s, (~samples+"1264_sample0.wav").replace(" ",""));
+~bank1c = Buffer.read(s, (~samples+"982_sample1.wav").replace(" ",""));
+~bank1d = Buffer.read(s, (~samples+"795_sample1.wav").replace(" ","")); //Variable buffer!
 
 // Buffer.read(s, "/Users/hordia/Documents/vmshared/samples/1264_sample0.wav");
 // Buffer.read(s, "/Users/hordia/Documents/vmshared/samples/506_sample0.wav"); // tic
 // Buffer.read(s, "/Users/hordia/Documents/vmshared/samples/982_sample3.wav"); // bajo
 // Buffer.read(s, "/Users/hordia/Documents/vmshared/samples/1291_sample2.wav"); // chingi chingi
 
-~bank2a = Buffer.read(s, "/Users/hordia/Documents/vmshared/samples/1065_sample.wav" );
-~bank2b = Buffer.read(s, "/Users/hordia/Documents/vmshared/samples/Cuesta_caminar_batero_sample2.wav" );
-~bank2c = Buffer.read(s, "/Users/hordia/Documents/vmshared/samples/251_sample1.wav" );
-~bank2d = Buffer.read(s, "/Users/hordia/Documents/vmshared/samples/1291_sample2.wav" ); // chingi chingi
+~bank2a = Buffer.read(s, (~samples+"1065_sample.wav").replace(" ","") );
+~bank2b = Buffer.read(s, (~samples+"Cuesta_caminar_batero_sample2.wav").replace(" ","") );
+~bank2c = Buffer.read(s, (~samples+"samples/251_sample1.wav").replace(" ","") );
+~bank2d = Buffer.read(s, (~samples+"samples/1291_sample2.wav").replace(" ","") ); // chingi chingi
 
 
 //--- synths
@@ -60,9 +64,10 @@ SynthDef(\playBufMono, {| out = 0, bufnum = 0, rate = 1, pan = 2, channels=2 |  
 //(b.numFrames / b.numChannels ) / 44100
 //player = PlayBuf.ar(1, bufnum, scaledRate, startPos: startPos, loop: 1, doneAction:2);
 //freeze synth
-SynthDef(\mutantefreeze, { arg out=0, bufnum=0, point=0, vol=1, fftwidth=4096, pan=0, startPos=0;
+SynthDef(\mutantefreeze, { arg out=0, bufnum=0, volmax=5, point=0, vol=1, fftwidth=4096, pan=0, startPos=0;
     var in, chain;
     in = PlayBuf.ar(1, bufnum, BufRateScale.kr(bufnum),loop: 1);
+
 	//startPos is the number of the sample to start from
     //in = PlayBuf.ar(1, bufnum, BufRateScale.kr(bufnum), startPos: startPos, loop: 1);
 	chain = FFT(LocalBuf(4096), in);
@@ -70,6 +75,18 @@ SynthDef(\mutantefreeze, { arg out=0, bufnum=0, point=0, vol=1, fftwidth=4096, p
 	Out.ar(out, vol * IFFT(chain).dup);
 	//Out.ar(out, Pan2.ar(vol * IFFT(chain).dup, pan));
 }).add;
+
+SynthDef(\mutantefreezerate, { arg out=0, bufnum=0, volmax=5, point=0, rate=1, vol=1, fftwidth=4096, pan=0, startPos=0;
+    var in, chain;
+	in = PlayBuf.ar(1, bufnum, rate,loop: 1);
+	//startPos is the number of the sample to start from
+    //in = PlayBuf.ar(1, bufnum, BufRateScale.kr(bufnum), startPos: startPos, loop: 1);
+	chain = FFT(LocalBuf(4096), in);
+    chain = PV_MagFreeze(chain, point);
+	Out.ar(out, vol * IFFT(chain).dup);
+	//Out.ar(out, Pan2.ar(vol * IFFT(chain).dup, pan));
+}).add;
+
 
 /*
 ~fftwidth = 4096;
@@ -88,7 +105,11 @@ SynthDef(\mutantefreeze, { arg out=0, bufnum=0, point=0, vol=1, fftwidth=4096, p
 x = Synth(\mutantefreeze, [\bufnum, ~bank1a, \out, ~channel, \vol, 0]);
 y = Synth(\mutantefreeze, [\bufnum, ~bank1b, \out, ~channel, \vol, 0]);
 z = Synth(\mutantefreeze, [\bufnum, ~bank1c, \out, ~channel, \vol, 0]);
-q = Synth(\mutantefreeze, [\bufnum, ~bank1d, \out, ~channel, \vol, 0]);
+//q = Synth(\mutantefreeze, [\bufnum, ~bank1d, \out, ~channel, \vol, 0]);
+q = Synth(\mutantefreezerate, [\bufnum, ~bank1d, \out, ~channel, \vol, 0]);
+q.set(\rate,0.05)
+q.set(\rate,1.5)
+q.set(\rate,0.5)
 
 g = Synth(\mutantefreeze, [\bufnum, ~bank2a, \out, ~channel, \vol, 0]);
 h = Synth(\mutantefreeze, [\bufnum, ~bank2b, \out, ~channel, \vol, 0]);
@@ -96,6 +117,12 @@ i = Synth(\mutantefreeze, [\bufnum, ~bank2c, \out, ~channel, \vol, 0]);
 j = Synth(\mutantefreeze, [\bufnum, ~bank2d, \out, ~channel, \vol, 0]);
 
 //SOUNDS MODS
+z.set(\vol, 8); //max
+z.set(\vol, 5);
+x.set(\vol, 8); //max
+
+z.get(\point) //TODO: get position del freeze
+
 x.set(\out, 2);
 x.set(\out, 0);
 x.set(\out, 7);
@@ -373,16 +400,19 @@ MIDIIn.control = {arg src, chan, num, val;
 			   //y.set(\point, val/127); // point 0..1
 		 ("PAN Z").postln;
 			});*/
-            if(num == 7,{ //VOL W
+            if(num == 7,{ //VOL x
 		        x.set(\vol, val/127); //volumen 0..1
 			});
-			if(num == 10,{ //VOL X
+			if(num == 10,{ //VOL y
 			    y.set(\vol, val/127); // point 0..1
 			});
-			if(num == 8,{//VOL Y
-		        z.set(\vol, val/127); //volumen 0..1
+			if(num == 8,{//VOL z
+		//z.set(\volmax, 5);
+		         //FIXME: ~volmax = z.get(\volmax, {arg a; a.postln() });
+		         ~volmax = 5;
+		         z.set(\vol, val/127*~volmax); //volumen 0..1
 			});
-			if(num == 1,{//VOL Z
+			if(num == 1,{//VOL q
 			   q.set(\vol, val/127); // point 0..1
 			});
 

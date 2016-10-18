@@ -27,64 +27,10 @@ ext_filter = ['.mp3','.ogg','.ogg','.wav']
 # Helper functions
 #########################
 
-def get_url_audio(id):
-    for subdir, dirs, files in os.walk(DATA_PATH):
-        for f in files:
-            if os.path.splitext(f)[1] in ext_filter and os.path.splitext(f)[0]==str(id):
-                    return( os.path.abspath(DATA_PATH) + "/" + str(f) )
-    abort(404) #not found
-
-def get_list_of_files(FILES_PATH):
-    outlist = ""
-    for subdir, dirs, files in os.walk(FILES_PATH):
-        for f in files:
-            if os.path.splitext(f)[1] in ext_filter:
-                outlist += subdir+'/'+ f + "\n"
-    return(outlist)
-
-#TODO: refactorizar para pasarle a la función un "comparator" en un objeto (para no duplicar código)
-def get_list_of_files_comparing(FILES_PATH, querydescriptor, fixedfloatvalue, comp=">"):
-
-    comp_value = float(fixedfloatvalue)/1000. # convierte al valor real desde el valor en punto fijo
-
-    #TODO: agregar el resto de los descriptores soportados
-    if querydescriptor=="HFC":
-        querydescriptor = "lowlevel.hfc.mean"
-    elif querydescriptor=="duration":
-        # FIXME: por ej el duration no tiene sentido calcularle el 'mean'
-        querydescriptor = "metadata.duration.mean"
-    else:
-        app.logger.error( "Todavía no implementado" )
-        abort(405) #405 - Method Not Allowed
-
-    outlist = list()
-    for subdir, dirs, files in os.walk(FILES_PATH):
-        for f in files:
-            filename, extension = os.path.splitext(f)
-            if extension!=".json":
-                continue
-            try:
-                #FIXME: lista .json q después no puede abrir (?)
-                desc = json.load( open(FILES_PATH + "/" + filename + ".json",'r') )
-            # print filename+extension
-        # try:
-                value = float(desc[querydescriptor])
-                if comp==">":
-                    if value>comp_value:
-                        print filename+extension, value
-                        # outlist += subdir+'/'+ f + "\n"
-                        outlist.append(subdir+'/'+ filename + ".wav") #TODO: check if it's always a wav file (or filter it)
-                elif comp=="<":
-                    if value<comp_value:
-                        print filename+extension, value
-                        # outlist += subdir+'/'+ f + "\n"
-                    outlist.append(subdir+'/'+ filename + ".wav")
-            except Exception, e:
-                app.logger.error( e )
-        # except Exception, e:
-        #     app.logger.error( e )
-    return outlist
-
+#TODO: definir una interfaz, luego implementar (leyendo json files y accediendo la BD)
+#from JsonMirFilesData import *
+import JsonMirFilesData as mirdata
+#from DBMirData import *
 
 #########################
 # API functions
@@ -104,7 +50,7 @@ def get_pista_audio(id):
     """
         Retorna el full path donde esta descargado el audio con ese id
     """
-    return get_url_audio(id)
+    return mirdata.get_url_audio(id)
 
 
 
@@ -144,7 +90,7 @@ def get_pista(id):
     """
     return jsonify(id=id,
                    desc=os.path.abspath(DATA_PATH) + "/" + str(id) + ".json",
-                   audio=get_url_audio(id))
+                   audio=mirdata.get_url_audio(id))
 
 
 @auto.doc('public')
@@ -164,7 +110,7 @@ def get_search_mir_query_greater(querydescriptor, fixedfloatvalue, maxnumber):
         Falta implmementar el formato json, por ahora es una lista!
         JSON con %i pistas con el parxmetro %s mayor que %f" % (maxnumber,querydescriptor,comp_value)
     """
-    outlist = get_list_of_files_comparing(SAMPLES_PATH, querydescriptor, fixedfloatvalue, ">")
+    outlist = mirdata.get_list_of_files_comparing(SAMPLES_PATH, querydescriptor, fixedfloatvalue, ">")
     top5 = itertools.islice(outlist, maxnumber)
     # TODO: Falta implmementar el formato json, por ahora es una lista!
     #       o dar como opción PLAIN/JSON, en plano es más cómodo para laburar en SuperCollider?
@@ -182,7 +128,7 @@ def get_search_mir_query_less(querydescriptor, fixedfloatvalue, maxnumber):
         Falta implmementar el formato json, por ahora es una lista!
         JSON con %i pistas con el parxmetro %s mayor que %f" % (maxnumber,querydescriptor,comp_value)
     """
-    outlist = get_list_of_files_comparing(SAMPLES_PATH, querydescriptor, fixedfloatvalue, "<")
+    outlist = mirdata.get_list_of_files_comparing(SAMPLES_PATH, querydescriptor, fixedfloatvalue, "<")
     top5 = itertools.islice(outlist, maxnumber)
     # TODO: Falta implmementar el formato json, por ahora es una lista!
     #       o dar como opción PLAIN/JSON, en plano es más cómodo para laburar en SuperCollider?
@@ -218,7 +164,7 @@ def list_pistas():
         list audio files (DATA)
     """
     app.logger.warning("Falta implementar en formato definitivo") #todas? o poner un máximo?
-    return( get_list_of_files(DATA_PATH) )
+    return( mirdata.get_list_of_files(DATA_PATH) )
 
 @auto.doc('public')
 @app.route('/list/samples', methods=['GET'])
@@ -227,7 +173,7 @@ def list_samples():
         list sample files (segmented pistas)
     """
     app.logger.warning("Falta implementar en formato definitivo") #todos? o poner un máximo?
-    return( get_list_of_files(SAMPLES_PATH) )
+    return( mirdata.get_list_of_files(SAMPLES_PATH) )
 
 if __name__ == "__main__":
     file_handler = logging.FileHandler('mock_redpanal_api_ws.log')

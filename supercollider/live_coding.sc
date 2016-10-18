@@ -40,8 +40,10 @@ r = Synth(\playBufMono, [\out, ~speaker1, \bufnum, ~bank1a, \rate, 0.1]); //e @ 
 r = Synth(\playBufMono, [\out, ~speaker2, \bufnum, ~bank1a, \rate, 0.1]); //e @ R channel
 
 
+r = Synth(\playBufMono, [\out, ~speaker2, \bufnum, ~bank1c, \rate, 0.01]); //e @ R channel
 
-r = Synth(\playBufMono, [\out, ~speaker1, \bufnum, ~bank1d, \rate, 0.5]); //e @ R channel
+//TODO: ventanear bank1d (el sample, corta mucho) pero se escucha bien, como explosiones
+r = Synth(\playBufMono, [\out, ~speaker1, \bufnum, ~bank1d, \rate, 0.1]); //e @ R channel
 
 
 ---------
