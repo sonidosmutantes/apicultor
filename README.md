@@ -47,6 +47,10 @@ $ python MusicEmotionMachine.py directoriodondeestadata multitag(verdadero, clas
 * Sonification.py También procesa los sonidos en base a las descripciones hechas.
 * MusicEmotionMachine.py clasifica los sonidos en base a sus emociones. Si la clasificación es multitag (de todo el audio redpanalero), luego se puede correr la máquina de estados emocionales musicales (Johnny) para remixar todos los sonidos y reproducirlos en tiempo real
 
+#Sobre el aprendizaje profundo de la MEM:
+
+Con la intención de obtener la mejor clasificación posible de los sonidos basándose en las emociones que son capaces de transmitirnos, la tarea profunda consiste en este caso particular de reveer las activaciones con capas de máquinas de soporte vectorial para dar con la clasificación correcta. Las clasificaciones son en negativo o positivo, de acuerdo a la estimulación (arousal, no "activation"). Como la información del MIR es importante, el aprendizaje se hace respetando lo mejor posible las descripciones, lo que permite reveer las clasificaciones hechas hasta dar con las correctas.
+
 #Crear una base de datos:
 
 Si es tu primera vez utilizando bases de datos de MySQL, tenés que instalar MySQL en tu sistema y luego crear un usuario con una password para acceder y después crear la base de datos a la que accederás utilizando el usuario y la password.
