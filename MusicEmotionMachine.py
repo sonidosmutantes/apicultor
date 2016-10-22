@@ -86,11 +86,11 @@ class features_combinations():
         self._random_pairs = []
         for i in range(0, len(self._features_combination)):
             for j in range(len(self._features_combination[i])):
-                self._random_pairs.append(np.vstack((self._features_combination[i][j], self._features_combination[i][j])).T)     
+                self._random_pairs.append(np.vstack((self._features_combination[i][j], self._features_combination[i-1][j])).T)     
 
 def feature_scaling(features):
     """
-    classify sounds based on emotivity (emotive or non-emotive) using Support Vector Machines
+    scale features
     :param features: combinations of features                                                                               
     :returns:                                                                                                         
       - fscaled: scaled features
@@ -109,7 +109,7 @@ def KMeans_clusters(fscaled):
     """
     labels = []
     for i in range(len(fscaled)):
-        labels.append(KMeans(init = PCA(n_components = 2, whiten = True).fit(fscaled[i]).components_, n_clusters=2, n_init=1, precompute_distances = True).fit(fscaled[i]).labels_)
+        labels.append(KMeans(init = PCA(n_components = 2).fit(fscaled[i]).components_, n_clusters=2, n_init=1, precompute_distances = True).fit(fscaled[i]).labels_)
     return labels
 
 class deep_support_vector_machines(object):
@@ -128,8 +128,7 @@ class deep_support_vector_machines(object):
 	:returns:
 	  - pk: inner product
 	"""
-        c = 0.5
-
+        c = np.min(1-np.min(y),0)
         degree = 5
 
         gamma = 1.0/x.shape[1]
@@ -138,14 +137,9 @@ class deep_support_vector_machines(object):
 
         pk *= gamma
 
-        while np.all(pk + c > 1) == True:
-            c -= 0.1
-            if c == 0:
-                pass
-
         pk += c
 
-        while np.all(pk ** degree == 0.0) == True:
+        while np.any(pk ** degree < 0.0) == True:
            degree -= 1
            if degree == 2:
                 pass
@@ -171,49 +165,52 @@ class deep_support_vector_machines(object):
 	:param w: theta
 	:returns:
 	  - theta: w
-	"""              
-        theta = w   
-        for j in range(0, 150):
-            dataIndex = range(features.shape[0])
-            for i in range(features.shape[0]):
-                alpha = 4/(1.0+j+i)+0.01
-                randIndex = int(random.uniform(0,len(dataIndex)))
-                h = 1 / (1 + np.exp(1-(sum(features[randIndex]*theta))))  
-                error = labels[randIndex] - h
-                theta = theta + (alpha * features[randIndex] * error) - (2 * np.mean(theta))
-                del(dataIndex[randIndex])
-                if np.all(theta >= 0.1) == True:                                   
-                    return theta      
-                if np.all(theta >= 0.1) == False:      
-                    continue   
-        return theta
-    def gradient_descent(self, features, labels, w):
+	"""    
+        C = 1.0/(2*features.shape[0])
+        features = np.vstack(([1,1], features))
+        if np.sum(w, axis = 0) <= 0:           
+            theta = np.array([0, 0])
+        else:           
+            theta = w
+        if np.sum(w, axis = 0) >= C:           
+            pass
+        else:           
+            theta = w
+        for i in range(0,6):
+            loss, gradient = 0, 0
+            for (features_,labels_) in zip(features,labels): 
+                v = labels_*np.dot(theta, features_) 
+                loss += max(0,1-v)  
+            gradients = []
+            for j in range(len(theta)):
+                gradients.append(np.sum(loss * features[:,j]) / float(len(labels)))                                                              
+            theta = [theta + C * g for theta, g in zip(theta, gradients)]
+            if (np.sum(theta) >= C and np.sum(theta) <= 0) == True:
+                return theta   
+        return theta 
+    def gradient_descent(self, features, labels, theta):
 	"""
 	Finds local minimum for vectors
 	:param features: features
 	:param labels: classes
-	:param w: theta
+	:param theta: w
 	:returns:
-	  - theta: w
-	"""    
-        theta = self.gradient_ascent(features,labels, w)
-        transposef = features.T    
-        for i in range(0,20000):
-            h = np.dot(features, theta)
-            loss = h - labels
+	  - representation of features
+	"""                     
+        features = np.vstack(([1,1], features))
+        for i in range(0,5):
+            loss = 0
+            for (features_,labels_) in zip(features,labels): 
+                v = labels_*np.dot(theta, features_) 
+                loss += np.max(1-v, axis = 0)
             gradients = []
-            n = float(len(labels))
             for j in range(len(theta)):
-                gradients.append(np.sum(loss * features[:,j]) / n)
-            cost = np.sum(loss**2)
-            gradient = np.dot(transposef, loss)/features.shape[0]
-            theta = [theta - 0.02 * g for theta, g in zip(theta, gradients)]
-            new_h = np.dot(features, theta)
-            new_loss = new_h - labels             
-            new_cost = np.sum(new_loss**2)
-            if i>=5 and (new_cost - cost <= 1e-12 and  new_cost - cost >= -1e12):
-                return theta
-        return theta 
+                gradients.append(np.sum(loss * features[:,j]) / float(len(labels)))                                          
+            theta = np.array([theta - (1.0/(2*features.shape[0])) * g for theta, g in zip(theta, gradients)]).reshape(1,2)
+            if i >= 5 and (np.sum(theta) >= 0):
+                return theta * features[1:]                           
+        return theta * features[1:]
+
     def sgd_approximation(self, S, labl): 
 	"""
 	Stochastic approximations given features and labels (useful when best labels don't necessarilly match)
@@ -224,9 +221,9 @@ class deep_support_vector_machines(object):
 	  - lab: labels
 	"""                   
         from sklearn.linear_model import SGDClassifier as sgd                  
-        lab = sgd().fit(S,labl)                             
+        lab = sgd(alpha = (1.0/(S.shape[0]*2)), loss = 'hinge').fit(S,labl)                             
         w = lab.coef_                       
-        lab = lab.predict(S*w)         
+        lab = lab.predict(S)         
         S = S*w                
         return S, lab
  
@@ -244,9 +241,7 @@ class svm_layers(deep_support_vector_machines):
 	:param features: scaled features
 	:param labels: classes
 	:returns:
-	  - S: arrays of outputs of the layers
-	  - labels_to_file: classes from all layers
-	  - scores: prediction scores
+	  - labels_to_file: potential classes
 	"""
         S = []
         scores = []
@@ -256,15 +251,20 @@ class svm_layers(deep_support_vector_machines):
             layer.fit(features[i], labels[i])
             sv = self.support_vectors(layer.support_, features[i])
             w = layer.dual_coef_.dot(sv)[0]
-            layer_input_labels = layer.predict(features[i])
-            theta = self.gradient_descent(features[i], layer_input_labels, w)
-            s = ( (theta * features[i]) - (theta / features[i]) ) 
-            layer_labels = layer.predict(s)
+            b = sv[0]
+            layer_labels = layer.predict(features[i])
+            theta = self.gradient_ascent(features[i], layer_labels, w)
+            fx = features[i].dot((theta - w) * np.dot(features[i].T,features[i])) + (b)
+            if i == 0:
+                fx[layer_labels == 0] = self.gradient_descent(fx[layer_labels == 0], layer_labels[layer_labels == 0], theta)
+            elif i == 1:
+                fx[layer_labels == 1] = self.gradient_descent(fx[layer_labels == 1], layer_labels[layer_labels == 1], theta)
+            else:
+                fx = self.gradient_descent(fx, layer_labels, theta)
+            layer_labels = layer.predict(fx)
             target_labels.append(layer_labels)
-            scores.append(layer.score(s, layer_labels))
-            S.append( s )
         labels_to_file = np.array(target_labels).T
-        return S, labels_to_file, scores                  
+        return labels_to_file                 
     def sum_of_S(self, S):
 	"""
 	Sums the vector outputs of Deep Support Vector Machine layers
@@ -298,17 +298,18 @@ class main_svm(deep_support_vector_machines):
     """
     def __init__(self, S, lab):
         super(deep_support_vector_machines, self).__init__()
-        self._main_svm = svm.SVC(kernel = 'linear', degree = 8, decision_function_shape = 'ovr', coef0 = 1, shrinking = True, class_weight = 'balanced', tol = 1e-12, cache_size = 512, C=1.0/(2*S.shape[0]), verbose = True).fit(S, lab)
-        self._labels = self._main_svm.predict(S)
+        self._S = S
+        self._main_svm = svm.SVC(kernel = 'linear', decision_function_shape = 'ovr', shrinking = False, class_weight = 'balanced', tol = 1e-12, cache_size = 512, C=1.0/(2*S.shape[0]), verbose = True).fit(self._S, lab)
+        self._labels = self._main_svm.predict(self._S)
         self._w = self._main_svm.coef_[0]                      
         self._a = -self._w[0] / self._w[1]                                                    
-        self._xx = np.linspace(S[:,0].min(), S[:,1].max())                                                                          
-        self._yy = self._a * self._xx + (self._main_svm.intercept_[0])/self._w[1]# this intercept finds it out correctly in polynomial
+        self._xx = np.linspace(self._S[:,0].min(), self._S[:,1].max())                                                                          
+        self._yy = self._a * self._xx + (self._main_svm.intercept_[0])
         #calculate the parallels of separation                                                                                               
         self._b = self._main_svm.support_vectors_[0]                                                                                          
         self._yy_down = self._a * self._xx + (self._b[1] - self._a * self._b[0])                                                              
         self._b = self._main_svm.support_vectors_[-1]                                                                                         
-        self._yy_up = self._a * self._xx + (self._b[1] - self._a * self._b[0])                                 
+        self._yy_up = self._a * self._xx + (self._b[1] - self._a * self._b[0])                        
     def plot_emotion_classification(self):
 	"""
 	3D plotting of the classfication
@@ -317,15 +318,12 @@ class main_svm(deep_support_vector_machines):
         from mpl_toolkits.mplot3d import Axes3D 
                
         fig = plt.figure()                                                                                                                    
-        ax = Axes3D(fig)                                                                         
-        ax.plot3D(self._xx, self._yy, 'k-')                                                                                                     
-        ax.plot3D(self._xx, self._yy_down, 'k--')                                                                                               
-        ax.plot3D(self._xx, self._yy_up, 'k--')                                                                                                 
-        ax.scatter3D(S[:, 0], S[:, 1], c=self._labels, cmap=plt.cm.Paired) 
+        ax = Axes3D(fig)                                                    
+        ax.plot3D(self._xx, self._yy_up + self._yy_down, 'k-')                                                       
+        ax.scatter3D(self._S[:, 0], self._S[:, 1], c=self._labels, cmap=plt.cm.Paired)
        
         print (Fore.WHITE + "El grupo negativo '0' esta coloreado en azul, el grupo positivo '1' esta coloreado en rojo") 
-                    
-        time.sleep(2)                                                  
+                                                                      
         plt.show() 
                                                     
     def neg_and_pos(self, files):
@@ -1109,12 +1107,12 @@ if __name__ == '__main__':
             features = descriptors_and_keys(tags_dirs, True)._features
             fscaled = feature_scaling(features_combinations(features)._random_pairs)
             labels = KMeans_clusters(fscaled)
-            layers_outputs, labels_to_file, scores = svm_layers().layer_computation(fscaled, labels)
-            S = svm_layers().sum_of_S(layers_outputs)
+            labels_to_file = svm_layers().layer_computation(fscaled, labels)
+            S = svm_layers().sum_of_S(fscaled)
             labl = svm_layers().best_labels(labels_to_file)
-            S, lab = svm_layers().sgd_approximation(S, labl)
-            main_svm(S,lab).plot_emotion_classification()
-            neg_and_pos = main_svm(S,lab).neg_and_pos(files)
+            fx, lab = svm_layers().sgd_approximation(S,labl)
+            main_svm(fx,lab).plot_emotion_classification()
+            neg_and_pos = main_svm(fx,lab).neg_and_pos(files)
             emotions_data_dir()
             multitag_emotions_dir(tags_dirs, neg_and_pos[0], neg_and_pos[1], neg_arous_dir, pos_arous_dir)
         if sys.argv[2] in ('None'):
@@ -1122,12 +1120,12 @@ if __name__ == '__main__':
             features = descriptors_and_keys(files_dir, None)._features
             fscaled = feature_scaling(features_combinations(features)._random_pairs)
             labels = KMeans_clusters(fscaled)
-            layers_outputs, labels_to_file, scores = svm_layers().layer_computation(fscaled, labels)
+            layers_outputs, labels_to_file = svm_layers().layer_computation(fscaled, labels)
             S = svm_layers().sum_of_S(layers_outputs)
             labl = svm_layers().best_labels(labels_to_file)
-            S, lab = svm_layers().sgd_approximation(S, labl)
-            main_svm(S,lab).plot_emotion_classification()
-            neg_and_pos = main_svm(S,lab).neg_and_pos(files)
+            fx, lab = svm_layers().sgd_approximation(S,labl)
+            main_svm(fx,lab).plot_emotion_classification()
+            neg_and_pos = main_svm(fx,lab).neg_and_pos(files)
             bpm_emotions_remix(files_dir, neg_and_pos[0], neg_and_pos[1])
             attack_emotions_remix(files_dir, neg_and_pos[0], neg_and_pos[1])
             dissonance_emotions_remix(files_dir, neg_and_pos[0], neg_and_pos[1])
