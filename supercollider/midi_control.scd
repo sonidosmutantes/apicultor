@@ -1,109 +1,7 @@
-s.boot; //start server
+//mapeo 0..127 a 200..300
+//w=val.linlin(0,127,200,300)})
 
-//----------------------
-//----------------------
-
-~ip= "192.168.56.101"; //APIcultor WebService IP @VM
-
-//TODO configure L & R channels (different synths or configuration (via midi)
-//TODO: add multichannel support
-
-~bank1a = Buffer.read(s, "/Users/hordia/Documents/vmshared/samples/1194_sample1.wav"); // tabla
-~bank1b = Buffer.read(s, "/Users/hordia/Documents/vmshared/samples/1264_sample0.wav");
-~bank1c = Buffer.read(s, "/Users/hordia/Documents/vmshared/samples/982_sample1.wav");
-~bank1d = Buffer.read(s, "/Users/hordia/Documents/vmshared/samples/795_sample1.wav"); //Variable buffer!
-
-// Buffer.read(s, "/Users/hordia/Documents/vmshared/samples/1264_sample0.wav");
-// Buffer.read(s, "/Users/hordia/Documents/vmshared/samples/506_sample0.wav"); // tic
-// Buffer.read(s, "/Users/hordia/Documents/vmshared/samples/982_sample3.wav"); // bajo
-// Buffer.read(s, "/Users/hordia/Documents/vmshared/samples/1291_sample2.wav"); // chingi chingi
-
-~bank2a = Buffer.read(s, "/Users/hordia/Documents/vmshared/samples/1065_sample.wav" );
-~bank2b = Buffer.read(s, "/Users/hordia/Documents/vmshared/samples/Cuesta_caminar_batero_sample2.wav" );
-~bank2c = Buffer.read(s, "/Users/hordia/Documents/vmshared/samples/251_sample1.wav" );
-~bank2d = Buffer.read(s, "/Users/hordia/Documents/vmshared/samples/1291_sample2.wav" ); // chingi chingi
-
-
-//--- synths
-//play synth
-SynthDef(\playBufMono, {| out = 0, bufnum = 0, vol=1, rate = 1 |  var scaledRate, player;
-scaledRate = rate * BufRateScale.kr(bufnum);  player = PlayBuf.ar(1, bufnum,scaledRate, doneAction:2);  Out.ar(out, vol * player).dup }).add;
-
-SynthDef(\playBufMonoM, {| out = 0, bufnum = 0, vol=1, rate = 1 |  var scaledRate, player;
-scaledRate = rate * BufRateScale.kr(bufnum);  player = PlayBuf.ar(1, bufnum,scaledRate, doneAction:2);  Out.ar(out, vol * player) }).add;
-
-
-/*
-Testing PAN
-
-SynthDef(\playBufMono, {| out = 0, bufnum = 0, rate = 1, pan = 2, channels=2 |  var scaledRate, player;
-	scaledRate = rate * BufRateScale.kr(bufnum);  player = PlayBuf.ar(1, bufnum,scaledRate, doneAction:2); Out.ar(out, Mix.ar(PanAz.ar(2, [player,player], [1,-1+.3]))).dup  }).add; //pan range 0..1 (mapea a -1..1)*/
-
-// SynthDef(\playBufMono, {| out = 0, bufnum = 0, rate = 1, pan = 1, channels=2 |  var scaledRate, player;
-// scaledRate = rate * BufRateScale.kr(bufnum);  player = PlayBuf.ar(1, bufnum,scaledRate, doneAction:2); Out.ar(out, Mix.ar(PanAz.ar(2, [player, player], [pan, pan+0.3]))).dup  }).add;
-//
-// SynthDef(\playBufMono, {| out = 0, bufnum = 0, rate = 1, pan = 1, channels=2 |  var scaledRate, player;
-// scaledRate = rate * BufRateScale.kr(bufnum);  player = PlayBuf.ar(1, bufnum,scaledRate, doneAction:2); Out.ar(out, Mix.ar(PanAz.ar(2, player, [pan, pan+0.3]))).dup  }).add;
-//
-// SynthDef(\playBufMono, {| out = 0, bufnum = 0, rate = 1, pan = 0, channels=2 |  var scaledRate, player;
-// scaledRate = rate * BufRateScale.kr(bufnum);  player = PlayBuf.ar(1, bufnum,scaledRate, doneAction:2); Out.ar(out, Mix.ar(PanAz.ar(2, player, [-1+pan, pan]))).dup  }).add;
-//
-// PanAz.ar(
-// 	5, 				// numChans
-// 	ClipNoise.ar, 	// in
-// 	LFSaw.kr(MouseX.kr(0.2, 8, 'exponential')), // pos
-// 	0.5,			// level
-// 	3			// width
-// );
-
-//which means that the following should give us the length of the sample in seconds:
-//(b.numFrames / b.numChannels ) / 44100
-//player = PlayBuf.ar(1, bufnum, scaledRate, startPos: startPos, loop: 1, doneAction:2);
-//freeze synth
-SynthDef(\mutantefreeze, { arg out=0, bufnum=0, point=0, vol=1, fftwidth=4096, pan=0, startPos=0;
-    var in, chain;
-    in = PlayBuf.ar(1, bufnum, BufRateScale.kr(bufnum),loop: 1);
-	//startPos is the number of the sample to start from
-    //in = PlayBuf.ar(1, bufnum, BufRateScale.kr(bufnum), startPos: startPos, loop: 1);
-	chain = FFT(LocalBuf(4096), in);
-    chain = PV_MagFreeze(chain, point);
-	Out.ar(out, vol * IFFT(chain).dup);
-	//Out.ar(out, Pan2.ar(vol * IFFT(chain).dup, pan));
-}).add;
-
-/*
-~fftwidth = 4096;
-~fftwidth = 512;
-~fftwidth = 1024;
-~fftwidth = 2048;
-~fftwidth = 4096;
-~fftwidth = 8192;
-*/
-
-~channel = 0; //~speaker0
-// ~channel = 1;
-~rate = 1; //normal
-// ~rate = 0.5; //half speed
-
-x = Synth(\mutantefreeze, [\bufnum, ~bank1a, \out, ~channel, \vol, 0]);
-y = Synth(\mutantefreeze, [\bufnum, ~bank1b, \out, ~channel, \vol, 0]);
-z = Synth(\mutantefreeze, [\bufnum, ~bank1c, \out, ~channel, \vol, 0]);
-q = Synth(\mutantefreeze, [\bufnum, ~bank1d, \out, ~channel, \vol, 0]);
-
-g = Synth(\mutantefreeze, [\bufnum, ~bank2a, \out, ~channel, \vol, 0]);
-h = Synth(\mutantefreeze, [\bufnum, ~bank2b, \out, ~channel, \vol, 0]);
-i = Synth(\mutantefreeze, [\bufnum, ~bank2c, \out, ~channel, \vol, 0]);
-j = Synth(\mutantefreeze, [\bufnum, ~bank2d, \out, ~channel, \vol, 0]);
-
-//SOUNDS MODS
-x.set(\out, 2);
-x.set(\out, 0);
-x.set(\out, 7);
-
-x.set(\vol, 0.3);
-
-x.set(\vol, 0);
-// ~rate = 0.5; //half speed
+MIDIIn.connectAll;
 
 //Trigger sound with pads
 MIDIFunc.noteOn({ |veloc, num, chan, src|
@@ -140,10 +38,10 @@ MIDIFunc.noteOn({ |veloc, num, chan, src|
 	        z.get(\point, { arg value;
 				if( value >0,{ //on (0 off,  >0 on)
 			 		z.set(\point, 0);
-					("Bank1 / B / freeze OFF").postln;
+					("Bank1 / C / freeze OFF").postln;
 	    		}, {
 					 z.set(\point, 1);
-					("Bank1 / B / freeze ON").postln;
+					("Bank1 / C / freeze ON").postln;
 			    });
 			});
 	});
@@ -151,10 +49,10 @@ MIDIFunc.noteOn({ |veloc, num, chan, src|
 	        q.get(\point, { arg value;
 				if( value >0,{ //on (0 off,  >0 on)
 			 		q.set(\point, 0);
-					("Bank1 / B / freeze OFF").postln;
+					("Bank1 / D / freeze OFF").postln;
 	    		}, {
 					 q.set(\point, 1);
-					("Bank1 / B / freeze ON").postln;
+					("Bank1 / D / freeze ON").postln;
 			    });
 			});
 	 });
@@ -343,67 +241,53 @@ MIDIFunc.noteOn({ |veloc, num, chan, src|
 			});
 };*/
 
+~maxvol = 3;
 MIDIIn.control = {arg src, chan, num, val;
-	[chan,num,val].postln; //monitor
-
-	//TODO: add PAN control (spacialization)
+	//[chan,num,val].postln; //monitor
 
 //First row of knobs
-/*			if(num == 7,{ //PAN W
-		        //w.set(\vol, val/127); //volumen 0..1
-	  	       // (val/127).postln;
-		 ("PAN W").postln;
-			});
-			if(num == 10,{ //PAN X
-		        //x.set(\point, val/127); // point 0..1
-		        //(val/127*8192).postln;
-	         	//if(val/127>0.5,x.set(\out, 1), x.set(\out, 0) ); //TODO: ver
-
-	         	("PAN X").postln;
-		        if(val/127>0.5,x.set(\pan, -1), x.set(\pan, 0) ); //TODO: ver //FIXME
-
-		        //~newStart = (~bank1a.numFrames / ~bank1a.numChannels )*val/127;
-		        //x.set(\startPos, ~newStart); //freeze start position
-			});
-			if(num == 8,{
-		        //y.set(\vol, val/127); //volumen 0..1
-		        ("PAN Y").postln;
-			});
-			if(num == 1,{
-			   //y.set(\point, val/127); // point 0..1
-		 ("PAN Z").postln;
-			});*/
             if(num == 7,{ //VOL W
-		        x.set(\vol, val/127); //volumen 0..1
+		        x.set(\vol, val.linlin(0,127,0,~maxvol+4)); //volumen 0..1
+
 			});
 			if(num == 10,{ //VOL X
-			    y.set(\vol, val/127); // point 0..1
+			    y.set(\vol, val.linlin(0,127,0,~maxvol)); // point 0..1
 			});
 			if(num == 8,{//VOL Y
-		        z.set(\vol, val/127); //volumen 0..1
+		        z.set(\vol, val.linlin(0,127,0,~maxvol)); //volumen 0..1
 			});
 			if(num == 1,{//VOL Z
-			   q.set(\vol, val/127); // point 0..1
+			   q.set(\vol, val.linlin(0,127,0,1)); // point 0..1 -> Fix 1.0
 			});
 
 
 //Second row of knobs
 			if(num == 12,{ //VOL W
-		        g.set(\vol, val/127); //volumen 0..1
+		        g.set(\vol, val.linlin(0,127,0,~maxvol)); //volumen 0..1
 			});
 			if(num == 13,{ //VOL X
-			   h.set(\vol, val/127); // point 0..1
+			   h.set(\vol, val.linlin(0,127,0,~maxvol)); // point 0..1
 			});
 			if(num == 11,{//VOL Y
-		       i.set(\vol, val/127); //volumen 0..1
+		       i.set(\vol, val.linlin(0,127,0,~maxvol)); //volumen 0..1
 			});
 			if(num == 33,{//VOL Z
-			   j.set(\vol, val/127); // point 0..1
+			   j.set(\vol, val.linlin(0,127,0,~maxvol)); // point 0..1
 			});
 };
 
-
 MIDIIn.connectAll;
 
-// Cleanup
-// s.quit; //stops server
+// Monitor
+
+/*
+//Mostrar MIDI input (controls)
+MIDIIn.control = {arg src, chan, num, val;
+	[chan,num,val].postln;
+};
+
+//Mostrar nota + velocity
+MIDIFunc.noteOn({ |veloc, num, chan, src|
+	( "New note received " + num + " with vel "+veloc ).postln;
+});
+*/
