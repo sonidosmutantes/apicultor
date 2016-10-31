@@ -246,6 +246,7 @@ MIDIIn.control = {arg src, chan, num, val;
 	//[chan,num,val].postln; //monitor
 
 //First row of knobs
+<<<<<<< HEAD:supercollider/midi_control.scd
             if(num == 7,{ //VOL W
 		        x.set(\vol, val.linlin(0,127,0,~maxvol+4)); //volumen 0..1
 
@@ -258,6 +259,46 @@ MIDIIn.control = {arg src, chan, num, val;
 			});
 			if(num == 1,{//VOL Z
 			   q.set(\vol, val.linlin(0,127,0,1)); // point 0..1 -> Fix 1.0
+=======
+/*			if(num == 7,{ //PAN W
+		        //w.set(\vol, val/127); //volumen 0..1
+	  	       // (val/127).postln;
+		 ("PAN W").postln;
+			});
+			if(num == 10,{ //PAN X
+		        //x.set(\point, val/127); // point 0..1
+		        //(val/127*8192).postln;
+	         	//if(val/127>0.5,x.set(\out, 1), x.set(\out, 0) ); //TODO: ver
+
+	         	("PAN X").postln;
+		        if(val/127>0.5,x.set(\pan, -1), x.set(\pan, 0) ); //TODO: ver //FIXME
+
+		        //~newStart = (~bank1a.numFrames / ~bank1a.numChannels )*val/127;
+		        //x.set(\startPos, ~newStart); //freeze start position
+			});
+			if(num == 8,{
+		        //y.set(\vol, val/127); //volumen 0..1
+		        ("PAN Y").postln;
+			});
+			if(num == 1,{
+			   //y.set(\point, val/127); // point 0..1
+		 ("PAN Z").postln;
+			});*/
+            if(num == 7,{ //VOL x
+		        x.set(\vol, val/127); //volumen 0..1
+			});
+			if(num == 10,{ //VOL y
+			    y.set(\vol, val/127); // point 0..1
+			});
+			if(num == 8,{//VOL z
+		//z.set(\volmax, 5);
+		         //FIXME: ~volmax = z.get(\volmax, {arg a; a.postln() });
+		         ~volmax = 5;
+		         z.set(\vol, val/127*~volmax); //volumen 0..1
+			});
+			if(num == 1,{//VOL q
+			   q.set(\vol, val/127); // point 0..1
+>>>>>>> c81a747a9a86c4b8ce6b05ddb5bac63ad99301d1:supercollider/setup_performance.sc
 			});
 
 
