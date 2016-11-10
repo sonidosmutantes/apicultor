@@ -49,6 +49,12 @@ def get_list_of_files(FILES_PATH):
                 outlist += subdir+'/'+ f + "\n"
     return(outlist)
 
+def get_list_of_sample_files_same_cluster(samplename):
+    #TODO: implement. Clusters needs to be defined
+    l = list()
+    l.append(samplename)
+    return l
+
 #TODO: refactorizar para pasarle a la función un "comparator" en un objeto (para no duplicar código)
 def get_list_of_files_comparing(FILES_PATH, querydescriptor, fixedfloatvalue, comp=">"):
 

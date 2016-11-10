@@ -102,6 +102,24 @@ def get_search_query(query, maxnumber):
     app.logger.warning("Falta implementar")
     return ("Json con %s resultados, cada uno con id y audio+desc url,correspondientes con %s" % (maxnumber, query))
 
+###################################################################################
+### MIR ###
+
+@auto.doc('public')
+@app.route('/search/mir/samples/samecluster/<samplename>/<int:maxnumber>', methods=['GET'])
+def get_search_mir_samecluster(samplename, maxnumber):
+    """
+        Returns a list of samples in the same cluster that the input sample name
+    """
+    outlist = mirdata.get_list_of_sample_files_same_cluster(samplename)
+    top5 = itertools.islice(outlist, maxnumber)
+    # TODO: Falta implmementar el formato json, por ahora es una lista!
+    #       o dar como opción PLAIN/JSON, en plano es más cómodo para laburar en SuperCollider?
+    output = ""
+    for f in top5:
+        output += f + "\n"
+    return(output)
+
 @auto.doc('public')
 @app.route('/search/mir/samples/<querydescriptor>/greaterthan/<int:fixedfloatvalue>/<int:maxnumber>', methods=['GET'])
 def get_search_mir_query_greater(querydescriptor, fixedfloatvalue, maxnumber):

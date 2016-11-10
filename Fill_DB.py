@@ -5,7 +5,6 @@ import sys
 import os
 import MySQLdb
 import json
-import MySQLdb
 
 fields_list = [ "`name`",
   "`lowlevel.dissonance.mean`",
