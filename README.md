@@ -6,19 +6,29 @@ El código da soporte para el procesamiento de sonidos de la web utilizando téc
 
 Funciona a través de una API REST para la consulta externa de archivos y descriptores desde SuperCollider, pd o cualquier otro tipo de entorno.
 
-Performances utilizando estas herramientas:
+## Performances utilizando estas herramientas:
 
-Cierre de Taller de Experimentación Sonora:
+### Cierre de Taller de Experimentación Sonora:
+
 http://redpanal.org/a/banda-de-mutantes-cierre-taller/
 
-La Noche de los Museos La Casa del Bicentenario 29/10/2016
+
+### La Noche de los Museos La Casa del Bicentenario 29/10/2016
 http://redpanal.org/a/performance-casa-tomada/
 
-Sonidos Mutantes, propone performances basadas en el uso artístico de bases de datos preexistentes, las mismas construidas por audios o músicas libres, por ejemplo aquellas de la plataforma colaborativa de RedPanal.org, la cuál es de acceso público vía internet. Estos sonidos, analizados y procesados en tiempo real se combinan en una improvisación colectiva con músicos en vivo bajo consignas preestablecidas, dando lugar a composiciones que mutan a lo largo del tiempo y en función de los propios músicos y de la comunidad toda. Ya que el público podrá participar de la performance subiendo audios y haciendo búsquedas o comentarios en la plataforma web de RedPanal.
+https://www.youtube.com/watch?v=eKcvkgtJIEo
 
-Pruebas de concepto (demos viejas):
-Demo máquina de estados + MIR data + OSC + API + Tests: http://www.youtube.com/watch?v=pMBl_4y6UmE
-Integración con controlador MIDI + Supercollider + ApicultorWebService: https://www.youtube.com/watch?v=X0M_gTOZnNQ
+**Reseña**: http://blog.enjambrelab.com.ar/enjambrebit-y-la-banda-de-mutantes/
+
+
+## Sonidos Mutantes
+*Sonidos Mutantes, propone performances basadas en el uso artístico de bases de datos preexistentes, las mismas construidas por audios o músicas libres, por ejemplo aquellas de la plataforma colaborativa de RedPanal.org, la cuál es de acceso público vía internet. Estos sonidos, analizados y procesados en tiempo real se combinan en una improvisación colectiva con músicos en vivo bajo consignas preestablecidas, dando lugar a composiciones que mutan a lo largo del tiempo y en función de los propios músicos y de la comunidad toda. Ya que el público podrá participar de la performance subiendo audios y haciendo búsquedas o comentarios en la plataforma web de RedPanal.*
+
+https://www.facebook.com/SonidosMutantes
+
+### Pruebas de concepto (demos viejas):
+* Demo máquina de estados + MIR data + OSC + API + Tests: http://www.youtube.com/watch?v=pMBl_4y6UmE
+* Integración con controlador MIDI + Supercollider + ApicultorWebService: https://www.youtube.com/watch?v=X0M_gTOZnNQ
 
 ## Componentes
 * Descarga archivos de audio por tag
