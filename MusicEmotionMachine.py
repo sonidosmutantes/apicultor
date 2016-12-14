@@ -1,99 +1,474 @@
 #! /usr/bin/env python
 # -*- coding: utf-8 -*-
 
-from SoundSimilarity import *
+from SoundSimilarity import get_files, get_dics, desc_pair
 import time
 from colorama import Fore
+from collections import Counter
+from itertools import combinations
 import numpy as np                                                      
 import matplotlib.pyplot as plt                                   
 import os, sys                                                           
 from essentia.standard import *
 from smst.utils.audio import write_wav    
-from sklearn import svm
+from sklearn import svm, preprocessing
+from sklearn.decomposition.pca import PCA
 from sklearn.cluster import KMeans
+from sklearn.utils.extmath import safe_sparse_dot as ssd
 import librosa
 from librosa import *                                       
 import shutil
 from smst.models import stft 
+from python_toolbox import caching
 import logging
 
 logging.basicConfig(level=logging.DEBUG)
 logger = logging.getLogger(__name__)                               
 
 #emotion classification
-def plot_emotion_clusters(files_dir, multitag = None):
-	"""
-	classify sounds based on emotivity (emotive or non-emotive)
+class descriptors_and_keys():
+    """
+    get all descriptions given descriptor keys
+    :param files_dir: data tag dir if not performing multitag classification. data dir if performing multitag classification
+    :param multitag: if True, will classify all downloaded files and remix when performing emotional state transition 
+    """                    
+    def __init__(self, files_dir,  multitag):
+        self.multitag = None
+        self._files_dir = files_dir
+        if multitag == None or multitag == False:                                                
+            self._files = get_files(files_dir)                                    
+            self._dics = get_dics(files_dir)                                      
+        elif multitag == True:                                              
+            self._files = np.hstack([get_files(tag) for tag in files_dir])        
+            self._dics = np.hstack([get_dics(tag) for tag in files_dir])          
+        for i,x in enumerate(np.vstack((self._files, [len(i) for i in self._dics])).T): 
+            if x[1] != str(13): #if dictionary of a file is shorter...     
+                fname = i                                                  
+                for i in self._files:                                            
+                    fname = i[fname] #...finds the name of the .json file  
+                for tag in tags_dirs:                                      
+                    for subdir, dirs, sounds in os.walk(tag+'/descriptores'):
+                        for s in sounds:                                   
+                            if fname == s:                                 
+                                print (os.path.abspath(tag+'/descriptores/'+s) +" has less descriptors and will be discarded for clustering and classification. This happens because there was an error in MIR analysis, so the sound has to be analyzed again after being processed") 
+                                os.remove((os.path.abspath(tag+'/descriptores/'+s))) #... and deletes the less suitable .json file
+        self._files = list(self._files[0])
+        self._dics = list(self._dics)
+        duplicate = [] 
+        self._duplicate_index = []
+        for i in range(len(self._files)):                             
+            if self._files[i].endswith('(1).json') is True:
+                self._duplicate_index.append(i)
+        for i in self._files:                             
+            if i.endswith('(1).json') is True:
+                duplicate.append(i)
+        for i in duplicate:                         
+            for j in self._files:                   
+                if j == i:         
+                    self._files.remove(j)
+        for i in reversed(self._duplicate_index):
+                self._dics.remove(self._dics[i])
+        funique = []
+        indexes = []
+        for i,x in enumerate(self._files):
+            if x in funique:
+                indexes.append(i)
+            if x not in funique:
+                funique.append(x)
+        for i in reversed(indexes):
+            self._dics.remove(self._dics[i])
+        self._files = funique
+        self._files_features = desc_pair(self._files,self._dics).files_features
+        self._keys = [3,9,0,2,1,7,4,10,5,8,11,12]  
+        self._features = []
+        for i in range(len(self._keys)):
+            self._features.append(np.float64(zip(*self._files_features)[self._keys[i]]))    
+        self._features = np.array(self._features).T
 
-	:param files_dir: data tag dir if not performing multitag classification. data dir if performing multitag classification
-	:param multitag: if True, will classify all downloaded files and remix when performing emotional state transition
+def feature_scaling(f):
+    """
+    scale features
+    :param features: combinations of features                                                                               
+    :returns:                                                                                                         
+      - fscaled: scaled features
+    """    
+    from sklearn.preprocessing import StandardScaler as stdscale 
+    fscaled = stdscale().fit(f).transform(f)
+    return fscaled
+
+def KMeans_clusters(fscaled):
+    """
+    KMeans clustering for features                                                           
+    :param fscaled: scaled features                                                                                         
+    :returns:                                                                                                         
+      - labels: classes         
+    """
+    labels = (KMeans(init = PCA(n_components = 2).fit(fscaled).components_, n_clusters=2, n_init=1, precompute_distances = True).fit(fscaled).labels_)
+    return labels
+
+class deep_support_vector_machines(object):
+    """
+    Functions for Deep Support Vector Machines                                               
+    :param features: scaled features                                                                                        
+    :param labels: classes                                                                                            
+    """ 
+    def __init__(self, kernel):
+        self.kernel1 = kernel1
+        self.kernel2 = kernel2
+    @classmethod
+    @caching.cache(max_size=100)
+    def polynomial_kernel(self, x, y, gamma):
+	"""
+	Custom polynomial kernel function, similarities of vectors over polynomials
+	:param x: array of input vectors
+	:param y: array of input vectors
+	:param gamma: gamma
+	:returns:
+	  - pk: inner product
+	"""
+        c = 1
+        degree = 2
+
+        pk = ssd(x, y.T, dense_output = True)
+
+        pk *= gamma
+
+        pk += c
+
+        pk **= degree
+        return pk
+    @classmethod
+    @caching.cache(max_size=100)
+    def linear_kernel_matrix(self, x, y):   
+        return np.dot(x,y)
+    @classmethod
+    @caching.cache(max_size=100)
+    def sigmoid_kernel(self, x, y, gamma):
+	"""
+	Custom sigmoid kernel function, similarities of vectors over polynomials
+	:param x: array of input vectors
+	:param y: array of input vectors
+	:param gamma: gamma
+	:returns:
+	  - sk: inner product
+	"""
+        c = 1
+        degree = 2
+
+        sk = ssd(x, y.T, dense_output = True)
+
+        sk *= gamma
+
+        sk += c
+
+        np.tanh(np.array(sk, dtype='float64'), np.array(sk, dtype = 'float64'))
+        return np.array(sk, dtype = 'float64')
+    @classmethod
+    @caching.cache(max_size=100)
+    def rbf_kernel(self, x, y, gamma):
+	"""
+	Custom sigmoid kernel function, similarities of vectors over polynomials
+	:param x: array of input vectors
+	:param y: array of input vectors
+	:param sigma: array of input vectors
+	:returns:
+	  - rbfk: inner product
+	"""    
+        from sklearn.metrics.pairwise import euclidean_distances  
+        rbfk = euclidean_distances(x, y, squared=True)  
+        rbfk *= -gamma 
+        np.exp(rbfk, rbfk)  
+        return rbfk
+    def fit_model(self, features,labels, kernel1, kernel2, C, reg_param, gamma):
+        self.kernel1 = kernel1
+        self.kernel2 = kernel2
+        self.gamma = gamma
+
+        x = np.ones(shape = (len(features),3)) 
+        x[:,(0,1)] = features[:,(0,1)]  
+
+        if np.all(labels[labels  > 0]) == False:                                      
+            raise Exception("There has to be two or more targets")
+
+        lab = labels * 2 - 1
+
+        if self.kernel2 == "linear":                                      
+            kernel = self.linear_kernel_matrix
+            matrix = self.linear_kernel_matrix(x, x.T)
+        if self.kernel2 == "poly":
+            kernel = self.polynomial_kernel
+            matrix = self.polynomial_kernel(x, x, gamma)
+        if self.kernel2 == "rbf":                                      
+            kernel = self.rbf_kernel
+            matrix = self.rbf_kernel(x, x, gamma)
+        if self.kernel2 == "sigmoid":
+            kernel = self.sigmoid_kernel
+            matrix = self.sigmoid_kernel(x, x, gamma)
+        if self.kernel2 == None:              
+            print ("Apply a kernel")
+
+        Q = np.zeros((len(labels), len(labels)))
+        for i in xrange(len(labels)):
+            for j in xrange(i, len(labels)):
+                Qvalue = lab[i] * lab[j]
+                if kernel == self.linear_kernel_matrix:        
+                    Qvalue *= kernel(features[i,:], features[j,:])     
+                else:                    
+                    Qvalue *= kernel(features[i,:], features[j,:], gamma)
+                Q[i,j] = Q[j,i] = Qvalue
+
+        class_weight = float(len(features))/(2 * np.bincount(labels))
+
+        sample_weight = class_weight[labels]
+
+        self.a = np.zeros(features.shape[0])
+        max_iterations = len(features)
+        iterations = 0
+        diff = 1. + reg_param
+        while diff > reg_param:
+            data_i = range(len(features))
+            for k in range(len(features)):
+                a0 = 4./(1. + iterations + k) + self.a.copy()
+                random_i = int(random.uniform(0,len(data_i)))
+                self.a[random_i] = self.a[random_i] + (1/np.diag(matrix))[random_i] * (1-x[random_i,2]*sum(self.a*x[:,2]*matrix[:,random_i]))
+                if self.a[random_i] < 0:                                       
+                    self.a[random_i] = 0
+                self.a[random_i] = min(self.a[random_i], C * sample_weight[i] * class_weight[labels[random_i]])
+                diff = sum((self.a-a0)*(self.a-a0))
+                del data_i[random_i]
+                iterations += 1
+                if diff < reg_param:                                       
+                    break
+
+        print ("Iterated " + str(iterations) +  " times for gradient ascent")
+
+        self.w = np.zeros(features.shape[1])
+        iterations = 0  
+        delta = 1. + reg_param                   
+        while delta > reg_param:
+            data_i = range(len(features))
+            for i in range(len(features)):
+                delta = 4./(1. + iterations + i) + 0. 
+                random_i = int(random.uniform(0,len(data_i)))             
+                gradient = np.dot(Q[random_i,:], self.a) - 1.0                                                                         
+                adelta = self.a[random_i] - min(max(self.a[random_i] - gradient/Q[random_i,random_i], 0.0), C * sample_weight[i] * class_weight[labels[random_i]])
+                self.w += adelta * features[random_i,:]  
+                delta += abs(adelta)
+                self.a[random_i] -= adelta
+                del data_i[random_i]
+                iterations += 1
+                if delta < reg_param:                                       
+                    break
+
+        print ("Iterated " + str(iterations) +  " times for gradient descent")
+
+        if np.sum(self.w) == 0:
+            raise Exception("Invalid value for weight, it should be higher than zero") 
+
+
+        if np.sum(self.w) == np.nan:
+            raise Exception("Invalid value for weight, it should be higher than zero and not nan") 
+
+
+        print ("Weight coefficient = "), self.w
+
+        self.svs = features[self.a > 0.0, :]
+
+        self.ns = np.sort(list(set(np.where(self.a > 0.0)[0])))
+
+        self.a = (self.a * lab)[self.a > 0.0]
+
+        self.nvs = [0,0]
+        for i in np.sign(self.a):                            
+            if i == -1:
+                self.nvs[0] += 1
+            if i == 1:
+                self.nvs[1] += 1
+
+        print ("Number of Support Vectors is " + str(self.nvs[0]) + " for negative classes and " + str(self.nvs[1]) + " for positive classes")
+
+        self.bias = self.partial_predictions(self.svs[0,:])[0]
+        if self.a[0] > 0:                           
+            self.bias *= -1
+
+        print ("Bias value = "), self.bias
+
+        return self.w, self.a, self.bias 
+            
+    def partial_predictions(self, features):
+        if (len(features.shape)  < 2):
+            features = features.reshape((1,-1))
+        classes = np.zeros(len(features))
+        for i in xrange(len(features)):
+            for j in xrange(len(self.svs)):
+                if self.kernel1 == "sigmoid":                           
+                    classes[i] += self.a[j] * self.sigmoid_kernel(self.svs[j,:],features[i,:], self.gamma)                                      
+                if self.kernel1 == "poly":                              
+                    classes[i] += self.a[j] * self.polynomial_kernel(self.svs[j,:],features[i,:], self.gamma) 
+                if self.kernel1 == "rbf":   
+                    classes[i] += self.a[j] * self.rbf_kernel(self.svs[j,:],features[i,:], self.gamma)                                           
+                if self.kernel1 == "linear":   
+                    k_fun = self.kernel1     
+                    classes[i] += self.a[j] * self.linear_kernel_matrix(self.svs[j,:],features[i,:])
+        return classes
+
+    def decision_function(self, features):
+        if self.kernel1 == "linear":
+            k = self.linear_kernel_matrix(self.svs, features.T)
+        if self.kernel1 == "poly":
+            k = self.polynomial_kernel(self.svs, features, self.gamma)
+        if self.kernel1 == "sigmoid":
+            k = self.sigmoid_kernel(self.svs, features, self.gamma)
+        if self.kernel1 == "rbf":
+            k = self.rbf_kernel(self.svs, features, self.gamma)
+        start = [sum(self.nvs[:i]) for i in range(len(self.nvs))]
+        end = [start[i] + self.nvs[i] for i in range(len(self.nvs))]
+        a = np.array([list(self.a)])
+        c = [ sum(a[ i ][p] * k[p] for p in range(start[j], end[j])) +
+              sum(a[j-1][p] * k[p] for p in range(start[i], end[i]))
+                for i in range(len(self.nvs)) for j in range(i+1,len(self.nvs))]
+
+        return [sum(x) for x in zip(c, [self.bias])]
+
+    def predictions(self, features):                   
+        classes = self.decision_function(features)[0]  > 0 
+        lab = []                   
+        for c in classes:
+            if c == True:
+                lab.append(1)
+            else:
+                lab.append(0) 
+        return lab
+
+#classify all the features using different kernels (different products) 
+class svm_layers(deep_support_vector_machines):
+    """
+    Functions for Deep Support Vector Machines layers                                        
+    :param features: scaled features                                                                                        
+    :param labels: classes                                                                                            
+    """ 
+    def __init__(self):
+        super(deep_support_vector_machines, self).__init__()
+    def layer_computation(self, features, labels):
+	"""
+	Computes vector outputs and labels
+	:param features: scaled features
+	:param labels: classes
+	:returns:
+	  - labels_to_file: potential classes
+	"""
+        #classes are predicted even if we only use the decision functions as part of the output data to get a better scope of classifiers
+        from sklearn.metrics import accuracy_score
+        fxs = []
+        sample_weight = float(len(features)) / (len(np.array(list(set(labels)))) * np.bincount(labels))
+        for i in range(0,4):
+            print ("Calculating values for prediction")
+            if i == 0:
+                classes = labels
+                self.fit_model(features[labels==0], labels[labels==0], "rbf", "sigmoid", 100, 0.1, 0.01)
+                print ("Predicting")
+                fx = self.decision_function(features)[0]
+                classes[labels==0] = self.predictions(features[labels==0])
+            if i == 1:
+                classes = labels
+                self.fit_model(features[labels==1], labels[labels==1], "linear", "poly", 20, 0.1, 0.035111917342151272)
+                print ("Predicting")
+                fx = self.decision_function(features)[0]
+                classes[labels==1] = self.predictions(features[labels==1])
+            if i == 2:
+                self.fit_model(features, labels, "poly", "linear", 20, 0.10000000000000001, 0.035111917342151272)
+                print ("Predicting")
+                fx = self.decision_function(features)[0]
+                classes = self.predictions(features)
+            if i == 3:
+                classes = labels
+                self.fit_model(features, labels, "rbf", "poly", 100.0, 0.01, 9.9999999999999995e-07)
+                print ("Predicting")
+                fx = self.decision_function(features)[0]
+                classes = self.predictions(features)
+            print ("Predicted"), classes
+            lw = np.ones(len(labels))
+            for idx, m in enumerate(np.bincount(labels)):            
+                lw[labels == idx] *= (m/float(labels.shape[0]))
+            print accuracy_score(labels, classes, sample_weight = lw)
+            fxs.append(fx) 
+        return np.array(fxs).T                
+    def sum_of_S(self, S):
+	"""
+	Sums the vector outputs of Deep Support Vector Machine layers
+	:param S: arrays of vector outputs
+	:returns:
+	  - sum of outputs for the main layer
+	"""            
+        return np.sum(S,axis=0)
+    def best_labels(self, labels_to_file):
+	"""
+	Get the best labels for regression
+	:param labels_to_file: the classes given to the outputs of the layers
+	:returns:
+	  - labl: the best labels to apply regression to the sum of outputs of the layers
+	"""
+        count_labels = [Counter(list(i)).most_common() for i in labels_to_file]
+        labl = []
+        for i in count_labels:
+            labl.append(i[0][0])
+        labl = np.array(labl).T
+        return labl
+
+#classify fx of the input layers
+class main_svm(deep_support_vector_machines):
+    """
+    Functions for the main layer of the Deep Support Vector Machine                          
+    :param S: sum of layers outputs                                                                                         
+    :param labels: best classes from outputs                                                                          
+    :returns:                   
+      - negative_emotion_files: files with negative emotional value (emotional meaning according to the whole performance)
+      - positive_emotion_files: files with positive emotional value (emotional meaning according to the whole performance) 
+    """
+    def __init__(self, S, lab):
+        super(deep_support_vector_machines, self).__init__()
+        self._S = S
+        self._w, self._a, self._bias = self.fit_model(self._S, lab, "poly", "linear", 10, 0.01, 0.5)
+        self._labels = self.predictions(self._S)
+        print self._labels
+        self._a = -self._w[0] / self._w[1] 
+        self._weighted_labels = np.ones(lab.shape[0])
+        from sklearn.metrics import accuracy_score
+        for idx, m in enumerate(np.bincount(lab)):            
+                self._weighted_labels[lab == idx] *= (m/float(lab.shape[0]))
+        print accuracy_score(lab, self._labels, sample_weight = self._weighted_labels)                                         
+        #calculate the parallels of separation 
+        self._v = self._S * self._w + self._bias                                    
+        self._yy = -self._w[0] * self._S - self._bias + self._v / self._w[1]                      
+    def plot_emotion_classification(self):
+	"""
+	3D plotting of the classfication
+	"""
+            #3D plotting                                 
+        from mpl_toolkits.mplot3d import Axes3D 
+               
+        fig = plt.figure()                                                                                                                    
+        ax = Axes3D(fig)                                                    
+        ax.plot3D(self._S, self._yy, 'k-')                                                       
+        ax.scatter3D(self._S[:, 0], self._S[:, 1], c=self._labels, cmap=plt.cm.Paired)
+       
+        print (Fore.WHITE + "El grupo negativo '0' esta coloreado en azul, el grupo positivo '1' esta coloreado en rojo") 
+                                                                      
+        plt.show() 
+                                                    
+    def neg_and_pos(self, files):
+	"""
+	Lists of files according to emotion label (0 for negative, 1 for positive)
+	:param files: filenames of inputs
 	:returns:
 	  - negative_emotion_files: files with negative emotional value (emotional meaning according to the whole performance)
 	  - positive_emotion_files: files with positive emotional value (emotional meaning according to the whole performance) 
 	"""
-	if multitag == None:
-		files = get_files(files_dir)
-		dics = get_dics(files_dir)
-	elif multitag == True:
-		files = np.hstack([get_files(tag) for tag in files_dir])
-		dics = np.hstack([get_dics(tag) for tag in files_dir])
-	else:
-		if multitag == False:
-			pass
-
-	for i,x in enumerate(np.vstack((files, [len(i) for i in dics])).T):
-         if x[1] != str(13): #if dictionary of a file is shorter...
-             fname = i
-             for i in files:
-                 fname = i[fname] #...finds the name of the .json file
-             for tag in tags_dirs:
-                 for subdir, dirs, sounds in os.walk(tag+'/descriptores'):
-                     for s in sounds:
-                         if fname == s:
-                             print (os.path.abspath(tag+'/descriptores/'+s) +" has less descriptors and will be discarded for clustering and classification. This happens because there was an error in MIR analysis, so the sound has to be analyzed again after being processed")
-                             os.remove((os.path.abspath(tag+'/descriptores/'+s))) #... and deletes the less suitable .json file
-
-	print ("Selecting 'metadata.duration.mean' is not meaningful if you want to use the data for emotions classification")
-
-	similar = plot_similarity_clusters(files, dics)
-	y = similar[4] #from similarity get pca values
-	labels = KMeans(n_clusters=2).fit(y).labels_ #only two labels based on mean values
-	clf = svm.SVC(kernel = 'poly', decision_function_shape = 'ovr', gamma = 2, class_weight = 'balanced', cache_size = 512, C = 1.0/(2*y.size)).fit(y, labels)#fit a svm with polynomial kernel
-	#at least 12 features into two
-	h = plot_similarity_clusters(files, dics)[4]
-	l = plot_similarity_clusters(files, dics)[4]
-	v = plot_similarity_clusters(files, dics)[4]
-	x = plot_similarity_clusters(files, dics)[4]
-	z = plot_similarity_clusters(files, dics)[4]
-	xyz = np.sum([y, h, l, v, x, z], axis=0)
-	#predict - or + with a sum of all PCAs
-	labels = clf.predict(xyz)
-
-	clf = svm.SVC(kernel = 'poly', decision_function_shape = 'ovr', gamma = 2, class_weight = 'balanced', cache_size = 512, C=0.2).fit(xyz, labels) #fit the new values
-	x_min, x_max = xyz[:, 0].min() - 1, xyz[:, 0].max() + 1 
-	y_min, y_max = xyz[:, 1].min() - 1, xyz[:, 1].max() + 1 
-
-	xx, yy = np.meshgrid(np.arange(x_min, x_max, 0.2), np.arange(y_min, y_max, 0.2))
-	Z = clf.predict(np.c_[xx.ravel(), yy.ravel()])
-	Z = Z.reshape(xx.shape) #compute x,y and z for contour plotting of separation
- 
-	plt.contour(xx, yy, Z)  
-	plt.scatter(xyz[:, 0], xyz[:, 1], c = labels)  
-
-	print (Fore.WHITE + "El grupo negativo '0' esta coloreado en azul, el grupo positivo '1' esta coloreado en rojo")
-	print np.vstack((labels,files)).T
-
-	time.sleep(6)
-
-	plt.show()
-
-	negative_emotion_group = map(lambda json: files[0][json], [i for i, x in enumerate(labels) if x ==0])
-	negative_emotion_files = [i.split('.json')[0] for i in negative_emotion_group]
-
-	positive_emotion_group = map(lambda json: files[0][json], [i for i, x in enumerate(labels) if x ==1])
-	positive_emotion_files = [i.split('.json')[0] for i in positive_emotion_group]
-
-	return negative_emotion_files, positive_emotion_files
+        negative_emotion_group = map(lambda json: files[json], [i for i, x in enumerate(self._labels) if x ==0])
+        negative_emotion_files = [i.split('.json')[0] for i in negative_emotion_group]
+        positive_emotion_group = map(lambda json: files[json], [i for i, x in enumerate(self._labels) if x ==1]) 
+        positive_emotion_files = [i.split('.json')[0] for i in positive_emotion_group]
+        return negative_emotion_files, positive_emotion_files
 
 #create emotions directory in data dir if multitag classification has been performed
 def emotions_data_dir():
@@ -128,7 +503,7 @@ def multitag_emotion_classifier(tags_dirs):
                                                                                             
     :param tags_dirs = paths of tags in data                                                                              
     """           
-    neg_and_pos = plot_emotion_clusters(tags_dirs, multitag = True)   
+    neg_and_pos = deep_support_vector_machine(tags_dirs, multitag = True)   
     return neg_and_pos
 
 #emotions dictionary directory (to use with RedPanal API)
@@ -672,13 +1047,13 @@ def multitag_emotions_dir(tags_dirs, negative_emotion_files, positive_emotion_fi
     :param pos_arous_dir: directory where sounds with positive arousal value will be placed
                                                                                                                                                                          
     """                                                                                         
-    files_format = ['.mp3', '.ogg', '.undefined', '.wav']
+    files_format = ['.mp3', '.ogg', '.undefined', '.wav', '.mid', '.wma', '.amr']
 
     if positive_emotion_files:
         print (repr(positive_emotion_files)+"By arousal, emotion is happy and angry, not sad and not relaxed")
 
     if negative_emotion_files:
-        print (repr(negative_emotion_files)+"By arousal, emotion is sad and relaxed, not happy and not relaxed")
+        print (repr(negative_emotion_files)+"By arousal, emotion is sad and relaxed, not happy and not angry")
 
     sounds = []
                                                   
@@ -858,11 +1233,32 @@ if __name__ == '__main__':
 
         if sys.argv[2] in ('True'):
             tags_dirs = tags_dirs(files_dir)
-            neg_and_pos = multitag_emotion_classifier(tags_dirs)
+            files = descriptors_and_keys(tags_dirs, True)._files
+            features = descriptors_and_keys(tags_dirs, True)._features
+            fscaled = feature_scaling(features)
+            labels = KMeans_clusters(fscaled)
+            fx = svm_layers().layer_computation(fscaled, labels)
+            sum_of_distances = np.sum(fx, axis=1)
+            labl = np.sign(sum_of_distances)
+            labl[labl==-1]=0
+            print labl
+            fx = np.vstack((sum_of_distances, np.ones(len(sum_of_distances)))).T #add ones to the distances as features
+            msvm = main_svm(fx,np.int32(labl))
+            msvm.plot_emotion_classification()
+            neg_and_pos = msvm.neg_and_pos(files)
             emotions_data_dir()
             multitag_emotions_dir(tags_dirs, neg_and_pos[0], neg_and_pos[1], neg_arous_dir, pos_arous_dir)
         if sys.argv[2] in ('None'):
-            neg_and_pos = plot_emotion_clusters(files_dir, multitag = None)
+            files = descriptors_and_keys(files_dir, None)._files
+            features = descriptors_and_keys(files_dir, None)._features
+            fscaled = feature_scaling(features_combinations(features)._random_pairs)
+            labels = KMeans_clusters(fscaled)
+            labels_to_file = svm_layers().layer_computation(fscaled, labels, "poly")
+            S = svm_layers().sum_of_S(fscaled)
+            labl = svm_layers().best_labels(labels_to_file)
+            print labl
+            main_svm(fx,lab).plot_emotion_classification()
+            neg_and_pos = main_svm(fx,lab).neg_and_pos(files)
             bpm_emotions_remix(files_dir, neg_and_pos[0], neg_and_pos[1])
             attack_emotions_remix(files_dir, neg_and_pos[0], neg_and_pos[1])
             dissonance_emotions_remix(files_dir, neg_and_pos[0], neg_and_pos[1])

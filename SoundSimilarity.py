@@ -11,8 +11,7 @@ import re
 from sklearn import preprocessing
 from sklearn.decomposition.pca import PCA                                      
 from sklearn.cluster import AffinityPropagation
-import shutil                                  
-                                 
+import shutil                                            
 
 def get_files(files_dir):
 	"""
@@ -41,61 +40,63 @@ def get_dics(files_dir):
 		if not os.path.exists(files_dir+'/descriptores'):
 			print ("No readable MIR data found")
 
-# plot sound similarity clusters
-def plot_similarity_clusters(files, dics, plot = None):
+class desc_pair():
 	"""
-	find similar sounds using Affinity Propagation clusters
+	obtain description values after choosing descriptors
 
-	:param files: the .json files (use get_files)
-	:param dics: the list of descriptions (use get_dics)
+	:param desc1: first descriptor values
+	:param desc2: second descriptor values
 	:returns:
-	  - descriptors[first_descriptor_key], descriptors[second_descriptor_key]: the first descriptor used for clustering, the second descriptor used for clustering
 	  - euclidean_labels: labels of clusters
-	  - min_max: scaled values of features
-	  - y: principal component analysis of features
-	"""
-	descriptors = ['lowlevel.dissonance.mean', 'lowlevel.mfcc_bands.mean', 'sfx.inharmonicity.mean', 'rhythm.bpm.mean', 'lowlevel.spectral_contrast.mean', 'lowlevel.spectral_centroid.mean', 'metadata.duration.mean', 'lowlevel.mfcc.mean', 'loudness.level.mean', 'rhythm.bpm_ticks.mean', 'lowlevel.spectral_valleys.mean', 'sfx.logattacktime.mean', 'lowlevel.hfc.mean'] # modify according to features_and_keys 
+	""" 
+	def __init__(self, files, dics):
+		self._files = files
+		self._dics = dics
+		self.descriptors = ['lowlevel.dissonance.mean', 'lowlevel.mfcc_bands.mean', 'sfx.inharmonicity.mean', 'rhythm.bpm.mean', 'lowlevel.spectral_contrast.mean', 'lowlevel.spectral_centroid.mean', 'metadata.duration.mean', 'lowlevel.mfcc.mean', 'loudness.level.mean', 'rhythm.bpm_ticks.mean', 'lowlevel.spectral_valleys.mean', 'sfx.logattacktime.mean', 'lowlevel.hfc.mean'] # modify according to features_and_keys
+		self.features = re.findall(r"[+-]? *(?:\d+(?:\.\d*)?|\.\d+)(?:[eE][+-]?\d+)?", str(self._dics))  
+		self.files_features = np.array_split(self.features, np.array(self._files).size) 
+		self.keys = [i for i,x in enumerate(self.descriptors)]
 
-	features = re.findall(r"[+-]? *(?:\d+(?:\.\d*)?|\.\d+)(?:[eE][+-]?\d+)?", str(dics))    
-	files_features = np.array_split(features, np.array(files).size)  
-               
-	keys = [i for i,x in enumerate(descriptors)]
-
-	if plot == True:
-		print "Before clustering, it is necessary to know which descriptors are going to be used. First descriptor will be at the x axis of the plot and Second descriptor will be at the y axis of the plot"
-		print (Fore.GREEN + "(Descriptors on the left and Keys on the right)")
-	else:
-		pass
+def get_desc_pair(descriptors, files_features, keys):
 
 	print np.vstack((descriptors,keys)).T
 
-	first_descriptor_key = input("Key of first list of descriptors: ")                                                                      
-	second_descriptor_key = input("Key of second list of descriptors: ")
-		                                                    
-	if first_descriptor_key not in keys:                                                                     
+	input1 = input("Key of first list of descriptors:")                                                                      
+	input2 = input("Key of second list of descriptors: ")
+				                                            
+	if input1 not in keys:                                                                     
 		raise IndexError("Need keys of descriptors") 
 
-	if second_descriptor_key not in keys:                                                                     
+	if input2 not in keys:                                                                     
 		raise IndexError("Need keys of descriptors") 
+			 
+	first_descriptor_values = (zip(*files_features)[input1])                                                                  
+	second_descriptor_values = (zip(*files_features)[input2])  
+
+	return first_descriptor_values, second_descriptor_values, descriptors[input1], descriptors[input2]
+
+
+# plot sound similarity clusters
+def plot_similarity_clusters(desc1, desc2, plot = None):
+	"""
+	find similar sounds using Affinity Propagation clusters
+
+	:param desc1: first descriptor values
+	:param desc2: second descriptor values
+	:returns:
+	  - euclidean_labels: labels of clusters
+	""" 
 
 	if plot == True:
-
-		print ("First descriptor is" + repr(descriptors[first_descriptor_key]))
-		print ("Second descriptor is" + repr(descriptors[second_descriptor_key]))
-
-		time.sleep(2)
-
 		print (Fore.MAGENTA + "Clustering")
 	else:
 		pass
-		 
-	first_descriptor_values = (zip(*files_features)[first_descriptor_key])                                                                  
-	second_descriptor_values = (zip(*files_features)[second_descriptor_key])            
-
-	min_max = preprocessing.scale(np.vstack((first_descriptor_values,second_descriptor_values)).T, with_mean=False, with_std=False)          
+         
+	min_max = preprocessing.scale(np.vstack((desc1,desc2)).T, with_mean=False, with_std=False)          
 	pca = PCA(n_components=2, whiten=True)
-	y = pca.fit(min_max).transform(min_max)     
-	euclidean = AffinityPropagation(convergence_iter=10, affinity='euclidean')                           
+	y = pca.fit(min_max).transform(min_max)
+	    
+	euclidean = AffinityPropagation(convergence_iter=1800, affinity='euclidean')                           
 	euclidean_labels= euclidean.fit_predict(y)
 
 	if plot == True:
@@ -111,13 +112,11 @@ def plot_similarity_clusters(files, dics, plot = None):
 		plt.scatter(y[euclidean_labels==1,0], y[euclidean_labels==1,1], c='r')
 		plt.scatter(y[euclidean_labels==2,0], y[euclidean_labels==2,1], c='y')
 		plt.scatter(y[euclidean_labels==3,0], y[euclidean_labels==3,1], c='g')
-		plt.xlabel(str(descriptors[first_descriptor_key])+"(scaled)")
-		plt.ylabel(str(descriptors[second_descriptor_key])+"(scaled)")
 		plt.show()
 	else:
 		pass
 
-	return descriptors[first_descriptor_key], descriptors[second_descriptor_key], euclidean_labels, min_max, y
+	return euclidean_labels
 
 
 # save clusters files in clusters directory
@@ -863,13 +862,17 @@ if __name__ == '__main__':
 
 	files = get_files(files_dir)
 	dics = get_dics(files_dir)
-	desc1, desc2, euclidean_labels, min_max, y = plot_similarity_clusters(files, dics, plot = True)
+	descriptors = desc_pair(files,dics).descriptors
+	files_features = desc_pair(files,dics).files_features
+	keys = desc_pair(files,dics).keys
+	desc1, desc2, in1, in2 = get_desc_pair(descriptors, files_features, keys)
+	euclidean_labels = plot_similarity_clusters(desc1, desc2, plot = True)
 
 	time.sleep(2)
 
 	print ("If you chose both rhythm descriptors, both contrast descriptors or both mfcc descriptors clusters of sounds will be located in the same directory")
 
-	if 'rhythm.bpm.mean'not in desc1:
+	if 'rhythm.bpm.mean'not in in1:
 	    print ("First Descriptor is not rhythm.bpm.mean")
 	else:   
 	    try:   
@@ -878,7 +881,7 @@ if __name__ == '__main__':
 		print ("Error: Clusters already saved")
 
 
-	if 'rhythm.bpm.mean'not in desc2:
+	if 'rhythm.bpm.mean'not in in2:
 	    print ("Second Descriptor is not rhythm.bpm.mean")
 	else:
 	    try:   
@@ -886,7 +889,7 @@ if __name__ == '__main__':
 	    except OSError:
 		print ("Error: Clusters already saved")
 
-	if 'rhythm.bpm_ticks.mean'not in desc1:
+	if 'rhythm.bpm_ticks.mean'not in in1:
 	    print ("First Descriptor is not rhythm.bpm_ticks.mean")
 	else:
 	    try:   
@@ -894,7 +897,7 @@ if __name__ == '__main__':
 	    except OSError:
 		print ("Error: Clusters already saved")
 
-	if 'rhythm.bpm.mean'not in desc2:
+	if 'rhythm.bpm.mean'not in in2:
 	    print ("Second Descriptor is not rhythm.bpm_ticks.mean")
 	else:   
 	    try:
@@ -902,7 +905,7 @@ if __name__ == '__main__':
 	    except OSError:
 		print ("Error: Clusters already saved")
 
-	if 'lowlevel.mffc_bands.mean'not in desc1:
+	if 'lowlevel.mffc_bands.mean'not in in1:
 	    print ("First Descriptor is not lowlevel.mfcc_bands.mean")
 	else:   
 	    try:   
@@ -910,7 +913,7 @@ if __name__ == '__main__':
 	    except OSError:
 		print ("Error: Clusters already saved")
 
-	if 'lowlevel.mfcc_bands.mean'not in desc2:
+	if 'lowlevel.mfcc_bands.mean'not in in2:
 	    print ("Second Descriptor is not lowlevel.mfcc_bands.mean")
 	else:
 	    try:   
@@ -918,7 +921,7 @@ if __name__ == '__main__':
 	    except OSError:
 		print ("Error: Clusters already saved")
 
-	if 'lowlevel.mffc.mean'not in desc1:
+	if 'lowlevel.mffc.mean'not in in1:
 	    print ("First Descriptor is not lowlevel.mfcc.mean")
 	else:   
 	    try:   
@@ -926,7 +929,7 @@ if __name__ == '__main__':
 	    except OSError:
 		print ("Error: Clusters already saved")
 
-	if 'lowlevel.mfcc.mean'not in desc2:
+	if 'lowlevel.mfcc.mean'not in in2:
 	    print ("Second Descriptor is not lowlevel.mfcc.mean")
 	else:
 	    try:   
@@ -934,7 +937,7 @@ if __name__ == '__main__':
 	    except OSError:
 		print ("Error: Clusters already saved")
 
-	if 'lowlevel.spectral_contrast.mean'not in desc1:
+	if 'lowlevel.spectral_contrast.mean'not in in1:
 	    print ("First Descriptor is not lowlevel.spectral_contrast.mean")
 	else:   
 	    try:   
@@ -943,7 +946,7 @@ if __name__ == '__main__':
 		print ("Error: Clusters already saved")
 
 
-	if 'lowlevel.spectral_contrast.mean'not in desc2:
+	if 'lowlevel.spectral_contrast.mean'not in in2:
 	    print ("Second Descriptor is not lowlevel.spectral_contrast.mean")
 	else:
 	    try:   
@@ -951,7 +954,7 @@ if __name__ == '__main__':
 	    except OSError:
 		print ("Error: Clusters already saved")
 
-	if 'lowlevel.spectral_valleys.mean'not in desc1:
+	if 'lowlevel.spectral_valleys.mean'not in in1:
 	    print ("First Descriptor is not lowlevel.spectral_valleys.mean")
 	else:
 	    try:   
@@ -959,7 +962,7 @@ if __name__ == '__main__':
 	    except OSError:
 		print ("Error: Clusters already saved")
 
-	if 'lowlevel.spectral_valleys.mean'not in desc2:
+	if 'lowlevel.spectral_valleys.mean'not in in2:
 	    print ("Second Descriptor is not lowlevel.spectral_valleys.mean")
 	else:   
 	    try:
@@ -967,7 +970,7 @@ if __name__ == '__main__':
 	    except OSError:
 		print ("Error: Clusters already saved")
 
-	if 'lowlevel.spectral_centroid.mean'not in desc1:
+	if 'lowlevel.spectral_centroid.mean'not in in1:
 	    print ("First Descriptor is not lowlevel.spectral_centroid.mean")
 	else:   
 	    try:   
@@ -976,7 +979,7 @@ if __name__ == '__main__':
 		print ("Error: Clusters already saved")
 
 
-	if 'lowlevel.spectral_centroid.mean'not in desc2:
+	if 'lowlevel.spectral_centroid.mean'not in in2:
 	    print ("Second Descriptor is not lowlevel.spectral_centroid.mean")
 	else:
 	    try:   
@@ -984,7 +987,7 @@ if __name__ == '__main__':
 	    except OSError:
 		print ("Error: Clusters already saved") 
 
-	if 'loudness.level.mean'not in desc1:
+	if 'loudness.level.mean'not in in1:
 	    print ("First Descriptor is not loudness.level.mean")
 	else:   
 	    try:   
@@ -993,7 +996,7 @@ if __name__ == '__main__':
 		print ("Error: Clusters already saved")
 
 
-	if 'loudness.level.mean'not in desc2:
+	if 'loudness.level.mean'not in in2:
 	    print ("Second Descriptor is not loudness.level.mean")
 	else:
 	    try:   
@@ -1001,7 +1004,7 @@ if __name__ == '__main__':
 	    except OSError:
 		print ("Error: Clusters already saved")
 
-	if 'lowlevel.hfc.mean'not in desc1:
+	if 'lowlevel.hfc.mean'not in in1:
 	    print ("First Descriptor is not lowlevel.hfc.mean")
 	else:   
 	    try:   
@@ -1010,7 +1013,7 @@ if __name__ == '__main__':
 		print ("Error: Clusters already saved")
 
 
-	if 'lowlevel.hfc.mean'not in desc2:
+	if 'lowlevel.hfc.mean'not in in2:
 	    print ("Second Descriptor is not lowlevel.hfc.mean")
 	else:
 	    try:   
@@ -1018,7 +1021,7 @@ if __name__ == '__main__':
 	    except OSError:
 		print ("Error: Clusters already saved") 
 
-	if 'sfx.inharmonicity.mean'not in desc1:
+	if 'sfx.inharmonicity.mean'not in in1:
 	    print ("First Descriptor is not sfx.inharmonicity.mean")
 	else:   
 	    try:   
@@ -1027,7 +1030,7 @@ if __name__ == '__main__':
 		print ("Error: Clusters already saved")
 
 
-	if 'sfx.inharmonicity.mean'not in desc2:
+	if 'sfx.inharmonicity.mean'not in in2:
 	    print ("Second Descriptor is not sfx.inharmonicity.mean")
 	else:
 	    try:   
@@ -1035,7 +1038,7 @@ if __name__ == '__main__':
 	    except OSError:
 		print ("Error: Clusters already saved") 
 
-	if 'lowlevel.dissonance.mean'not in desc1:
+	if 'lowlevel.dissonance.mean'not in in1:
 	    print ("First Descriptor is not lowlevel.dissonance.mean")
 	else:   
 	    try:   
@@ -1044,7 +1047,7 @@ if __name__ == '__main__':
 		print ("Error: Clusters already saved")
 
 
-	if 'lowlevel.dissonance.mean'not in desc2:
+	if 'lowlevel.dissonance.mean'not in in2:
 	    print ("Second Descriptor is not lowlevel.dissonance.mean")
 	else:
 	    try:   
@@ -1052,7 +1055,7 @@ if __name__ == '__main__':
 	    except OSError:
 		print ("Error: Clusters already saved") 
 
-	if 'sfx.logattacktime.mean'not in desc1:
+	if 'sfx.logattacktime.mean'not in in1:
 	    print ("First Descriptor is not sfx.logattacktime.mean")
 	else:   
 	    try:   
@@ -1061,7 +1064,7 @@ if __name__ == '__main__':
 		print ("Error: Clusters already saved")
 
 
-	if 'sfx.logattacktime.mean'not in desc2:
+	if 'sfx.logattacktime.mean'not in in2:
 	    print ("Second Descriptor is not sfx.logattacktime.mean")
 	else:
 	    try:   
@@ -1069,7 +1072,7 @@ if __name__ == '__main__':
 	    except OSError:
 		print ("Error: Clusters already saved") 
 
-	if 'metadata.duration.mean'not in desc1:
+	if 'metadata.duration.mean'not in in1:
 	    print ("First Descriptor is not metadata.duration.mean")
 	else:   
 	    try:   
@@ -1078,7 +1081,7 @@ if __name__ == '__main__':
 		print ("Error: Clusters already saved")
 
 
-	if 'metadata.duration.mean'not in desc2:
+	if 'metadata.duration.mean'not in in2:
 	    print ("Second Descriptor is not metadata.duration.mean")
 	else:
 	    try:   
