@@ -1,44 +1,78 @@
 # ApiCultor: Extrae la miel de RedPanal
 
-Implementado para realizar una una performance multidisciplinaria basada en los sonidos de la plataforma http://redpanal.org
+Implementado para realizar performances multidisciplinarias basadas en los sonidos de la plataforma http://redpanal.org
 
-El código da soporte para el procesamiento de los mismos utilizando técnicas de MIR (Music Information Retrieval) para la "extracción" de parámetros que los caractericen para luego clasficarlos, segmentarlos y manipularlos según los criterios elegidos.
+El código da soporte para el procesamiento de sonidos de la web utilizando técnicas de MIR (Music Information Retrieval) para la "extracción" de parámetros que los caractericen para luego clasficarlos, segmentarlos y manipularlos según los criterios elegidos.
+
+Funciona a través de una API REST para la consulta externa de archivos y descriptores desde SuperCollider, pd o cualquier otro tipo de entorno.
+
+Performances utilizando estas herramientas:
+
+Cierre de Taller de Experimentación Sonora:
+http://redpanal.org/a/banda-de-mutantes-cierre-taller/
+
+La Noche de los Museos La Casa del Bicentenario 29/10/2016
+http://redpanal.org/a/performance-casa-tomada/
+
+Sonidos Mutantes, propone performances basadas en el uso artístico de bases de datos preexistentes, las mismas construidas por audios o músicas libres, por ejemplo aquellas de la plataforma colaborativa de RedPanal.org, la cuál es de acceso público vía internet. Estos sonidos, analizados y procesados en tiempo real se combinan en una improvisación colectiva con músicos en vivo bajo consignas preestablecidas, dando lugar a composiciones que mutan a lo largo del tiempo y en función de los propios músicos y de la comunidad toda. Ya que el público podrá participar de la performance subiendo audios y haciendo búsquedas o comentarios en la plataforma web de RedPanal.
+
+Pruebas de concepto (demos viejas):
+Demo máquina de estados + MIR data + OSC + API + Tests: http://www.youtube.com/watch?v=pMBl_4y6UmE
+Integración con controlador MIDI + Supercollider + ApicultorWebService: https://www.youtube.com/watch?v=X0M_gTOZnNQ
 
 ## Componentes
 * Descarga archivos de audio por tag
 * Algoritmos MIR para extraer descriptores de las pistas
 * Algoritmos para segmentar los archivos de audio con distintos criterios
 * Algoritmos para clasificar y agrupar los archivos de la base de datos redpanalera
+* API REST para realizar consultas sobre redpanal (url audios+valores de descriptores)
+* Server OSC
+* Ejemplos de uso con Supercollider
 
-#Dependencias
-* pip install bs4
-* pip install regex
-* pip install wget
-* pip install colorama
-* pip install matplotlib
-* Essentia (ver instrucciones para compilar aquí: http://essentia.upf.edu/documentation/installing.html)
-* pip install numpy scipy scikit-learn
-* pip install smst
-* pip install librosa
-* pip install transitions
+# Dependencias
 
-# Uso 
+Ver INSTALL.md
+
+# Uso (estado experimental)
 ## Bajar los sonidos redpanaleros y aplicar MIR
 $ cd apicultor/data 
+\# $./download-test-data.sh # Predefinidos (testing)
 $ python WebScrapingDownload.py nombredeltag 
 $ cd /carpetadondeesta/apicultor
 $ python run_MIR_analysis.py directoriodesonidosdeltag
+## Segmentar sonidos
+$ ./RandomSegmentation.py
 ## Similaridad Sonora
+Procesar señales de salida para guardar los sonidos en base a clusters
 $ cd /apicultor
 $ python SoundSimilarity.py carpetadeltag
 ## Sonificación
 $ cd /apicultor
 $ python Sonification.py carpetadeltag
-## MÁQUINA DE ESTADOS EMOCIONALES DE LA MÚSICA
+
+## SuperCollider
+Performance and helper scripts in "supercollider/" 
+
+## Correr webservice (requiere api rest)
+$ ./MockRedPanalAPI_service.py
+
+By default:
+* Listen IP: 0.0.0.0
+* Port: 5000
+
+Ver ejemplos de uso en tests/Test_API.py
+
+## Generar documentación HTML sobre la API REST
+$ cd doc/ && ./update_api_doc.sh
+
+Resultado: API-Documentation.html
+
+
+## Máquina de estados emocionales de la música
 $ cd /apicultor
 $ python MusicEmotionMachine.py directoriodondeestadata multitag(verdadero, clasifica Todos los audios descargados/ninguno, clasifica audios de un tag específico/falso, después de haber hecho la clasificación, correr de nuevo para llamar a Johnny (la máquina de estados emocionales) para que comienzen las transiciones emocionales con remixes en tiempo real de Todos los sonidos)
 
-#Docu
+# Files
 * WebScrapingDownload.py descarga los primeros diez archivos de la base de datos redpanalera tomando en cuenta el tag. Solamente hay que especificar el tag de archivos para buscar.
 * DoSegmentation.py segmenta los archivos de audio en cuadros de corta duración.
 * RandomSegmentation.py segmenta los archivos de audio en cuadros de duración aleatoria.
@@ -47,7 +81,7 @@ $ python MusicEmotionMachine.py directoriodondeestadata multitag(verdadero, clas
 * Sonification.py También procesa los sonidos en base a las descripciones hechas.
 * MusicEmotionMachine.py clasifica los sonidos en base a sus emociones. Si la clasificación es multitag (de todo el audio redpanalero), luego se puede correr la máquina de estados emocionales musicales (Johnny) para remixar todos los sonidos y reproducirlos en tiempo real
 
-#Sobre el aprendizaje profundo de la MEM:
+# Sobre el aprendizaje profundo de la MEM:
 
 Con la intención de obtener la mejor clasificación posible de los sonidos basándose en las emociones que son capaces de transmitirnos, la tarea profunda consiste en este caso particular de reveer las activaciones con capas de máquinas de soporte vectorial para dar con la clasificación correcta. Las clasificaciones son en negativo o positivo, de acuerdo a la estimulación (arousal, no "activation"). Como la información del MIR es importante, el aprendizaje se hace respetando lo mejor posible las descripciones, lo que permite reveer las clasificaciones hechas hasta dar con las correctas.
 
@@ -70,10 +104,10 @@ mysql> quit;
 Luego se puede usar Fill_DB.py para crear la base de datos del MIR
 
 
-#TODO
-agregar el diccionario de emociones luego de una clasificación multitag para actualizar la base de datos redpanalera. A medida que vayamos mejorando muchísimo mas el Apicultor vamos a hacer el primer release 
+# Build
+Si ya tenés instaladas todas las dependencias podés correr: 
 
-#build
-si ya tenés instaladas todas las dependencias podés correr: 
 $ sudo python setup.py install
+
 y tener Apicultor instalado en el sistema
+

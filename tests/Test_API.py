@@ -42,7 +42,6 @@ class Test_REST_API(unittest.TestCase):
         call = '/pistas/126/descriptor' # id 126 (existente, retorna json)
         response = urllib2.urlopen(URL_BASE + call).read()
         self.assertNotEqual(response.find("lowlevel.dissonance.mean"), -1)
-        print("FIXME: assert value. Return float not integer")
 
     def test_pista_search(self):
         call = '/search/bass/10'

@@ -5,6 +5,13 @@ Tested under Debian, Ubuntu 15.04 and 16.04 but should work in other operating s
 # PIP 
 $ sudo apt-get install python3-pip python-pip
 
+### (optional) create a virtualenv
+$ virtualenv apicultor_venv
+$ source apicultor_venv/bin/activate
+
+### Dependencias via pip
+$ pip install -i requirements.txt
+
 ## Mock RedPanal WebService 
 
 $ sudo pip2 install flask
@@ -49,6 +56,11 @@ $ sudo apt-get install python-mysqldb
 $ sudo pip install bs4 regex wget numpy scipy scikit-learn 
 $ sudo pip install matplotlib smst
 $ sudo apt-get install python-tk
+
+* pip install librosa
+* pip install transitions
+
+* Essentia (ver instrucciones para compilar aquí: http://essentia.upf.edu/documentation/installing.html)
 
 ## State Machine
 

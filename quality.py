@@ -6,7 +6,7 @@ import sys
 
 #TODO: *Remove wows, clippings, clicks & pops, rumble, hisses, process sound with crosstalk removal (sth like ambiophonics)
 
-#you should comment what you've already processed (avoid over-processing)
+# You should comment what you've already processed (avoid over-processing)
 
 #optimizers and biquad_filter taken from Linear Audio Lib
 def z_from_f(f,fs):
