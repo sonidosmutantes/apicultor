@@ -11,85 +11,73 @@ import sys
 
 #you should comment what you've already processed (avoid over-processing)   
 
+at = lambda samples: np.exp(LogAttackTime()(samples)) #calculate attack time
+
+rel = lambda at: at * 10 #calculate release time
+
+to_coef = lambda at, sr: np.exp((np.log(9)*-1) / (sr * at)) #convert attack and release time to coefficients
+
+def dyn_constraint_satis(audio, variables, gain):
+    assert ((type(variables) is list) and len(variables) == 2)
+    audio[variables[0] < variables[1]] = gain  #noise gating: anything below a threshold is silenced     
+    audio[variables[0] > variables[1]] = 1
+    return audio
+
 #hiss removal (a noise reduction algorithm working on signal samples to reduce its hissings)
+
 def hiss_removal(audio):
     pend = len(audio)-(2048+255)     
     noise_fft = FFT(size = 2048)(Windowing(size = 1023, type = 'hann')(audio[:2048]))
     noise_power = np.log10(np.abs(noise_fft + 2 ** -16))
     noise_floor = np.exp(2.0 * noise_power.mean())                                                     
-    energy = lambda mag: np.sum((10 ** (mag / 20)) ** 2)                                     
+    energy = lambda mag: np.sum((10 ** (mag / 20)) ** 2)  
+    dyn = lambda mag: np.sum((10 ** (mag / 20)) ** 2)                                     
     mn = Spectrum(size = 2048)(audio[:2048])
     e_n = energy(mn)   
-    pin = 0                                 
-    pinpin = 0                
-    output = np.zeros(len(audio)) 
-    while pin < pend:            
-        p1 = int(pin)                        
-        ft = FFT(size = 2048)(Windowing(size = 1023, type = 'hann')(audio[p1:p1+2048]))              
-        m = Spectrum(size = 2048)(audio[p1:p1+2048])
+    pin = 0                
+    output = np.zeros(len(audio))
+    hold_time = 0
+    ca = 0
+    cr = 0
+    while pin < pend:
+        selection = pin+2048
+        frame = audio[pin:selection]                      
+        ft = FFT(size = 2048)(Windowing(size = 1023, type = 'hann')(frame))              
+        m = Spectrum(size = 2048)(frame)
         e_m = energy(m)
         SNR = 10 * np.log10(e_m / e_n)
-        power_spectral_density = np.abs(ft) ** 2 
+        power_spectral_density = np.abs(ft) ** 2
+        env = Envelope()(audio[pin:selection])
+        attack_time = at(env)
+        rel_time = rel(attack_time)
+        rel_coef = to_coef(rel_time, 44100)
+        at_coef = to_coef(attack_time, 44100)
+        ca += attack_time
+        cr += rel_time 
         if SNR > 0:                
             pass                                
         else:                    
             if np.any(power_spectral_density < noise_floor):                                    
-                ft[power_spectral_density < noise_floor] *= 0.12589254117941673 #gate everything below the noise floor
-                print ("Reducing noise floor, this is taking some time") 
+                gc = dyn_constraint_satis(ft, [power_spectral_density, noise_floor], 0.12589254117941673) 
+                if ca > hold_time:
+                    gc = np.complex64([at_coef * gc[i- 1] + (1 - at_coef) * x if x > gc[i- 1] else x for i,x in enumerate(gc)])
+                if ca <= hold_time:
+                    gc = np.complex64([gc[i- 1] for i,x in enumerate(gc)])
+                if cr > hold_time:
+                    gc = np.complex64([at_coef * gc[i- 1] + (1 - at_coef) * x if x <= gc[i- 1] else x for i,x in enumerate(gc)])
+                if cr <= hold_time:
+                    gc = np.complex64([gc[i- 1] for i,x in enumerate(gc)])
+                print ("Reducing noise floor, this is taking some time")
+                ft = ft * gc
             else:
                 pass                 
-        output[pinpin:pinpin+2048] += Windowing(type = 'hann', size = 1023)(IFFT(size = 2048)(ft))
-        pinpin += 255                                               
+        output[pin:selection] += Windowing(type = 'hann', size = 1023)(IFFT(size = 2048)(ft))                                               
         pin += 255
+        hold_time += selection/44100
     amp = audio.max()
     hissless = amp * output / output.max() #amplify to normal level                                                 
     return np.float32(hissless) 
 
-#optimizers and biquad_filter taken from Linear Audio Lib
-def z_from_f(f,fs):
-    out = []
-    for x in f:
-        if x == np.inf:
-            out.append(-1.) 
-        else:
-            out.append(((fs/np.pi)-x)/((fs/np.pi)+x))
-    return out
-
-def Fz_at_f(Poles,Zeros,f,fs,norm = 0):
-    omega = 2*np.pi*f/fs
-    ans = 1.
-    for z in Zeros:
-        ans = ans*(np.exp(omega*1j)-z_from_f([z],fs))
-    for p in Poles:
-        ans = ans/(np.exp(omega*1j)-z_from_f([p],fs))
-    if norm:
-        ans = ans/max(abs(ans))
-    return ans
-
-def z_coeff(Poles,Zeros,fs,g,fg,fo = 'none'):
-    if fg == np.inf:
-        fg = fs/2
-    if fo == 'none':
-        beta = 1.0
-    else:
-        beta = f_warp(fo,fs)/fo
-    a = np.poly(z_from_f(beta*np.array(Poles),fs))
-    b = np.poly(z_from_f(beta*np.array(Zeros),fs))
-    gain = 10.**(g/20.)/abs(Fz_at_f(beta*np.array(Poles),beta*np.array(Zeros),fg,fs))
-    
-    return (a,b*gain)
-
-def biquad_filter(xin,z_coeff):
-    a = z_coeff[0]
-    b = z_coeff[1]
-    xout = np.zeros(len(xin))
-    xout[0] = b[0]*xin[0]
-    xout[1] = b[0]*xin[1] + b[1]*xin[0] - a[1]*xout[0]
-    
-    for j in range(2,len(xin)):
-        xout[j] = b[0]*xin[j]+b[1]*xin[j-1]+b[2]*xin[j-2]-a[1]*xout[j-1]-a[2]*xout[j-2]
-
-    return xout
 
 
 Usage = "./quality.py [DATA_PATH]"
