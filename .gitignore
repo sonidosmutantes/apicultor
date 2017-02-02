@@ -1,0 +1,9 @@
+*.pyc
+*.wav
+*.mp3
+*.ogg
+*.swp
+*.log
+*.json
+*.csv
+*.tmp

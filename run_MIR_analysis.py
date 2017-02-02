@@ -312,6 +312,7 @@ if __name__ == '__main__':
     # Pool stats (mean, var)
     #aggrPool = PoolAggregator(defaultStats = [ 'mean', 'var' ])(pool)
     aggrPool = PoolAggregator(defaultStats = ['mean'])(pool)
+    # FIXME: por ej el duration no tiene sentido calcularle el 'mean'
 
     # write result to file
     # json_output = os.path.splitext(inputSoundFile)[0]+"-new.json"
@@ -326,7 +327,8 @@ if __name__ == '__main__':
             data[dn] = str( aggrPool[dn] )
     print data
 
-    descriptors_dir = (tag_dir+'/'+'descriptores') #standard directory to read mir data
+    #descriptors_dir = (tag_dir+'/'+'descriptors')
+    descriptors_dir = ( subdir )
 
     if not os.path.exists(descriptors_dir):                         
            os.makedirs(descriptors_dir)                                
