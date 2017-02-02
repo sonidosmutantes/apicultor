@@ -18,6 +18,8 @@ http://redpanal.org/a/performance-casa-tomada/
 
 https://www.youtube.com/watch?v=eKcvkgtJIEo
 
+Con visuales 3D (Blender + game engine)
+
 **Reseña**: http://blog.enjambrelab.com.ar/enjambrebit-y-la-banda-de-mutantes/
 
 
