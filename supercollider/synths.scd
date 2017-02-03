@@ -1,18 +1,17 @@
-//play
+
+//Play synth
 SynthDef(\playBufMono, {| out = 0, bufnum = 0, vol=1, rate = 1 |  var scaledRate, player;
 scaledRate = rate * BufRateScale.kr(bufnum);  player = PlayBuf.ar(1, bufnum,scaledRate, doneAction:2);  Out.ar(out, vol * player).dup }).add;
 
 SynthDef(\playBufMonoM, {| out = 0, bufnum = 0, vol=1, rate = 1 |  var scaledRate, player;
 scaledRate = rate * BufRateScale.kr(bufnum);  player = PlayBuf.ar(1, bufnum,scaledRate, doneAction:2);  Out.ar(out, vol * player) }).add;
 
-//freeze
+// Freeze
 SynthDef(\mutantefreeze, { arg out=0, bufnum=0, point=0, vol=1, fftwidth=4096, pan=0, startPos=0;
     var in, chain, sig;
     in = PlayBuf.ar(1, bufnum, BufRateScale.kr(bufnum),loop: 1);
 	chain = FFT(LocalBuf(4096), in);
     chain = PV_MagFreeze(chain, point);
-
-	//Out.ar(out, vol * IFFT(chain).dup);
 
 	//with PAN
 	sig = Splay.ar(vol * IFFT(chain).dup);
@@ -67,17 +66,6 @@ j = Synth(\mutantefreeze, [\bufnum, ~bank2d, \out, ~channel, \vol, 0]);
 ////////////////////////////////////////////////////////////////////////
 ////////////////////////////////////////////////////////////////////////
 
-/*SynthDef(\mutantefreezeRate, { arg out=0, bufnum=0, point=0, vol=1, fftwidth=4096, rate=1, pan=0, startPos=0;
-    var in, chain;
-    in = PlayBuf.ar(1, bufnum,rate,loop: 1);
-	//startPos is the number of the sample to start from
-    //in = PlayBuf.ar(1, bufnum, BufRateScale.kr(bufnum), startPos: startPos, loop: 1);
-	chain = FFT(LocalBuf(4096), in);
-    chain = PV_MagFreeze(chain, point);
-	Out.ar(out, vol * IFFT(chain).dup);
-	//Out.ar(out, Pan2.ar(vol * IFFT(chain).dup, pan));
-}).add;*/
-
 (
 SynthDef(\phaser, { arg out=0, in=0;
 
@@ -93,14 +81,4 @@ SynthDef(\phaser, { arg out=0, in=0;
 ~channel = 0; //~speaker0
 //a = Synth(\phaser, addAction:\addToTail)
 a = Synth(\phaser, [\in, ~bank1b, \out, ~channel])
-
-/*
-~fftwidth = 4096;
-~fftwidth = 512;
-~fftwidth = 1024;
-~fftwidth = 2048;
-~fftwidth = 4096;
-~fftwidth = 8192;
-*/
-
 
