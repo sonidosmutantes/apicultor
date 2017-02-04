@@ -47,26 +47,34 @@ Ver INSTALL.md
 
 # Uso (estado experimental)
 ## Bajar los sonidos redpanaleros y aplicar MIR
+```
 $ cd apicultor/data 
-\# $./download-test-data.sh # Predefinidos (testing)
-$ python WebScrapingDownload.py nombredeltag 
-$ cd /carpetadondeesta/apicultor
-$ python run_MIR_analysis.py directoriodesonidosdeltag
+$ ./download-test-data.sh # Predefinidos (testing)
+$ python WebScrapingDownload.py <nombre_del_tag>
+$ cd ..
+$ python run_MIR_analysis.py <directorio_de_sonidos_del_tag>
+```
 ## Segmentar sonidos
-$ ./RandomSegmentation.py
+```
+$ python RandomSegmentation.py
+```
 ## Similaridad Sonora
 Procesar señales de salida para guardar los sonidos en base a clusters
-$ cd /apicultor
+```
 $ python SoundSimilarity.py carpetadeltag
+```
 ## Sonificación
-$ cd /apicultor
+```
 $ python Sonification.py carpetadeltag
+```
 
 ## SuperCollider
 Performance and helper scripts in "supercollider/" 
 
 ## Correr webservice (requiere api rest)
-$ ./MockRedPanalAPI_service.py
+```
+$ python MockRedPanalAPI_service.py
+```
 
 By default:
 * Listen IP: 0.0.0.0
@@ -75,51 +83,51 @@ By default:
 Ver ejemplos de uso en tests/Test_API.py
 
 ## Generar documentación HTML sobre la API REST
+```
 $ cd doc/ && ./update_api_doc.sh
-
+```
 Resultado: API-Documentation.html
 
 
 ## Máquina de estados emocionales de la música
-$ cd /apicultor
-$ python MusicEmotionMachine.py directoriodondeestadata multitag(verdadero, clasifica Todos los audios descargados/ninguno, clasifica audios de un tag específico/falso, después de haber hecho la clasificación, correr de nuevo para llamar a Johnny (la máquina de estados emocionales) para que comienzen las transiciones emocionales con remixes en tiempo real de Todos los sonidos)
+```
+$ python MusicEmotionMachine.py directoriodondeestadata multitag
+```
+
+(verdadero, clasifica Todos los audios descargados/ninguno, clasifica audios de un tag específico/falso, después de haber hecho la clasificación, correr de nuevo para llamar a Johnny (la máquina de estados emocionales) para que comienzen las transiciones emocionales con remixes en tiempo real de Todos los sonidos)
 
 # Files
-* WebScrapingDownload.py descarga los primeros diez archivos de la base de datos redpanalera tomando en cuenta el tag. Solamente hay que especificar el tag de archivos para buscar.
-* DoSegmentation.py segmenta los archivos de audio en cuadros de corta duración.
-* RandomSegmentation.py segmenta los archivos de audio en cuadros de duración aleatoria.
-* run_MIR_analysis.py te muestra los valores de las pistas en base a conceptos de interés como el ataque, la frecuencia del centroide espectral, los BPM, y otros conceptos. También procesa los sonidos en base a las descripciones hechas.
-* SoundSimilarity.py muestra clusters entre los sonidos para encontrar similitud basandose en descriptores seleccionados, luego guarda esos sonidos en carpetas de clusters.
-* Sonification.py También procesa los sonidos en base a las descripciones hechas.
-* MusicEmotionMachine.py clasifica los sonidos en base a sus emociones. Si la clasificación es multitag (de todo el audio redpanalero), luego se puede correr la máquina de estados emocionales musicales (Johnny) para remixar todos los sonidos y reproducirlos en tiempo real
+* `WebScrapingDownload.py` descarga los primeros diez archivos de la base de datos redpanalera tomando en cuenta el tag. Solamente hay que especificar el tag de archivos para buscar.
+* `DoSegmentation.py` segmenta los archivos de audio en cuadros de corta duración.
+* `RandomSegmentation.py` segmenta los archivos de audio en cuadros de duración aleatoria.
+* `run_MIR_analysis.py` te muestra los valores de las pistas en base a conceptos de interés como el ataque, la frecuencia del centroide espectral, los BPM, y otros conceptos. También procesa los sonidos en base a las descripciones hechas.
+* `SoundSimilarity.py` muestra clusters entre los sonidos para encontrar similitud basandose en descriptores seleccionados, luego guarda esos sonidos en carpetas de clusters.
+* `Sonification.py` También procesa los sonidos en base a las descripciones hechas.
+* `MusicEmotionMachine.py` clasifica los sonidos en base a sus emociones. Si la clasificación es multitag (de todo el audio redpanalero), luego se puede correr la máquina de estados emocionales musicales (Johnny) para remixar todos los sonidos y reproducirlos en tiempo real
 
 # Sobre el aprendizaje profundo de la MEM:
 
 Con la intención de obtener la mejor clasificación posible de los sonidos basándose en las emociones que son capaces de transmitirnos, la tarea profunda consiste en este caso particular de reveer las activaciones con capas de máquinas de soporte vectorial para dar con la clasificación correcta. Las clasificaciones son en negativo o positivo, de acuerdo a la estimulación (arousal, no "activation"). Como la información del MIR es importante, el aprendizaje se hace respetando lo mejor posible las descripciones, lo que permite reveer las clasificaciones hechas hasta dar con las correctas.
 
-#Crear una base de datos:
+# Crear una base de datos:
 
 Si es tu primera vez utilizando bases de datos de MySQL, tenés que instalar MySQL en tu sistema y luego crear un usuario con una password para acceder y después crear la base de datos a la que accederás utilizando el usuario y la password.
 
 Luego de correr sudo apt-get install mysql-server:
-
-$mysql // a veces el comando puede ser mysqld de acuerdo al paquete instalado
-
+```
+$ mysql // a veces el comando puede ser mysqld de acuerdo al paquete instalado
 mysql> CREATE USER 'usuario'@'localhost' IDENTIFIED BY 'password';
-
 mysql> CREATE DATABASE nombredelabasededatos;
-
 mysql> GRANT ALL PRIVILEGES ON nombredelabasededatos.* TO 'usuario'@'localhost';
-
 mysql> quit;
+```
 
-Luego se puede usar Fill_DB.py para crear la base de datos del MIR
-
+Luego se puede usar `Fill_DB.py` para crear la base de datos del MIR
 
 # Build
+
 Si ya tenés instaladas todas las dependencias podés correr: 
-
+```
 $ sudo python setup.py install
-
+```
 y tener Apicultor instalado en el sistema
-
