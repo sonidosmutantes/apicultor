@@ -1,4 +1,4 @@
-#!/usr/bin/python
+#!/usr/bin/env python2
 # -*- coding: UTF-8 -*-
 
 import os
@@ -61,7 +61,6 @@ if __name__ == '__main__':
         print "\nBad amount of input arguments\n", Usage, "\n"
         sys.exit(1)
 
-
     try:
         tagName = sys.argv[1]
 
@@ -77,8 +76,3 @@ if __name__ == '__main__':
     except Exception, e:
         print(e)
         exit(1)
-
-
-
-
-
