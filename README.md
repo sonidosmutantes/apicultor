@@ -1,4 +1,4 @@
-# ApiCultor: Extrae la miel de RedPanal
+# apiCultor: Extrae la miel de RedPanal
 
 Implementado para realizar performances multidisciplinarias basadas en los sonidos de la plataforma http://redpanal.org
 
@@ -10,7 +10,7 @@ Funciona a través de una API REST para la consulta externa de archivos y descri
 
 ### Cierre de Taller de Experimentación Sonora:
 
-http://redpanal.org/a/banda-de-mutantes-cierre-taller/
+[http://redpanal.org/a/banda-de-mutantes-cierre-taller/](http://redpanal.org/a/banda-de-mutantes-cierre-taller/)
 
 
 ### La Noche de los Museos La Casa del Bicentenario 29/10/2016
