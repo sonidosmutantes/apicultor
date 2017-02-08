@@ -1,10 +1,10 @@
-# Extrae la miel de RedPanal
+# ¿Qué es?
 
-Implementado para realizar performances multidisciplinarias basadas en los sonidos de la plataforma http://redpanal.org
+ApiCultor fue implementado para realizar performances multidisciplinarias basadas en los sonidos de la plataforma [http://redpanal.org](http://redpanal.org) pero sirve para trabajar con cualquier otra base de datos sonora en internet o disponible localmente.
 
 El código da soporte para el procesamiento de sonidos de la web utilizando técnicas de MIR (Music Information Retrieval) para la "extracción" de parámetros que los caractericen para luego clasficarlos, segmentarlos y manipularlos según los criterios elegidos.
 
-Funciona a través de una API REST para la consulta externa de archivos y descriptores desde SuperCollider, pd o cualquier otro tipo de entorno.
+Funciona a través de una API REST para la consulta externa de archivos y descriptores desde SuperCollider, pyo, pd o cualquier otro tipo de entorno que maneje protocolos estándar.
 
 ## Performances utilizando estas herramientas:
 
