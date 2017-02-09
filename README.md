@@ -88,16 +88,14 @@ $ cd doc/ && ./update_api_doc.sh
 ```
 Resultado: API-Documentation.html
 
-## Máquina de estados emocionales de la música
+## Máquina de estados emocionales de la música (MusicEmotionMachine)
 ```
 $ python MusicEmotionMachine.py directoriodondeestadata multitag
 ```
 
 (verdadero, clasifica Todos los audios descargados/ninguno, clasifica audios de un tag específico/falso, después de haber hecho la clasificación, correr de nuevo para llamar a Johnny (la máquina de estados emocionales) para que comienzen las transiciones emocionales con remixes en tiempo real de Todos los sonidos)
 
-# Complementos
-
-## Sobre el aprendizaje profundo de la MEM:
+### Sobre el aprendizaje profundo de la MEM:
 
 Con la intención de obtener la mejor clasificación posible de los sonidos basándose en las emociones que son capaces de transmitirnos, la tarea profunda consiste en este caso particular de reveer las activaciones con capas de máquinas de soporte vectorial para dar con la clasificación correcta. Las clasificaciones son en negativo o positivo, de acuerdo a la estimulación (arousal, no "activation"). Como la información del MIR es importante, el aprendizaje se hace respetando lo mejor posible las descripciones, lo que permite reveer las clasificaciones hechas hasta dar con las correctas.
 
