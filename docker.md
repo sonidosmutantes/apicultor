@@ -38,6 +38,13 @@ Una vez dentro se siguen los pasos para instalar las dependencias y buildear [es
 # pip install smst
 ```
 
+## Docker commit
+```
+Obtener ID y commit
+$ docker ps -a
+$ docker commit [ID]
+```
+
 ## Notas sobre mantenimiento y TODOs
 
 * Agregar más pip o apt-get que falten
