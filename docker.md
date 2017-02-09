@@ -37,6 +37,11 @@ Una vez dentro se siguen los pasos para instalar las dependencias y buildear [es
 # pip install bs4 regex wget matplotlib numpy scipy scikit-learn colorama librosa transitions
 # pip install smst
 ```
+ 
+#### (Opcional)
+```
+# pip2 install flask flask-autodoc
+```
 
 ## Docker commit
 ```
