@@ -30,7 +30,7 @@ Una vez dentro se siguen los pasos para instalar las dependencias y buildear [es
 # ./waf configure --mode=release --build-static --with-python --with-cpptests --with-examples --with-vamp
 # ./waf install
 ```
-### apiCultor
+### ApiCultor
 (En docker)
 ```
 # apt-get install python-pip ffmpeg
