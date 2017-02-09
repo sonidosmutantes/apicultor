@@ -28,10 +28,12 @@ Con visuales 3D (Blender + game engine)
 [https://www.facebook.com/SonidosMutantes](https://www.facebook.com/SonidosMutantes)
 
 ### Pruebas de concepto (demos viejas):
+
 * Demo máquina de estados + MIR data + OSC + API + Tests: [http://www.youtube.com/watch?v=pMBl_4y6UmE](http://www.youtube.com/watch?v=pMBl_4y6UmE)
 * Integración con controlador MIDI + Supercollider + ApicultorWebService: [https://www.youtube.com/watch?v=X0M_gTOZnNQ](https://www.youtube.com/watch?v=X0M_gTOZnNQ)
 
 ## Componentes
+
 * Descarga archivos de audio por tag
 * Algoritmos MIR para extraer descriptores de las pistas
 * Algoritmos para segmentar los archivos de audio con distintos criterios
@@ -46,8 +48,11 @@ Ver la [descripción de archivos](FILES_DESC.md) para más detalles.
 
 Ver [INSTALL.md](INSTALL.md)
 
+
 # Uso (estado experimental)
+
 ## Bajar los sonidos redpanaleros y aplicar MIR
+
 ```
 $ cd apicultor/data 
 $ ./download-test-data.sh # Predefinidos (testing)
@@ -55,45 +60,64 @@ $ python WebScrapingDownload.py <nombre_del_tag>
 $ cd ..
 $ python run_MIR_analysis.py <directorio_de_sonidos_del_tag>
 ```
+
 ## Segmentar sonidos
+
 ```
 $ python RandomSegmentation.py
 ```
+
 ## Similaridad Sonora
+
 Procesar señales de salida para guardar los sonidos en base a clusters
+
 ```
 $ python SoundSimilarity.py carpetadeltag
 ```
+
 ## Sonificación
+
 ```
 $ python Sonification.py carpetadeltag
 ```
+
 ## SuperCollider
+
 Performance and helper scripts in "supercollider/".
 
+
 ## Correr webservice (requiere api rest)
+
 ```
 $ python MockRedPanalAPI_service.py
 ```
 
+
 By default:
+
 * Listen IP: 0.0.0.0
 * Port: 5000
 
 Ver ejemplos de uso en tests/Test_API.py
 
+
 ## Generar documentación HTML sobre la API REST
+
 ```
 $ cd doc/ && ./update_api_doc.sh
 ```
+
 Resultado: API-Documentation.html
 
+
 ## Máquina de estados emocionales de la música (MusicEmotionMachine)
+
 ```
 $ python MusicEmotionMachine.py directoriodondeestadata multitag
 ```
 
 (verdadero, clasifica Todos los audios descargados/ninguno, clasifica audios de un tag específico/falso, después de haber hecho la clasificación, correr de nuevo para llamar a Johnny (la máquina de estados emocionales) para que comienzen las transiciones emocionales con remixes en tiempo real de Todos los sonidos)
+
 
 ### Sobre el aprendizaje profundo de la MEM:
 
@@ -105,8 +129,10 @@ Ver tutorial sobre [docker](docker.md).
 
 ## Build (TODO)
 
+
 ~~Si ya tenés instaladas todas las dependencias se puede correr: 
 ```
 $ sudo python setup.py install
 ```
 y tener Apicultor instalado en el sistema~~
+
