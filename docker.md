@@ -12,14 +12,14 @@ Se asume que se tienen clonados los repos de Essentia y apiCultor en los siguien
 ```
 $ cd
 $ mkdir -p projects
-$ git clone https://github.com/MTG/essentia $HOME/projects/essentia
-$ git clone https://github.com/sonidosmutantes/apicultor $HOME/projects/apicultor
+$ git clone https://github.com/MTG/essentia $HOME/git/essentia
+$ git clone https://github.com/sonidosmutantes/apicultor $HOME/git/apicultor
 ```
 
 ## Docker build
 Se crea un nuevo container
 ```
-$ sudo docker run  --name essentia -v $HOME/projects/essentia/:/opt/essentia -v $HOME/projects/apicultor/:/opt/apicultor -ti gcr.io/google_containers/ubuntu-slim:0.6 /bin/bash
+$ sudo docker run  --name apicultor -v $HOME/git/essentia/:/opt/essentia -v $HOME/git/apicultor/:/opt/apicultor -ti gcr.io/google_containers/ubuntu-slim:0.6 /bin/bash
 ```
 ### Essentia build
 Una vez dentro se siguen los pasos para instalar las dependencias y buildear [essentia].
