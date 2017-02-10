@@ -39,4 +39,4 @@ Interdisciplinary performances based on sounds of the web platform [Redpanal.org
 
 # Dependencias
 
-Ver [INSTALL.md](INSTALL.md)
+See [INSTALL.md](INSTALL.md)
