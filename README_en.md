@@ -35,7 +35,18 @@ Interdisciplinary performances based on sounds of the web platform [Redpanal.org
 
 ## Components
 
-(translate)
+
+* Mock web service with API REST to provide audio samples using MIR descriptors as parameters
+* State machine, with each state defined by several MIR descriptors.
+* Interaction with the free internet sound database [http://redpanal.org](http://redpanal.org)
+ * API REST
+ * Webscrapping by tag
+* Algorithms MIR to extract mean values or by frame of audio samples
+* Segmentation algorithms using different criteria.
+* Classify algorithms and clustering of samples of the sound database
+* Server OSC
+* Examples in Supercollider, pyo
+* Examples with MIDI and OSC controller. Locale and remote.
 
 # Dependencias
 
