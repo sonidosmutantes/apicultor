@@ -43,6 +43,21 @@ $ sudo ./waf install
 # Database
 $ sudo apt-get install python-mysqldb
 
+## Crear una base de datos:
+
+Si es tu primera vez utilizando bases de datos de MySQL, tenés que instalar MySQL en tu sistema y luego crear un usuario con una password para acceder y después crear la base de datos a la que accederás utilizando el usuario y la password.
+
+Luego de correr sudo apt-get install mysql-server:
+```
+$ mysql // a veces el comando puede ser mysqld de acuerdo al paquete instalado
+mysql> CREATE USER 'usuario'@'localhost' IDENTIFIED BY 'password';
+mysql> CREATE DATABASE nombredelabasededatos;
+mysql> GRANT ALL PRIVILEGES ON nombredelabasededatos.* TO 'usuario'@'localhost';
+mysql> quit;
+```
+
+Luego se puede usar `Fill_DB.py` para crear la base de datos del MIR
+
 
 ### Analysis
 * pip install bs4
