@@ -16,11 +16,13 @@ $ git clone https://github.com/MTG/essentia $HOME/git/essentia
 $ git clone https://github.com/sonidosmutantes/apicultor $HOME/git/apicultor
 ```
 
-## Docker build
-Se crea un nuevo container
+## Docker run
+
+Se crea un nuevo container de nombre apicultor. Se hace port forwarding entre el puerto 5000 del container y del host.
 ```
-$ sudo docker run  --name apicultor -v $HOME/git/essentia/:/opt/essentia -v $HOME/git/apicultor/:/opt/apicultor -ti gcr.io/google_containers/ubuntu-slim:0.6 /bin/bash
+$ sudo docker run -p 5000:5000 --name apicultor -v $HOME/git/essentia/:/opt/essentia -v $HOME/git/apicultor/:/opt/apicultor -ti gcr.io/google_containers/ubuntu-slim:0.6 /bin/bash
 ```
+
 ### Essentia build
 Una vez dentro se siguen los pasos para instalar las dependencias y buildear [essentia].
 ```
@@ -41,6 +43,7 @@ Una vez dentro se siguen los pasos para instalar las dependencias y buildear [es
 #### (Opcional)
 ```
 # pip2 install flask flask-autodoc
+# apt-get install net-tools git
 ```
 
 ## Docker commit
@@ -48,6 +51,22 @@ Una vez dentro se siguen los pasos para instalar las dependencias y buildear [es
 Obtener ID y commit
 $ docker ps -a
 $ docker commit [ID]
+```
+
+## Lanzar una nueva terminal
+```
+$ docker exec -it apicultor bash
+```
+
+## Lanzar el mock ApiCultor web service (port: 5000)
+```
+$ docker exec -it apicultor /opt/run_ws.sh
+```
+
+Donde run_ws.sh:
+```
+cd /opt/apicultor
+./MockRedPanalAPI_service.py
 ```
 
 ## Notas sobre mantenimiento y TODOs
