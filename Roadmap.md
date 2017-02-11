@@ -3,12 +3,14 @@
 * [DONE] Supercollider integration
 * [DONE] Performance with OSC and StateMachine
 * [DONE] Fire events with an external MIDI controller
-* Improve the API (and add testing with expected results)
+* [DONE] Live performance (with mock service)
+
+* Add API extensive testing with well-known expected results
 * Improve the segmentation technique
-* [DONE] Performance (with mock service)
 * Adjust MIR results
 * Add json data to the DB 
 * Develop the external API in redpanal.org (django)
 * Add MIR clustering to the site
-* Performance (with real service) and data from searchs
+* Performance (with real service) and data from searchs (public interaction)
+* pyo library instrument (realtime synthesis using sounds extracted with APIcultor)
 * Release v1.01

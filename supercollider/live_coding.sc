@@ -1,14 +1,12 @@
 s.boot; //start server
-//s.quit; //stops server
+//s.quit; //stop server
 
-~ip.postln; //apicultor ws ip
+~ip.postln; //apicultor webservice IP
 
-// create a server object that will run on the local host using port #58009
-s = Server(\myServer, NetAddr("10.142.39.136", 4559));
-s.boot; //start the server
-s.quit; // quit the server
+// create a server object that will run on the local host using port
+//s = Server(\myServer, NetAddr("10.142.39.136", 4559));
 
-
+//Simple sine osc
 (
 SynthDef("sine", { arg freq=800;
 	var osc;
@@ -33,7 +31,7 @@ Buffer.freeAll; // no sound
 MIDIIn.connectAll;
 
 ///-------------------------
-//Live coding
+// Live coding
 // Sonidos disparados a mano, con difrente rate
 //dinosaurio jurasico
 r = Synth(\playBufMono, [\out, ~speaker1, \bufnum, ~bank1a, \rate, 0.1]); //e @ L channel
