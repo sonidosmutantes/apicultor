@@ -8,12 +8,9 @@ import numpy as np
 import scipy
 from essentia import *
 from essentia.standard import *
-from smst.utils.audio import write_wav
 
 #TODO: add standard logging
-#TODO: add an option to skip processing if json data descriptor file exists or overwrite it (reprocess)
-
-ext_filter = ['.mp3','.ogg','.undefined','.wav']
+ext_filter = ['.mp3','.ogg','.undefined','.wav','.wma','.mid', '.amr']
 
 # descriptores de interés
 descriptors = [ 
@@ -23,34 +20,47 @@ descriptors = [
                 'lowlevel.hfc',
                 'lowlevel.mfcc',
                 'loudness.level',
-#                'sfx.logattacktime',  doesn't run properly in some systems FIXME
+                'sfx.logattacktime',  
                 'sfx.inharmonicity', 
                 'rhythm.bpm',
                 'metadata.duration'
                 ]
 
 def process_file(inputSoundFile, frameSize = 1024, hopSize = 512):
+    descriptors_dir = (tag_dir+'/'+'descriptores')
+
+    if not os.path.exists(descriptors_dir):                         
+           os.makedirs(descriptors_dir)                                
+           print "Creando directorio para archivos .json"
+
+    json_output = descriptors_dir + '/' + os.path.splitext(input_filename)[0] + ".json"
+                              
+    if os.path.exists(json_output) is True:                         
+           raise IOError(".json already saved")
+    if os.path.exists(json_output) is False:                         
+           pass
+
     input_signal = MonoLoader(filename = inputSoundFile)()
     sampleRate = 44100
     
     #filter direct current noise
     offset_filter = DCRemoval()    
     #method alias for extractors
-    centroid = SpectralCentroidTime()
+    centroid = SpectralCentroidTime(sampleRate = sampleRate)
     contrast = SpectralContrast(frameSize = frameSize+1)
     levelExtractor = LevelExtractor()
-    mfcc = MFCC()    
-    hfc = HFC()
+    mfcc = MFCC(inputSize = 513)    
+    hfc = HFC(sampleRate = sampleRate)
     dissonance = Dissonance()
     bpm = RhythmExtractor2013()
     timelength = Duration()
-    logat = LogAttackTime()
+    logat = LogAttackTime(sampleRate = sampleRate)
     harmonic_peaks = HarmonicPeaks()                                   
     f0_est = PitchYin()    
     inharmonicity = Inharmonicity()
 
     #++++helper functions++++
-    envelope = Envelope()
+    envelope = Envelope(sampleRate = sampleRate)
 #    w = Windowing() #default windows
     w_hann = Windowing(type = 'hann')
     spectrum = Spectrum()
@@ -67,7 +77,7 @@ def process_file(inputSoundFile, frameSize = 1024, hopSize = 512):
 
     # compute for all frames in our audio and add it to the pool
     pool = essentia.Pool()
-    for frame in FrameGenerator(audio, frameSize, hopSize):
+    for frame in FrameGenerator(audio, frameSize, hopSize, startFromZero = True, lastFrameToEndOfFile=True):
         frame_windowed = w_hann(frame)
         frame_spectrum = spectrum(frame_windowed)
     
@@ -111,12 +121,12 @@ def process_file(inputSoundFile, frameSize = 1024, hopSize = 512):
             l = levelExtractor(frame)
             pool.add(desc_name,l)
 
-        #logattacktime FIXME
-#        desc_name = 'sfx.logattacktime'
-#        if desc_name in descriptors:
-#            frame_envelope = envelope(frame)
-#            attacktime = logat(frame_envelope)
-#            pool.add(desc_name, attacktime)
+        #logattacktime 
+        desc_name = 'sfx.logattacktime'
+        if desc_name in descriptors:
+            frame_envelope = envelope(frame)
+            attacktime = logat(frame_envelope)
+            pool.add(desc_name, attacktime)
 
         #inharmonicity
         desc_name = 'sfx.inharmonicity'
@@ -162,17 +172,10 @@ def process_file(inputSoundFile, frameSize = 1024, hopSize = 512):
             data[dn] = str( aggrPool[dn] )
     print data
 
-    descriptors_dir = (tag_dir+'/'+'descriptores') #standard directory to read mir data
-
-    if not os.path.exists(descriptors_dir):                         
-           os.makedirs(descriptors_dir)                                
-           print "Creando directorio para archivos .json"
-
-    json_output = descriptors_dir + '/' + os.path.splitext(input_filename)[0] + ".json"
     with open(json_output, 'w') as outfile:
          json.dump(data, outfile) #write to file
 
-    print(json_output)  
+    print(json_output) 
 #()    
 
 Usage = "./run_MIR_analysis.py [FILES_DIR]"
@@ -209,4 +212,3 @@ if __name__ == '__main__':
     except Exception, e:
         print(e)
         exit(1)
-
