@@ -1,3 +1,7 @@
+#!/usr/bin/env python
+# -*- coding: UTF-8 -*-
+
+from constraints.dynamic_range import dyn_constraint_satis
 from smst.utils.math import to_db_magnitudes, from_db_magnitudes
 from smst.models import stft
 import numpy as np
@@ -9,28 +13,23 @@ import sys
 
 #TODO: *Remove wows, clippings, clicks and pops
 
-#you should comment what you've already processed (avoid over-processing)   
+#you should comment what you've already processed (avoid over-processing) 
+
+energy = lambda mag: np.sum((10 ** (mag / 20)) ** 2)  
 
 at = lambda samples: np.exp(LogAttackTime()(samples)) #calculate attack time
 
-rel = lambda at: at * 10 #calculate a release time
+rel = lambda at: at * 10 #calculate release time
 
-to_coef = lambda at, sr: np.exp((np.log(9)*-1) / (sr * at)) #convert attack and release to coefficients
-
-def dyn_constraint_satis(audio, variables, gain):
-    assert ((type(variables) is list) and len(variables) == 2)
-    audio[variables[0] < variables[1]] = gain #noise gating: anything below a threshold is silenced
-    audio[variables[0] > variables[1]] = 1
-    return audio
+to_coef = lambda at, sr: np.exp((np.log(9)*-1) / (sr * at)) #convert attack and release time to coefficients
 
 #hiss removal (a noise reduction algorithm working on signal samples to reduce its hissings)
+
 def hiss_removal(audio):
     pend = len(audio)-(2048+255)     
     noise_fft = FFT(size = 2048)(Windowing(size = 1023, type = 'hann')(audio[:2048]))
     noise_power = np.log10(np.abs(noise_fft + 2 ** -16))
-    noise_floor = np.exp(2.0 * noise_power.mean())                                                     
-    energy = lambda mag: np.sum((10 ** (mag / 20)) ** 2)  
-    dyn = lambda mag: np.sum((10 ** (mag / 20)) ** 2)                                     
+    noise_floor = np.exp(2.0 * noise_power.mean())                                    
     mn = Spectrum(size = 2048)(audio[:2048])
     e_n = energy(mn)   
     pin = 0                
@@ -38,6 +37,7 @@ def hiss_removal(audio):
     hold_time = 0
     ca = 0
     cr = 0
+    amp = audio.max()
     while pin < pend:
         selection = pin+2048
         frame = audio[pin:selection]                      
@@ -51,10 +51,10 @@ def hiss_removal(audio):
         rel_time = rel(attack_time)
         rel_coef = to_coef(rel_time, 44100)
         at_coef = to_coef(attack_time, 44100)
-        ca += attack_time
-        cr += rel_time 
+        ca = ca + attack_time
+        cr = cr + rel_time 
         if SNR > 0:                
-            pass                                
+            np.add.at(output, xrange(pin, selection), audio[pin:selection])                                
         else:                    
             if np.any(power_spectral_density < noise_floor):                                    
                 gc = dyn_constraint_satis(ft, [power_spectral_density, noise_floor], 0.12589254117941673) 
@@ -63,17 +63,16 @@ def hiss_removal(audio):
                 if ca <= hold_time:
                     gc = np.complex64([gc[i- 1] for i,x in enumerate(gc)])
                 if cr > hold_time:
-                    gc = np.complex64([at_coef * gc[i- 1] + (1 - at_coef) * x if x <= gc[i- 1] else x for i,x in enumerate(gc)])
+                    gc = np.complex64([rel_coef * gc[i- 1] + (1 - rel_coef) * x if x <= gc[i- 1] else x for i,x in enumerate(gc)])
                 if cr <= hold_time:
                     gc = np.complex64([gc[i- 1] for i,x in enumerate(gc)])
                 print ("Reducing noise floor, this is taking some time")
                 ft = ft * gc
+                np.add.at(output, xrange(pin, selection), Windowing(type = 'hann', size = 1023)(IFFT(size = 2048)(ft)))
             else:
-                pass                 
-        output[pin:selection] += Windowing(type = 'hann', size = 1023)(IFFT(size = 2048)(ft))                                               
-        pin += 255
+                np.add.at(output, xrange(pin, selection), audio[pin:selection])                                              
+        pin = pin + 255
         hold_time += selection/44100
-    amp = audio.max()
     hissless = amp * output / output.max() #amplify to normal level                                                 
     return np.float32(hissless) 
 
@@ -123,6 +122,7 @@ def biquad_filter(xin,z_coeff):
 
     return xout
 
+
 Usage = "./quality.py [DATA_PATH]"
 if __name__ == '__main__':
   
@@ -147,8 +147,9 @@ if __name__ == '__main__':
 		    print( "Rewriting without crosstalk in %s"%f )
 		    hrtf = AudioLoader(filename = 'H0e030a.wav')() #load the hrtf wav file
 		    hrtf = hrtf[0]
-		    h_sig_L = filtfilt(hrtf[:,0], 1., audio) 
-		    h_sig_R = filtfilt(hrtf[:,1], 1., audio)
+		    h_sig_L = filtfilt(hrtf[:,0], 1., hissless) 
+		    h_sig_R = filtfilt(hrtf[:,1], 1., hissless)
+		    del hissless
 		    result = np.float32([h_sig_L, h_sig_R]).T
 		    neg_angle = np.float32([h_sig_R, h_sig_L]).T
 		    panned = result + neg_angle
@@ -156,6 +157,7 @@ if __name__ == '__main__':
 		    normalized = np.true_divide(panned,maximum_normalizing) 
 		    os.remove(subdir+'/'+f)
 		    AudioWriter(filename = subdir+'/'+os.path.splitext(f)[0]+'.mp3', format = 'mp3')(normalized) #write a tmp file
+		    del normalized
 		    audio = MonoLoader(filename = subdir+'/'+os.path.splitext(f)[0]+'.mp3')() #load it
 		    os.remove(subdir+'/'+os.path.splitext(f)[0]+'.mp3') #we've loaded the audio data, so now the tmp file can be deleted
 		    print( "Rewriting without aliasing in %s"%f )
@@ -165,18 +167,24 @@ if __name__ == '__main__':
 		    print( "Rewriting with Equal Loudness contour in %s"%f )
 		    audio = EqualLoudness()(audio) #remove direct current on audio signal
 		    print( "Rewriting with RIAA filter applied in %s"%f )
-		    riaa_filtered = biquad_filter(audio, abz)  #riaa filter 
-		    maximum_normalizing = np.max(np.abs(riaa_filtered))/-1 
-		    normalized_riaa = np.true_divide(riaa_filtered,maximum_normalizing) 
+		    riaa_filtered = biquad_filter(audio, abz)  #riaa filter
+		    del audio
+		    maximum_normalizing = np.max(np.abs(riaa_filtered))/-1
+		    normalized_riaa = np.true_divide(riaa_filtered,maximum_normalizing)
+		    del riaa_filtered 
+		    del maximum_normalizing
 		    print( "Rewriting with Hum removal applied in %s"%f )
                     without_hum = BandReject(bandwidth = 16, cutoffFrequency=50)(np.float32(normalized_riaa)) #remove undesired 50 hz hum 
+		    del normalized_riaa
 		    print( "Rewriting with subsonic rumble removal applied in %s"%f )
-                    without_rumble = HighPass(cutoffFrequency=20)(np.float32(without_hum)) #remove subsonic rumble 
+                    without_rumble = HighPass(cutoffFrequency=20)(np.float32(without_hum)) #remove subsonic rumble
+		    del without_hum
 		    db_mag = to_db_magnitudes(without_rumble) #calculate silence if present in audio signal
 		    print( "Rewriting without silence in %s"%f )
 		    silence_threshold = -130 #complete silence
 		    loud_audio = np.delete(without_rumble, np.where(db_mag <  silence_threshold))#remove it
-		    MonoWriter(filename = subdir+'/'+os.path.splitext(f)[0]+'.mp3', format = 'mp3')(loud_audio)                         
+		    MonoWriter(filename = subdir+'/'+os.path.splitext(f)[0]+'.ogg', format = 'ogg')(loud_audio) 
+		    del without_rumble                        
 
     except Exception, e:
         print(e)
