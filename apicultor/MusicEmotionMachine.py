@@ -3,7 +3,10 @@
 
 from SoundSimilarity import get_files, get_dics, desc_pair
 from cross_validation import *
-from DoSegmentation import *
+from gradients.descent import SGD
+from constraints.bounds import dsvm_low_a as la
+from constraints.bounds import dsvm_high_a as ha
+from constraints.bounds import es
 import time
 from colorama import Fore
 from collections import Counter, defaultdict
@@ -16,7 +19,7 @@ from smst.utils.audio import write_wav
 from sklearn import preprocessing
 from sklearn.preprocessing import LabelBinarizer as lab_bin
 from sklearn.preprocessing import LabelEncoder as le
-from sklearn.decomposition.pca import PCA
+from sklearn.decomposition.pca import PCA as pca
 from sklearn.cluster import KMeans
 from random import *
 from sklearn.utils.extmath import safe_sparse_dot as ssd
@@ -34,7 +37,7 @@ class memoize:
     """
     The memoize class stores returned results into a cache so that those can be used later on if the same case happens
     """                    
-    def __init__(self, func, size = 512):
+    def __init__(self, func, size = 200):
 	"""
 	memoize class init
 	:param func: the function that you're going to decorate
@@ -47,23 +50,27 @@ class memoize:
         self.size_copy = int(np.copy(self.size))
 
     def __call__(self, *args, **kwargs):
-        key = hash(str(args))
-        if (np.array(key) in np.array(self.known_keys)) == False: #when an ammount of arguments can't be identified from keys
+        key = hash(repr((args, kwargs)))
+        if (not key in self.known_keys): #when an ammount of arguments can't be identified from keys
             value = self.func(*args, **kwargs) #compute function
             self.known_keys.append(key) #add the key to your list of keys
             self.known_values.append(value) #add the value to your list of values
             if self.size is not None:
-                self.size_copy -= sys.getsizeof(value) #the assigned space has decreased
-                if (sys.getsizeof(self.known_values) > self.size_copy): #free space when size of values goes beyond the size limit
-                    self.size_copy += sys.getsizeof(self.known_values[0:3]) #recover some size limit          
-                    del self.known_keys[0:3] #delete the first three keys 
-                    del self.known_values[0:3] #delete the first three values
+                self.size -= sys.getsizeof(value) #the assigned space has decreased
+                if (sys.getsizeof(self.known_values) > self.size): #free cache when size of values goes beyond the size limit
+                    del self.known_keys
+                    del self.known_values
+                    del self.size          
+                    self.known_keys = []
+                    self.known_values = []
+                    self.size = self.size_copy 
             return value
         else: #if you've already computed everything
             i = self.known_keys.index(key) #find your key and return your values
             return self.known_values[i]
 
-                            
+from gradients.subproblem import *
+from DoSegmentation import *            
 
 #emotion classification
 class descriptors_and_keys():
@@ -71,7 +78,7 @@ class descriptors_and_keys():
     get all descriptions given descriptor keys
     :param files_dir: data tag dir if not performing multitag classification. data dir if performing multitag classification
     :param multitag: if True, will classify all downloaded files and remix when performing emotional state transition 
-    """                    
+    """                   
     def __init__(self, files_dir,  multitag):
         self.multitag = None
         self._files_dir = files_dir
@@ -96,7 +103,7 @@ class descriptors_and_keys():
         self._dics = list(self._dics)
         duplicate = [] 
         self._duplicate_index = []
-        for i in range(len(self._files)):                             
+        for i in xrange(len(self._files)):                             
             if self._files[i].endswith('(1).json') is True:
                 self._duplicate_index.append(i)
         for i in self._files:                             
@@ -121,7 +128,7 @@ class descriptors_and_keys():
         self._files_features = desc_pair(self._files,self._dics).files_features
         self._keys = [3,9,0,2,1,7,4,10,5,8,11,12]  
         self._features = []
-        for i in range(len(self._keys)):
+        for i in xrange(len(self._keys)):
             self._features.append(np.float64(zip(*self._files_features)[self._keys[i]]))    
         self._features = np.array(self._features).T
 
@@ -143,7 +150,7 @@ def KMeans_clusters(fscaled):
     :returns:                                                                                                         
       - labels: classes         
     """
-    labels = (KMeans(init = PCA(n_components = 4).fit(fscaled).components_, n_clusters=4, n_init=1, precompute_distances = True).fit(fscaled).labels_)
+    labels = (KMeans(init = pca(n_components = 4).fit(fscaled).components_, n_clusters=4, n_init=1, precompute_distances = True).fit(fscaled).labels_)
     return labels
 
 class deep_support_vector_machines(object):
@@ -153,8 +160,8 @@ class deep_support_vector_machines(object):
     :param labels: classes                                                                                            
     """ 
     def __init__(self, kernel):
-        self.kernel1 = kernel1
-        self.kernel2 = kernel2
+        self.kernel1 = None
+        self.kernel2 = None
     @classmethod
     @memoize
     def polynomial_kernel(self, x, y, gamma):
@@ -185,7 +192,7 @@ class deep_support_vector_machines(object):
 	:param x: your dataset
 	:param y: another dataset (sth like transposed(x))
 	"""       
-        return np.dot(x,y)
+        return ssd(x,y, dense_output = True)
     @classmethod
     @memoize
     def sigmoid_kernel(self, x, y, gamma):
@@ -259,6 +266,9 @@ class deep_support_vector_machines(object):
 
         multiclass = False
 
+        if not 0 in labels:                                      
+            raise IndexError("Targets must start from 0")
+
         self.targets = labels
 
         self.n_class = len(np.bincount(self.targets))
@@ -275,38 +285,19 @@ class deep_support_vector_machines(object):
             raise Exception("Two labels classification for music is not allowed here")
 
         if multiclass == True:
-            self.instances = list(combinations(range(self.n_class), 2))
+            self.instances = list(combinations(xrange(self.n_class), 2))
             self.classes = np.unique(self.targets)
             self.classifications = len(self.instances)
             self.classesm = defaultdict(list) 
             self.trained_features = defaultdict(list) 
             self.indices_features = defaultdict(list) 
             self.a = defaultdict(list)
-            self.bias = defaultdict(list)
-            self.pos_alphas = defaultdict(list)
-            self.w = np.zeros((self.classifications, features.shape[1]))
             self.svs = defaultdict(list)
             self.ns = defaultdict(list)
             self.nvs = defaultdict(list)
-            self.dual_coefficients = [[] for i in range(self.n_class - 1)]
+            self.dual_coefficients = [[] for i in xrange(self.n_class - 1)]
 
-        else: 
-            self.instances = [(0,1)]
-            self.classes = np.unique(self.targets)                                
-            self.classifications = 1
-            self.classesm = defaultdict(list)
-            self.trained_features = defaultdict(list) 
-            self.indices_features = defaultdict(list)  
-            self.a = defaultdict(list)
-            self.bias = defaultdict(list)
-            self.pos_alphas = defaultdict(list)
-            self.w = np.zeros(features.shape[1])
-            self.svs = defaultdict(list)
-            self.ns = defaultdict(list)
-            self.nvs = defaultdict(list)
-            self.dual_coefficients = defaultdict(list) 
-
-        for c in range(self.classifications):   
+        for c in xrange(self.classifications):   
 
             self.classesm[c] = np.concatenate((self.targets[self.targets==self.instances[c][0]],self.targets[self.targets==self.instances[c][1]]))
             self.indices_features[c] = np.concatenate((np.where(self.targets==self.instances[c][0]),np.where(self.targets==self.instances[c][1])), axis = 1)[0]
@@ -314,97 +305,71 @@ class deep_support_vector_machines(object):
 
             self.classesm[c] = lab_bin(0,1).fit_transform(self.classesm[c]).T[0]
 
-            self.trained_features[c].flags.writeable = False 
+            n_f = len(self.trained_features[c])
+            n_f0 = len(self.classesm[c][self.classesm[c]==0])
                                                                      
             lab = self.classesm[c] * 2 - 1
-
-            x = np.asanyarray([np.hstack((self.trained_features[c][i],lab[i])) for i in range(len(self.trained_features[c]))]) 
                                                                    
             if self.kernel2 == "linear":                                                                      
                 kernel = self.linear_kernel_matrix
-                Qvalue = kernel(self.trained_features[c], self.trained_features[c].T)            
+                self.Q = kernel(self.trained_features[c], self.trained_features[c].T) * lab            
             if self.kernel2 == "poly":                                
                 kernel = self.polynomial_kernel
-                Qvalue = kernel(self.trained_features[c], self.trained_features[c], gamma)         
+                self.Q = kernel(self.trained_features[c], self.trained_features[c], self.gamma) * lab        
             if self.kernel2 == "rbf":                                                                      
                 kernel = self.rbf_kernel
-                Qvalue = kernel(self.trained_features[c], self.trained_features[c], gamma)               
+                self.Q = kernel(self.trained_features[c], self.trained_features[c], self.gamma) * lab              
             if self.kernel2 == "sigmoid":                             
                 kernel = self.sigmoid_kernel 
-                Qvalue = kernel(self.trained_features[c], self.trained_features[c], gamma)           
+                self.Q = kernel(self.trained_features[c], self.trained_features[c], self.gamma) * lab          
             if self.kernel2 == None:                                  
-                print ("Apply a kernel")    
-                                                                  
-            Q = Qvalue * lab                   
-
-            matrix = np.asanyarray([np.hstack((Q[i],1)) for i in range(len(Q))])
+                print ("Apply a kernel")
                                                                       
-            class_weight = float(len(self.trained_features[c]))/(2 * np.bincount(self.classesm[c]))
+            class_weight = float(n_f)/(2 * np.bincount(self.classesm[c]))
 
-            a = np.zeros(len(self.trained_features[c]))                     
-                           
+            a = np.zeros(n_f)
+
             iterations = 0                                            
             diff = 1. + reg_param 
-            for i in range(len(self.trained_features[c])):  
-                data_i = range(len(self.trained_features[c]))
-                C = self.C                                             
-                for k in range(1, len(self.trained_features[c])):                
-                    a0 = a.copy()                                     
-                    try:                                              
-                        p1 = k                                        
-                        p2 = k
-                        loc0 = data_i[:len(features[self.targets==self.instances[c][0]])]                                     
-                        loc1 = data_i[len(features[self.targets==self.instances[c][0]])+1:]                                        
-                        while (p1 == k) and (p2 == k):                                                                      
-                            p1 = random.randint(min(loc0), max(loc0))
-                            p2 = random.randint(min(loc1), max(loc1))
-                    except Exception, e:                              
-                        break                                         
-                    g1 = 1 - lab[p1] * np.sum(a0[p1] * lab[p1] * Q[p1,p1])
-                    g2 = 1 - lab[p1] * np.sum(a0[p1] * lab[p1] * Q[p2,p2])                            
-                    direction_grad1 = 1./np.diag(Q)[p1] * (class_weight[self.classesm[c][p1]] * (g1 + (1 - class_weight[self.classesm[c][p1]]) * g2))
-                    direction_grad2 = 1./np.diag(Q)[p2] * (class_weight[self.classesm[c][p2]] * (g1 + (1 - class_weight[self.classesm[c][p2]]) * g2))
-                    if iterations > 14 and ((direction_grad1 * (g1 + g2) <= 0) or (direction_grad2 * (g1 + g2) <= 0)):        
+            for i in xrange(n_f/2):
+                a0 = a.copy()
+                p1 = []
+                p2 = []                               
+                for k in xrange(n_f):
+                    zero = int(uniform(k, n_f0-1))
+                    one = int(uniform(n_f0, n_f))                        
+                    if (not zero in p1) and (not one in p2):                                             
+                        p1.append(zero)                                        
+                        p2.append(one)
+                    if (not zero >= k):                                             
                         break
-                    a[p1] = a0[p1] + direction_grad1
-                    a[p2] = a0[p2] + direction_grad2
-                    if a[p1] < 0.0:
-                        a[p1] = 0.0
-                    if a[p2] < 0.0:
-                        a[p2] = 0.0
-                    C1 = [self.C / p1 if p1 != 0 else self.C][0]
-                    C2 = [self.C / p2 if p2 != 0 else self.C][0]
-                    a[p1] = min(min(a[p1], C * class_weight[self.classesm[c][p1]] * class_weight[self.classesm[c][p1]]), np.sum((a[p1]*lab[p1])**2))
-                    a[p2] = min(min(a[p2], C * class_weight[self.classesm[c][p2]] * class_weight[self.classesm[c][p2]]), np.sum((a[p1]*lab[p1])**2))
-                    try:                   
-                        del data_i[data_i[np.where(p1 == np.array(p1))[0]]]
-                        del data_i[data_i[np.where(p2 == np.array(p2))[0]]]
-                    except Exception, e:
-                        break 
-                diff = sum(a-a0)
-                if iterations > 14 and (diff > -reg_param and diff < reg_param):
+                for j in xrange(len(p1)): 
+                    g1 = g(lab[p1[j]], a0[p1[j]], self.Q[p1[j],p1[j]])
+                    g2 = g(lab[p2[j]], a0[p2[j]], self.Q[p2[j],p2[j]])
+                    w0 = es(a, lab, self.trained_features[c]) 
+                    direction_grad = self.gamma * ((w0 * g2) + ((1 - w0) * g1))
+
+                    if (direction_grad * (g1 + g2) <= 0.):        
+                        break
+
+                    a[p1[j]] = a0[p1[j]] + direction_grad
+                    a[p2[j]] = a0[p2[j]] + direction_grad
+
+                a = la(a)
+                a = ha(a, class_weight[self.classesm[c]], self.C)
+                diff = Q_a(a, self.Q) - Q_a(a0, self.Q)
+                iterations += 1
+                if (diff < reg_param):
+                    print str().join(("Gradient Ascent Converged after ", str(iterations), " iterations"))
                     break
-                iterations += 1
 
-            print ("Iterated " + str(iterations) +  " times for gradient ascent")                                                           
-
-            #taken from Pegasos algorithm by avaitla, alphas are automatically signed and those with no incidence in the hyperplane are 0 complex or -0 complex, so alphas != 0 are taken 
-            iterations = 1
-            Q = Q * lab
-            for i in range(14):
-                for tau in range(len(a)):
-                    wx = np.dot(a, Q[tau,:])
-                    a *= ((1-1./iterations))
-                    if(lab[tau]*wx < 1):
-                        a[tau] = float(lab[tau])/float(reg_param * iterations)
-                iterations += 1
-                               
-            print ("Iterated " + str(iterations - 1) +  " times for stochastic gradient descent")                                    
-
+            #alphas are automatically signed and those with no incidence in the hyperplane are 0 complex or -0 complex, so alphas != 0 are taken 
+            a = SGD(a, lab, self.Q * lab, reg_param)
+                              
             self.ns[c].append([])
             self.ns[c].append([])
 
-            for dc in range(len(a)):
+            for dc in xrange(len(a)):
                 if a[dc] != 0.0:
                     if a[dc] > 0.0:
                         self.ns[c][1].append(self.indices_features[c][dc])
@@ -415,21 +380,7 @@ class deep_support_vector_machines(object):
 
             self.svs[c] = self.trained_features[c][a != 0.0, :]  
                                                                       
-            self.a[c] = a[a != 0.0]    
-
-            self.bias[c] = np.zeros((1, len(self.svs[c][0]))) #bias
-
-            for j in xrange(len(self.svs[c])):
-                if self.kernel1 == "sigmoid":     
-                    self.bias[c] += self.a[c][j] * self.sigmoid_kernel(self.svs[c][j,:],self.svs[c][0,:], self.gamma)
-                if self.kernel1 == "poly":                                                                     
-                    self.bias[c] += self.a[c][j] * self.polynomial_kernel(self.svs[c][j,:],self.svs[c][0,:], self.gamma)          
-                if self.kernel1 == "rbf":                        
-                    self.bias[c] += self.a[c][j] * self.rbf_kernel(np.float64(self.svs[c][j,:]),np.float64(self.svs[c][0,:]), self.gamma)
-                if self.kernel1 == "linear":                     
-                    self.bias[c] += self.a[c][j] * self.linear_kernel_matrix(self.svs[c][j,:],self.svs[c][0,:]) 
-
-            self.bias[c] = self.bias[c][0][0]
+            self.a[c] = a[a != 0.0]
 
         a = defaultdict(list)
         for i, (j,m) in enumerate(self.instances):
@@ -451,11 +402,11 @@ class deep_support_vector_machines(object):
 
         svs_ = [list(np.array(counts[i]) == self.n_class - 1) for i in range(len(counts))]
 
-        self.ns = [uniques[i][j] for i in range(len(uniques)) for j in range(len(uniques[i])) if counts[i][j] >= self.n_class - 1]
+        self.ns = [uniques[i][j] for i in range(len(uniques)) for j in range(len(uniques[i])) if counts[i][j] == (self.n_class - 1)]
 
-        for i in range(len(a)):           
-            for j in range(len(a[i])):
-                for m in range(len(a[i][j])):
+        for i in xrange(len(a)):           
+            for j in xrange(len(a[i])):
+                for m in xrange(len(a[i][j])):
                     if ns[i][j][m] in self.ns:
                         self.dual_coefficients[j].append(a[i][j][m])
 
@@ -463,28 +414,44 @@ class deep_support_vector_machines(object):
 
         self.nvs = [len(np.array(uniques[i])[np.array(svs_[i])]) for i in range(len(uniques))]
 
-        self.svs = features[self.ns] #update support vectors         
+        self.svs = features[self.ns] #update support vectors
 
-        self.bias = np.array([self.bias[i] for i,x in enumerate(self.bias)])
-
-        sv_locs = np.cumsum(np.hstack([[0], self.nvs]))
+        self.sv_locs = np.cumsum(np.hstack([[0], self.nvs]))
 
         self.w = [] #update weights given common support vectors, the other values helped making sure it wasn't restarting
 
-        for class1 in range(self.n_class):
+        for class1 in xrange(self.n_class):
             # SVs for class1:
-            sv1 = self.svs[sv_locs[class1]:sv_locs[class1 + 1], :]
-            for class2 in range(class1 + 1, self.n_class):
+            sv1 = self.svs[self.sv_locs[class1]:self.sv_locs[class1 + 1], :]
+            for class2 in xrange(class1 + 1, self.n_class):
                 # SVs for class1:
-                sv2 = self.svs[sv_locs[class2]:sv_locs[class2 + 1], :]
+                sv2 = self.svs[self.sv_locs[class2]:self.sv_locs[class2 + 1], :]
                 # dual coef for class1 SVs:
-                alpha1 = self.dual_coefficients[class2 - 1, sv_locs[class1]:sv_locs[class1 + 1]]
+                alpha1 = self.dual_coefficients[class2 - 1, self.sv_locs[class1]:self.sv_locs[class1 + 1]]
                 # dual coef for class2 SVs:
-                alpha2 = self.dual_coefficients[class1, sv_locs[class2]:sv_locs[class2 + 1]]
+                alpha2 = self.dual_coefficients[class1, self.sv_locs[class2]:self.sv_locs[class2 + 1]]
                 # build weight for class1 vs class2
                 self.w.append(ssd(alpha1, sv1)
                             + ssd(alpha2, sv2))
 
+        if self.kernel1 == "poly":
+            kernel1 = self.polynomial_kernel
+        if self.kernel1 == "sigmoid":
+            kernel1 = self.sigmoid_kernel
+        if self.kernel1 == "rbf":
+            kernel1 = self.rbf_kernel 
+        if self.kernel1 == "linear":
+            kernel1 = self.linear_kernel_matrix
+
+        self.bias = []
+        for class1 in xrange(self.n_class):
+            sv1 = self.svs[self.sv_locs[class1]:self.sv_locs[class1 + 1], :]
+            for class2 in xrange(class1 + 1, self.n_class):
+                sv2 = self.svs[self.sv_locs[class2]:self.sv_locs[class2 + 1], :]
+                if kernel1 == self.linear_kernel_matrix:
+                    self.bias.append(-((kernel1(sv1, self.w[class1].T).max() + kernel1(sv2, self.w[class2].T).min())/2))
+                else:
+                    self.bias.append(-((kernel1(sv1, self.w[class1], self.gamma).max() + kernel1(sv2, self.w[class2], self.gamma).min())/2))
         return self 
 
     def decision_function(self, features):
@@ -510,15 +477,15 @@ class deep_support_vector_machines(object):
             kernel = self.linear_kernel_matrix
                                                
         if self.kernel1 == "linear":           
-            k = kernel(self.svs, features.T)       
-        else:                                             
-            k = kernel(self.svs, features, self.gamma)     
+            self.k = kernel(self.svs, features.T)
+        else:           
+            self.k = kernel(self.svs, features, self.gamma)     
 
-        start = [sum(self.nvs[:i]) for i in range(len(self.nvs))]
-        end = [start[i] + self.nvs[i] for i in range(len(self.nvs))]
-        c = [ sum(self.dual_coefficients[ i ][p] * k[p] for p in range(start[j], end[j])) +
-              sum(self.dual_coefficients[j-1][p] * k[p] for p in range(start[i], end[i]))
-                for i in range(len(self.nvs)) for j in range(i+1,len(self.nvs))]
+        start = self.sv_locs[:self.n_class]
+        end = self.sv_locs[1:self.n_class+1]
+        c = [ sum(self.dual_coefficients[ i ][p] * self.k[p] for p in xrange(start[j], end[j])) +
+              sum(self.dual_coefficients[j-1][p] * self.k[p] for p in xrange(start[i], end[i]))
+                for i in xrange(self.n_class) for j in xrange(i+1,self.n_class)]
 
         dec = np.array([sum(x) for x in zip(c, self.bias)]).T
 
@@ -531,8 +498,8 @@ class deep_support_vector_machines(object):
         votes = np.zeros((len(features), self.n_class))                      
         sum_of_confidences = np.zeros((len(features), self.n_class))                                         
         K = 0                                         
-        for i in range(self.n_class):
-            for j in range(i + 1,self.n_class):
+        for i in xrange(self.n_class):
+            for j in xrange(i + 1,self.n_class):
                 sum_of_confidences[:,i] -= confidences[:,K]
                 sum_of_confidences[:,j] += confidences[:,K]
                 votes[predictions[:,K] == 0, i] += 1
@@ -561,18 +528,18 @@ class deep_support_vector_machines(object):
 	  - __these_predicted: predicted targets
 	"""        
 
-        decision = self.decision_function(features)
+        self.decision = self.decision_function(features)
         
         self.__these_predicted = np.copy(targts)
 
         votes = np.zeros((len(features), self.n_class))
 
         for i in self.classes:
-            for j in range(i + 1, len(self.classes)):
-                votes[:,i][decision[:,i] > 0] += 1
-                votes[:,j][decision[:,j] < 0] += 1 
+            for j in xrange(i + 1, len(self.classes)):
+                votes[:,i][self.decision[:,i] > 0] += 1
+                votes[:,j][self.decision[:,j] < 0] += 1 
 
-        for  v in range(votes.shape[0]):
+        for  v in xrange(votes.shape[0]):
              where_max_votes = np.where(votes[v] == votes[v].max())   
                                           
              if len(list(where_max_votes)[0]) > 1: #if there's a tie it won't be broken in prediction and the feature has its past target
@@ -600,133 +567,34 @@ class svm_layers(deep_support_vector_machines):
 	  - labels_to_file: potential classes
 	"""
         #classes are predicted even if we only use the decision functions as part of the output data to get a better scope of classifiers
-        from sklearn.metrics import accuracy_score
         self.fxs = []
         self.targets_outputs = []
+        self.scores = []
         sample_weight = float(len(features)) / (len(np.array(list(set(labels)))) * np.bincount(labels))
-        Cs = [1./0.01, 1./0.33, 1./0.04, 1./0.06, 1./0.08, 1./0.1, 1./0.2, 1./0.4, 1./0.6, 1./0.8, 1./2, 1./20]
-        reg_params = [0.01, 0.33, 0.04, 0.06, 0.08, 0.1, 0.2, 0.4, 0.6, 0.8, 2, 20]
-        for i in range(0,12):
+        Cs = [1./0.01, 1./0.04, 1./0.06, 1./0.08, 1./0.1, 1./0.2,  1./0.33, 1./0.4]
+        reg_params = [0.01, 0.04, 0.06, 0.08, 0.1, 0.2,  0.33, 0.4]
+        self.kernel_configs = [['rbf', 'sigmoid'], ['rbf', 'poly'], ['rbf', 'linear'], ['linear', 'rbf'], ['sigmoid', 'rbf'], ['linear', 'sigmoid']]
+        for i in xrange(len(self.kernel_configs)):
             print ("Calculating values for prediction")
-            if i == 0:
-                best_estimator0 = GridSearch(self, features, labels, Cs[:2], reg_params[:2], [['rbf', 'sigmoid']])
-                print ("Best estimators are: ") + str(best_estimator0['C'][0]) + " for and " + str(best_estimator0['reg_param'][0]) + " for regularization parameter"
-                self.fit_model(features, labels, "rbf", "sigmoid", best_estimator0['C'][0][0], best_estimator0['reg_param'][0][0], 1./features[labels==0].shape[1])
-                print ("Predicting")
-                fx = self.decision_function(features)
-                pred_c0 = self.predictions(features, labels)
-                self.targets_outputs.append(pred_c0)
-                print ("Predicted"), pred_c0
-                print score(labels, pred_c0)
-            if i == 1:
-                best_estimator1 = GridSearch(self, features, labels, Cs[:2], reg_params[:2], [['poly', 'rbf']])
-                print ("Best estimators are: ") + str(best_estimator1['C'][0]) + " for and " + str(best_estimator1['reg_param'][0]) + " for regularization parameter"
-                self.fit_model(features, labels, "poly", "rbf", best_estimator1['C'][0][0], best_estimator1['reg_param'][0][0], 1./features[labels==1].shape[1])
-                print ("Predicting")
-                fx = self.decision_function(features)
-                pred_c1 = self.predictions(features, labels)
-                self.targets_outputs.append(pred_c1)
-                print ("Predicted"), pred_c1
-                print score(labels, pred_c1)
-            if i == 2:
-                best_estimator2 = GridSearch(self, features, labels, Cs, reg_params, [['poly', 'linear']])
-                print ("Best estimators are: ")  + str(best_estimator2['C'][0]) + " for and " + str(best_estimator2['reg_param'][0]) + " for regularization parameter"
-                self.fit_model(features, labels, "poly", "linear", best_estimator2['C'][0][0], best_estimator2['reg_param'][0][0], 1./features.shape[1])
-                print ("Predicting")
-                fx = self.decision_function(features)
-                pred_c2 = self.predictions(features, labels)
-                self.targets_outputs.append(pred_c2)
-                print ("Predicted"), pred_c2
-                print score(labels, pred_c2)
-            if i == 4:
-                best_estimator4 = GridSearch(self, features, labels, Cs, reg_params, [['rbf', 'poly']])
-                print ("Best estimators are: ") + str(best_estimator4['C'][0]) + " for and " + str(best_estimator4['reg_param'][0]) + " for regularization parameter"
-                self.fit_model(features, labels, "rbf", "poly", best_estimator4['C'][0][0], best_estimator4['reg_param'][0][0], 1./features.shape[1])
-                print ("Predicting")
-                fx = self.decision_function(features)
-                pred_c4 = self.predictions(features, labels)
-                self.targets_outputs.append(pred_c4)
-                print ("Predicted"), pred_c4
-                print score(labels, pred_c4)
-            if i == 5:
-                best_estimator5 = GridSearch(self, features, labels, Cs, reg_params, [['rbf', 'linear']])
-                print ("Best estimators are: ") + str(best_estimator5['C'][0]) + " for and " + str(best_estimator5['reg_param'][0]) + " for regularization parameter"
-                self.fit_model(features, labels, "rbf", "linear", best_estimator5['C'][0][0], best_estimator5['reg_param'][0][0], 1./features.shape[1])
-                print ("Predicting")
-                fx = self.decision_function(features)
-                pred_c5 = self.predictions(features, labels)
-                self.targets_outputs.append(pred_c5)
-                print ("Predicted"), pred_c5
-                print score(labels, pred_c5)
-            if i == 6:
-                best_estimator6 = GridSearch(self, features, labels, Cs, reg_params, [['linear', 'rbf']])
-                print ("Best estimators are: ") + str(best_estimator6['C'][0]) + " for and " + str(best_estimator6['reg_param'][0]) + " for regularization parameter"
-                self.fit_model(features, labels, "linear", "rbf", best_estimator6['C'][0][0], best_estimator6['reg_param'][0][0], 1./features.shape[1])
-                print ("Predicting")
-                fx = self.decision_function(features)
-                pred_c6 = self.predictions(features, labels)
-                self.targets_outputs.append(pred_c6)
-                print ("Predicted"), pred_c6
-                print score(labels, pred_c6)
-            if i == 7:
-                best_estimator7 = GridSearch(self, features, labels, Cs, reg_params, [['sigmoid', 'rbf']])
-                print ("Best estimators are: ") + str(best_estimator7['C'][0]) + " for and " + str(best_estimator7['reg_param'][0]) + " for regularization parameter"
-                self.fit_model(features, labels, "sigmoid", "rbf", best_estimator7['C'][0][0], best_estimator7['reg_param'][0][0], 1./features.shape[1])
-                print ("Predicting")
-                fx = self.decision_function(features)
-                pred_c7 = self.predictions(features, labels)
-                self.targets_outputs.append(pred_c7)
-                print ("Predicted"), pred_c7
-                print score(labels, pred_c7)
-            if i == 8:
-                best_estimator8 = GridSearch(self, features, labels, Cs, reg_params, [['sigmoid', 'poly']])
-                print ("Best estimators are: ") + str(best_estimator8['C'][0]) + " for and " + str(best_estimator8['reg_param'][0]) + " for regularization parameter"
-                self.fit_model(features, labels, "sigmoid", "poly", best_estimator8['C'][0][0], best_estimator8['reg_param'][0][0], 1./features.shape[1])
-                print ("Predicting")
-                fx = self.decision_function(features)
-                pred_c8 = self.predictions(features, labels)
-                self.targets_outputs.append(pred_c8)
-                print ("Predicted"), pred_c8
-                print score(labels, pred_c8)
-            if i == 9:
-                best_estimator9 = GridSearch(self, features, labels, Cs, reg_params, [['poly', 'sigmoid']])
-                print ("Best estimators are: ") + str(best_estimator9['C'][0]) + " for and " + str(best_estimator9['reg_param'][0]) + " for regularization parameter"
-                self.fit_model(features, labels, "poly", "sigmoid", best_estimator9['C'][0][0], best_estimator9['reg_param'][0][0], 1./features.shape[1])
-                print ("Predicting")
-                fx = self.decision_function(features)
-                pred_c9 = self.predictions(features, labels)
-                self.targets_outputs.append(pred_c9)
-                print ("Predicted"), pred_c9
-                print score(labels, pred_c9)
-            if i == 10:
-                best_estimator10 = GridSearch(self, features, labels, Cs, reg_params, [['sigmoid', 'linear']])
-                print ("Best estimators are: ") + str(best_estimator10['C'][0]) + " for and " + str(best_estimator10['reg_param'][0]) + " for regularization parameter"
-                self.fit_model(features, labels, "sigmoid", "linear", best_estimator10['C'][0][0], best_estimator10['reg_param'][0][0], 1./features.shape[1])
-                print ("Predicting")
-                fx = self.decision_function(features)
-                pred_c10 = self.predictions(features, labels)
-                self.targets_outputs.append(pred_c10)
-                print ("Predicted"), pred_c10
-                print score(labels, pred_c10)
-            if i == 11:
-                best_estimator11 = GridSearch(self, features, labels, Cs, reg_params, [['linear', 'sigmoid']])
-                print ("Best estimators are: ") + str(best_estimator11['C'][0]) + " for and " + str(best_estimator11['reg_param'][0]) + " for regularization parameter"
-                self.fit_model(features, labels, "linear", "sigmoid", best_estimator11['C'][0][0], best_estimator11['reg_param'][0][0], 1./features.shape[1])
-                print ("Predicting")
-                fx = self.decision_function(features)
-                pred_c11 = self.predictions(features, labels)
-                self.targets_outputs.append(pred_c11)
-                print ("Predicted"), pred_c11
-                print score(labels, pred_c11)
-            self.fxs.append(fx)
+            best_estimator = GridSearch(self, features, labels, Cs, reg_params, [self.kernel_configs[i]])
+            print ("Best estimators are: ") + str(best_estimator['C'][0]) + " for C and " + str(best_estimator['reg_param'][0]) + " for regularization parameter"
+            self.fit_model(features, labels, self.kernel_configs[i][0], self.kernel_configs[i][1], best_estimator['C'][0][0], best_estimator['reg_param'][0][0], 1./features.shape[1])
+            print ("Predicting")
+            pred_c = self.predictions(features, labels)
+            print ("Predicted"), pred_c
+            err = score(labels, pred_c)
+            self.scores.append(err)
+            if err < 0.5: #benefit of deep learning, we can minimize and bypass all error
+                self.fxs.append(self.decision)
+                self.targets_outputs.append(pred_c)
   
         return self
 
-    def sum_fx(self):
+    def scaled_sum_fx(self):
 	"""
 	Sum all distances along the first axis
 	"""
-        return np.array(self.fxs).sum(axis=0) 
+        return feature_scaling(np.array(self.fxs).sum(axis=0)) 
 
     def best_labels(self):
 	"""
@@ -1772,20 +1640,21 @@ if __name__ == '__main__':
             files = descriptors_and_keys(tags_dirs, True)._files
             features = descriptors_and_keys(tags_dirs, True)._features
             fscaled = feature_scaling(features)
+            del features
             labels = KMeans_clusters(fscaled)
             input_layers = svm_layers()
             input_layers.layer_computation(fscaled, labels)
 
-            fx = input_layers.sum_fx()
+            fx = input_layers.scaled_sum_fx()
 
             labl = input_layers.best_labels()
 
             Cs = [1./0.33, 1./0.4, 1./0.6, 1./0.8] #it should work well with less parameter searching
             reg_params = [0.33, 0.4, 0.6, 0.8] 
-            kernel_configs = [['linear', 'poly']] #use most significant configurations for music 
+            kernel_configs = [['linear', 'poly']] #Also can use rbf with linear if you've got difficult to handle data, or try your parameters  
             best_estimators = GridSearch(svm_layers(), fx, labl, Cs, reg_params, kernel_configs)
             C, reg_param, kernels_config = best_kernels_output(best_estimators, kernel_configs)
-            msvm = main_svm(fx, labl, C[0], reg_param[0], 1./features.shape[1], kernels_config)
+            msvm = main_svm(fx, labl, C[0], reg_param[0], 1./fx.shape[1], kernels_config)
             neg_and_pos = msvm.neg_and_pos(files)
             emotions_data_dir()
             multitag_emotions_dir(tags_dirs, neg_and_pos.angry_files, neg_and_pos.sad_files, neg_and_pos.relaxed_files, neg_and_pos.happy_files)
@@ -1803,7 +1672,7 @@ if __name__ == '__main__':
 
             Cs = [1./0.33, 1./0.4, 1./0.6, 1./0.8] #it should work well with less parameter searching
             reg_params = [0.33, 0.4, 0.6, 0.8] 
-            kernel_configs = [['linear', 'poly']] #use most significant configurations for music 
+            kernel_configs = [['linear', 'poly']] #Also can use rbf with linear if you've got difficult to handle data, or try your parameters
             best_estimators = GridSearch(svm_layers(), fx, labl, Cs, reg_params, kernel_configs)
             C, reg_param, kernels_config = best_kernels_output(best_estimators, kernel_configs)
             msvm = main_svm(fx, labl, C[0], reg_param[0], 1./features.shape[1], kernels_config)
