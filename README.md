@@ -1,3 +1,5 @@
+English version: [README_en.md](README_en.md)
+
 # ¿Qué es?
 
 ApiCultor fue implementado para realizar performances multidisciplinarias basadas en los sonidos de la plataforma [http://redpanal.org](http://redpanal.org) pero sirve para trabajar con cualquier otra base de datos sonora en internet o disponible localmente.
@@ -34,13 +36,17 @@ Con visuales 3D (Blender + game engine)
 
 ## Componentes
 
-* Descarga archivos de audio por tag
-* Algoritmos MIR para extraer descriptores de las pistas
-* Algoritmos para segmentar los archivos de audio con distintos criterios
-* Algoritmos para clasificar y agrupar los archivos de la base de datos redpanalera
-* API REST para realizar consultas sobre redpanal (url audios+valores de descriptores)
+* Mock web service que por medio de una API REST provee samples según criterios definidos por valores de descriptores MIR
+* Máquina de estados según descriptores MIR
+* Interacción con sonidos de [http://redpanal.org](http://redpanal.org)
+ * API REST para realizar consultas sobre redpanal (url audios+valores de descriptores)
+ * Webscrapping por tag
+* Algoritmos MIR para extraer descriptores promedio o por frames de pistas o samples
+* Algoritmos para segmentar los archivos de audio con diferentes criterios
+* Algoritmos para clasificar y agrupar los archivos de la base de datos de [http://redpanal.org](http://redpanal.org) (clustering)
 * Server OSC
-* Ejemplos de uso con Supercollider
+* Ejemplos de uso con Supercollider, pyo
+* Ejemplos con controladores MIDI y OSC. Locales y remotos.
 
 Ver la [descripción de archivos](FILES_DESC.md) para más detalles.
 
