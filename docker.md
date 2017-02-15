@@ -21,9 +21,17 @@ Se crea un nuevo container
 ```
 $ sudo docker run  --name apicultor -v $HOME/git/essentia/:/opt/essentia -v $HOME/git/apicultor/:/opt/apicultor -ti gcr.io/google_containers/ubuntu-slim:0.6 /bin/bash
 ```
+
+Si se usa Linux/Ubuntu como host, agregar:  
+``` 
+--net="host"
+```
+
+
 ### Essentia build
 Una vez dentro se siguen los pasos para instalar las dependencias y buildear [essentia].
 ```
+# apt-get update
 # apt-get install build-essential libyaml-dev libfftw3-dev libavcodec-dev libavformat-dev libavutil-dev libavresample-dev python-dev libsamplerate0-dev libtag1-dev
 # apt-get install python-numpy-dev python-numpy python-yaml
 # cd /opt/essentia
