@@ -62,7 +62,7 @@ Una vez dentro se siguen los pasos para instalar las dependencias y buildear [es
 
 ```
 Obtener ID y commit
-$ docker ps -a
+$ docker ps
 $ docker commit [ID]
 ```
 
