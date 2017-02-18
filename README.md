@@ -1,79 +1,144 @@
-# ApiCultor: Extrae la miel de RedPanal
+English version: [README_en.md](README_en.md)
 
-Implementado para realizar una una performance multidisciplinaria basada en los sonidos de la plataforma http://redpanal.org
+# ¿Qué es?
 
-El código da soporte para el procesamiento de los mismos utilizando técnicas de MIR (Music Information Retrieval) para la "extracción" de parámetros que los caractericen para luego clasficarlos, segmentarlos y manipularlos según los criterios elegidos.
+ApiCultor fue implementado para realizar performances multidisciplinarias basadas en los sonidos de la plataforma [http://redpanal.org](http://redpanal.org) pero sirve para trabajar con cualquier otra base de datos sonora en internet o disponible localmente.
+
+El código da soporte para el procesamiento de sonidos de la web utilizando técnicas de MIR (Music Information Retrieval) para la "extracción" de parámetros que los caractericen para luego clasficarlos, segmentarlos y manipularlos según los criterios elegidos.
+
+Funciona a través de una API REST para la consulta externa de archivos y descriptores desde SuperCollider, pyo, pd o cualquier otro tipo de entorno que maneje protocolos estándar.
+
+## Performances utilizando estas herramientas:
+
+### Cierre de Taller de Experimentación Sonora:
+
+[http://redpanal.org/a/banda-de-mutantes-cierre-taller/](http://redpanal.org/a/banda-de-mutantes-cierre-taller/)
+
+
+### La Noche de los Museos La Casa del Bicentenario 29/10/2016
+[http://redpanal.org/a/performance-casa-tomada/](http://redpanal.org/a/performance-casa-tomada/)
+
+[https://www.youtube.com/watch?v=eKcvkgtJIEo](https://www.youtube.com/watch?v=eKcvkgtJIEo)
+
+Con visuales 3D (Blender + game engine)
+
+**Reseña**: [http://blog.enjambrelab.com.ar/enjambrebit-y-la-banda-de-mutantes/](http://blog.enjambrelab.com.ar/enjambrebit-y-la-banda-de-mutantes/)
+
+## Sonidos Mutantes
+*Sonidos Mutantes, propone performances basadas en el uso artístico de bases de datos preexistentes, las mismas construidas por audios o músicas libres, por ejemplo aquellas de la plataforma colaborativa de RedPanal.org, la cuál es de acceso público vía internet. Estos sonidos, analizados y procesados en tiempo real se combinan en una improvisación colectiva con músicos en vivo bajo consignas preestablecidas, dando lugar a composiciones que mutan a lo largo del tiempo y en función de los propios músicos y de la comunidad toda. Ya que el público podrá participar de la performance subiendo audios y haciendo búsquedas o comentarios en la plataforma web de RedPanal.*
+
+[https://www.facebook.com/SonidosMutantes](https://www.facebook.com/SonidosMutantes)
+
+### Pruebas de concepto (demos viejas):
+
+* Demo máquina de estados + MIR data + OSC + API + Tests: [http://www.youtube.com/watch?v=pMBl_4y6UmE](http://www.youtube.com/watch?v=pMBl_4y6UmE)
+* Integración con controlador MIDI + Supercollider + ApicultorWebService: [https://www.youtube.com/watch?v=X0M_gTOZnNQ](https://www.youtube.com/watch?v=X0M_gTOZnNQ)
 
 ## Componentes
-* Descarga archivos de audio por tag
-* Algoritmos MIR para extraer descriptores de las pistas
-* Algoritmos para segmentar los archivos de audio con distintos criterios
-* Algoritmos para clasificar y agrupar los archivos de la base de datos redpanalera
 
-#Dependencias
-* pip install bs4
-* pip install regex
-* pip install wget
-* pip install colorama
-* pip install matplotlib
-* Essentia (ver instrucciones para compilar aquí: http://essentia.upf.edu/documentation/installing.html)
-* pip install numpy scipy scikit-learn
-* pip install smst
-* pip install librosa
-* pip install transitions
+* Mock web service que por medio de una API REST provee samples según criterios definidos por valores de descriptores MIR
+* Máquina de estados según descriptores MIR
+* Interacción con sonidos de [http://redpanal.org](http://redpanal.org)
+ * API REST para realizar consultas sobre redpanal (url audios+valores de descriptores)
+ * Webscrapping por tag
+* Algoritmos MIR para extraer descriptores promedio o por frames de pistas o samples
+* Algoritmos para segmentar los archivos de audio con diferentes criterios
+* Algoritmos para clasificar y agrupar los archivos de la base de datos de [http://redpanal.org](http://redpanal.org) (clustering)
+* Server OSC
+* Ejemplos de uso con Supercollider, pyo
+* Ejemplos con controladores MIDI y OSC. Locales y remotos.
 
-# Uso 
+Ver la [descripción de archivos](FILES_DESC.md) para más detalles.
+
+# Dependencias
+
+Ver [INSTALL.md](INSTALL.md)
+
+
+# Uso (estado experimental)
+
 ## Bajar los sonidos redpanaleros y aplicar MIR
+
+```
 $ cd apicultor/data 
-$ python WebScrapingDownload.py nombredeltag 
-$ cd /carpetadondeesta/apicultor
-$ python run_MIR_analysis.py directoriodesonidosdeltag
+$ ./download-test-data.sh # Predefinidos (testing)
+$ python WebScrapingDownload.py <nombre_del_tag>
+$ cd ..
+$ python run_MIR_analysis.py <directorio_de_sonidos_del_tag>
+```
+
+## Segmentar sonidos
+
+```
+$ python RandomSegmentation.py
+```
+
 ## Similaridad Sonora
-$ cd /apicultor
+
+Procesar señales de salida para guardar los sonidos en base a clusters
+
+```
 $ python SoundSimilarity.py carpetadeltag
+```
+
 ## Sonificación
-$ cd /apicultor
+
+```
 $ python Sonification.py carpetadeltag
-## MÁQUINA DE ESTADOS EMOCIONALES DE LA MÚSICA
-$ cd /apicultor
-$ python MusicEmotionMachine.py directoriodondeestadata multitag(verdadero, clasifica Todos los audios descargados/ninguno, clasifica audios de un tag específico/falso, después de haber hecho la clasificación, correr de nuevo para llamar a Johnny (la máquina de estados emocionales) para que comienzen las transiciones emocionales con remixes en tiempo real de Todos los sonidos)
+```
 
-#Docu
-* WebScrapingDownload.py descarga los primeros diez archivos de la base de datos redpanalera tomando en cuenta el tag. Solamente hay que especificar el tag de archivos para buscar.
-* DoSegmentation.py segmenta los archivos de audio en cuadros de corta duración.
-* RandomSegmentation.py segmenta los archivos de audio en cuadros de duración aleatoria.
-* run_MIR_analysis.py te muestra los valores de las pistas en base a conceptos de interés como el ataque, la frecuencia del centroide espectral, los BPM, y otros conceptos. También procesa los sonidos en base a las descripciones hechas.
-* SoundSimilarity.py muestra clusters entre los sonidos para encontrar similitud basandose en descriptores seleccionados, luego guarda esos sonidos en carpetas de clusters.
-* Sonification.py También procesa los sonidos en base a las descripciones hechas.
-* MusicEmotionMachine.py clasifica los sonidos en base a sus emociones. Si la clasificación es multitag (de todo el audio redpanalero), luego se puede correr la máquina de estados emocionales musicales (Johnny) para remixar todos los sonidos y reproducirlos en tiempo real
+## SuperCollider
 
-#Sobre el aprendizaje profundo de la MEM:
-
-Con la intención de obtener la mejor clasificación posible de los sonidos basándose en las emociones que son capaces de transmitirnos, la tarea profunda consiste en este caso particular de reveer las activaciones con capas de máquinas de soporte vectorial para dar con la clasificación correcta. Las clasificaciones son en negativo o positivo, de acuerdo a la estimulación (arousal, no "activation"). Como la información del MIR es importante, el aprendizaje se hace respetando lo mejor posible las descripciones, lo que permite reveer las clasificaciones hechas hasta dar con las correctas.
-
-#Crear una base de datos:
-
-Si es tu primera vez utilizando bases de datos de MySQL, tenés que instalar MySQL en tu sistema y luego crear un usuario con una password para acceder y después crear la base de datos a la que accederás utilizando el usuario y la password.
-
-Luego de correr sudo apt-get install mysql-server:
-
-$mysql // a veces el comando puede ser mysqld de acuerdo al paquete instalado
-
-mysql> CREATE USER 'usuario'@'localhost' IDENTIFIED BY 'password';
-
-mysql> CREATE DATABASE nombredelabasededatos;
-
-mysql> GRANT ALL PRIVILEGES ON nombredelabasededatos.* TO 'usuario'@'localhost';
-
-mysql> quit;
-
-Luego se puede usar Fill_DB.py para crear la base de datos del MIR
+Performance and helper scripts in "supercollider/".
 
 
-#TODO
-agregar el diccionario de emociones luego de una clasificación multitag para actualizar la base de datos redpanalera. A medida que vayamos mejorando muchísimo mas el Apicultor vamos a hacer el primer release 
+## Correr webservice (requiere api rest)
 
-#build
-si ya tenés instaladas todas las dependencias podés correr: 
+```
+$ python MockRedPanalAPI_service.py
+```
+
+
+By default:
+
+* Listen IP: 0.0.0.0
+* Port: 5000
+
+Ver ejemplos de uso en tests/Test_API.py
+
+
+## Generar documentación HTML sobre la API REST
+
+```
+$ cd doc/ && ./update_api_doc.sh
+```
+
+Resultado: API-Documentation.html
+
+
+## Máquina de estados emocionales de la música (MusicEmotionMachine)
+
+```
+$ python MusicEmotionMachine.py directoriodondeestadata multitag
+```
+
+(True, clasifica Todos los audios descargados. Después de haber hecho la clasificación, correr de nuevo con la opcion multitag en False o en None para llamar a Johnny (la máquina de estados emocionales) para que comienzen las transiciones emocionales con remixes en tiempo real de Todos los sonidos)
+
+En los remixes utilizamos, ademas de la data acerca de las correspondientes clases, las variables de decision en el entrenamiento del DSVM para reconstruir movimientos de scratching. Ademas se pone enfasis en la busqueda de componentes que se puedan separar (utilizando un metodo que intenta encontrar las n fuentes en una mezcla automaticamente) para generar remixes simples, donde el sonido puede marcar el ritmo y el sonido b puede seguir un rol harmonico. Nos proveemos de varias utilidades (métodos de scratching, segmentaciones, etc) para que el remix resulte divertido
+
+### Sobre el aprendizaje profundo de la MEM:
+
+Con la intención de obtener la mejor clasificación posible de los sonidos basándose en las emociones que son capaces de transmitirnos, la tarea profunda consiste en este caso particular de reveer las activaciones con capas de máquinas de soporte vectorial para dar con la clasificación correcta. Por el momento solamente se utilizan cuatro clases de emociones para la clasificación. Como la información del MIR es importante, el aprendizaje se hace respetando lo mejor posible las descripciones, lo que permite reveer las clasificaciones hechas hasta dar con las correctas. Es por esto que contamos con nuestros modulos de validación cruzada y con nuestras utilidades matemáticas para clasificar los sonidos sin perder información.
+## Docker
+
+Ver tutorial sobre [docker](docker.md).
+
+## Build (TODO)
+
+
+~~Si ya tenés instaladas todas las dependencias se puede correr: 
+```
 $ sudo python setup.py install
-y tener Apicultor instalado en el sistema
+```
+y tener Apicultor instalado en el sistema~~
+
