@@ -1,12 +1,16 @@
 #! /usr/bin/env python
 # -*- coding: utf-8 -*-
 
-from SoundSimilarity import get_files, get_dics, desc_pair
+from utils.dj import *
 from cross_validation import *
 from gradients.descent import SGD
 from constraints.bounds import dsvm_low_a as la
 from constraints.bounds import dsvm_high_a as ha
 from constraints.bounds import es
+from constraints.tempo import same_time
+from constraints.time_freq import *
+from gradients.subproblem import *
+from utils.data import get_files, get_dics, desc_pair, read_file
 import time
 from colorama import Fore
 from collections import Counter, defaultdict
@@ -23,54 +27,13 @@ from sklearn.decomposition.pca import PCA as pca
 from sklearn.cluster import KMeans
 from random import *
 from sklearn.utils.extmath import safe_sparse_dot as ssd
-import librosa
-from librosa import *                                       
+import librosa                                   
 import shutil
 from smst.models import stft 
 import logging
 
 logging.basicConfig(level=logging.DEBUG)
-logger = logging.getLogger(__name__)   
-
-# a memoize class for faster computing
-class memoize:       
-    """
-    The memoize class stores returned results into a cache so that those can be used later on if the same case happens
-    """                    
-    def __init__(self, func, size = 200):
-	"""
-	memoize class init
-	:param func: the function that you're going to decorate
-	:param size: your maximum cache size (in MB)
-	"""     
-        self.func = func
-        self.known_keys = [] #a list of keys to save numpy arrays
-        self.known_values = [] #a list of values to save numpy results
-        self.size = int(size * 1e+6 if size else None) #size in bytes
-        self.size_copy = int(np.copy(self.size))
-
-    def __call__(self, *args, **kwargs):
-        key = hash(repr((args, kwargs)))
-        if (not key in self.known_keys): #when an ammount of arguments can't be identified from keys
-            value = self.func(*args, **kwargs) #compute function
-            self.known_keys.append(key) #add the key to your list of keys
-            self.known_values.append(value) #add the value to your list of values
-            if self.size is not None:
-                self.size -= sys.getsizeof(value) #the assigned space has decreased
-                if (sys.getsizeof(self.known_values) > self.size): #free cache when size of values goes beyond the size limit
-                    del self.known_keys
-                    del self.known_values
-                    del self.size          
-                    self.known_keys = []
-                    self.known_values = []
-                    self.size = self.size_copy 
-            return value
-        else: #if you've already computed everything
-            i = self.known_keys.index(key) #find your key and return your values
-            return self.known_values[i]
-
-from gradients.subproblem import *
-from DoSegmentation import *            
+logger = logging.getLogger(__name__)
 
 #emotion classification
 class descriptors_and_keys():
@@ -83,8 +46,7 @@ class descriptors_and_keys():
         self.multitag = None
         self._files_dir = files_dir
         if multitag == None or multitag == False:                                                
-            self._files = get_files(files_dir)                                    
-            self._dics = get_dics(files_dir)                                      
+            raise IndexError("Need lots of data for emotion classification")                                    
         elif multitag == True:                                              
             self._files = np.hstack([get_files(tag) for tag in files_dir])        
             self._dics = np.hstack([get_dics(tag) for tag in files_dir])          
@@ -646,15 +608,24 @@ class main_svm(deep_support_vector_machines):
 	  - negative_emotion_files: files with negative emotional value (emotional meaning according to the whole performance)
 	  - positive_emotion_files: files with positive emotional value (emotional meaning according to the whole performance) 
 	"""
-        angry_group = map(lambda json: files[json], [i for i, x in enumerate(self._labels) if x ==0])
-        self.angry_files = [i.split('.json')[0] for i in angry_group]
-        relaxed_group = map(lambda json: files[json], [i for i, x in enumerate(self._labels) if x ==2]) 
-        self.relaxed_files = [i.split('.json')[0] for i in relaxed_group]
-        sad_group = map(lambda json: files[json], [i for i, x in enumerate(self._labels) if x ==1])
-        self.sad_files = [i.split('.json')[0] for i in sad_group]
-        happy_group = map(lambda json: files[json], [i for i, x in enumerate(self._labels) if x ==3]) 
-        self.happy_files = [i.split('.json')[0] for i in happy_group]
-        return self
+        for n in xrange(self.n_class):
+            for i, x in enumerate(self._labels):
+                if x == n:
+                    yield files[i], x
+                    
+    def save_decisions(self):
+	"""
+	Save the decision_function result in a text file so you can use it in applications
+	"""
+        with open('utils/data.txt', 'w') as filename:
+            np.savetxt(filename, self.decision) 
+
+    def save_classes(self, files):
+	"""
+	Save the decision_function result in a text file so you can use it in applications
+	"""
+        with open('utils/files_classes.txt', 'w') as filename:
+            np.savetxt(filename, list(self.neg_and_pos(files)), fmt = "%s")                  
 
 #create emotions directory in data dir if multitag classification has been performed
 def emotions_data_dir():
@@ -670,14 +641,6 @@ def emotions_data_dir():
         os.makedirs(files_dir+'/emotions/angry')
     if not os.path.exists(files_dir+'/emotions/relaxed'):
         os.makedirs(files_dir+'/emotions/relaxed')
-    if not os.path.exists(files_dir+'/emotions/not happy'):
-        os.makedirs(files_dir+'/emotions/not happy')
-    if not os.path.exists(files_dir+'/emotions/not sad'):
-        os.makedirs(files_dir+'/emotions/not sad')
-    if not os.path.exists(files_dir+'/emotions/not angry'):
-        os.makedirs(files_dir+'/emotions/not angry')
-    if not os.path.exists(files_dir+'/emotions/not relaxed'):
-        os.makedirs(files_dir+'/emotions/not relaxed')
     if not os.path.exists(files_dir+'/emotions/remixes/happy'):
         os.makedirs(files_dir+'/emotions/remixes/happy')
     if not os.path.exists(files_dir+'/emotions/remixes/sad'):
@@ -705,749 +668,38 @@ def multitag_emotions_dictionary_dir():
     """           
     os.makedirs('data/emotions_dictionary')
 
-# save files in tag directory according to emotion using hpss
-def bpm_emotions_remix(files_dir, sad_files, happy_files):
-    """                                                                                     
-    remix files according to emotion class                                
-                                                                                            
-    :param sad_files: your list of sad files                                   
-    :param happy_files: your list of happy files                                                                                   
-    :param files_dir: data tag dir                                           
-    """                                                                                         
-
-    if happy_files:
-        print (repr(happy_files)+"emotion is happy")
-
-    if sad_files:
-        print (repr(sad_files)+"emotion is sad")
-                                                  
-    for location in os.walk(files_dir):
-             sound_names = [s.split('.')[0] for s in location[2]]   
-             break                                                    
-                 
-    files_1 = set(sound_names).intersection(sad_files)
-    files_2 = set(sound_names).intersection(happy_files)
-                                                           
-    try:                                                      
-        if files_1 and (not os.path.exists(files_dir+'/tempo/sad')):                                                    
-            os.mkdir(files_dir+'/tempo/sad')                                                              
-        if files_2 and (not os.path.exists(files_dir+'/tempo/happy')):                                               
-            os.mkdir(files_dir+'/tempo/happy')           
-    except Exception, e: 
-        raise IOError("Sonifications of described sounds haven't been found")                                                                      
-                                        
-    for e in files_1:
-        shutil.copy(files_dir+'/tempo/'+(str(e))+'tempo.ogg', files_dir+'/tempo/sad/'+(str(e))+'tempo.ogg')
-                                                                                         
-    for e in files_2:
-        shutil.copy(files_dir+'/tempo/'+(str(e))+'tempo.ogg', files_dir+'/tempo/happy/'+(str(e))+'tempo.ogg')
-
-
-    happiness_dir = files_dir+'/tempo/happy' 
-    for subdirs, dirs, sounds in os.walk(happiness_dir):  
-    	happy_audio = [MonoLoader(filename=happiness_dir+'/'+happy_f)() for happy_f in sounds]
-    happy_audio = [scratch_music(i) for i in happy_audio]
-    happy_N = min([len(i) for i in happy_audio])  
-    happy_samples = [i[:happy_N]/i.max() for i in happy_audio]  
-    happy_x = np.array(happy_samples).sum(axis=0) 
-    happy_X = 0.5*happy_x/happy_x.max()
-    happy_Harmonic, happy_Percussive = decompose.hpss(librosa.core.stft(happy_X))
-    happy_harmonic = istft(happy_Harmonic) 
-    MonoWriter(filename=files_dir+'/tempo/happy/'+'happy_mix_bpm.ogg', format = 'ogg', sampleRate = 44100)(happy_harmonic)  
-
-    sadness_dir = files_dir+'/tempo/sad'
-    for subdirs, dirs, sad_sounds in os.walk(sadness_dir):
-    	sad_audio = [MonoLoader(filename=sadness_dir+'/'+sad_f)() for sad_f in sad_sounds]
-    sad_audio = [scratch_music(i) for i in sad_audio]
-    sad_N = min([len(i) for i in sad_audio])  
-    sad_samples = [i[:sad_N]/i.max() for i in sad_audio]  
-    sad_x = np.array(sad_samples).sum(axis=0) 
-    sad_X = 0.5*sad_x/sad_x.max()
-    sad_Harmonic, sad_Percussive = decompose.hpss(librosa.core.stft(sad_X))
-    sad_harmonic = istft(sad_Harmonic)  
-    MonoWriter(filename=files_dir+'/tempo/sad/'+'sad_mix_bpm.ogg', format = 'ogg', sampleRate = 44100)(sad_harmonic) 
-
-def attack_emotions_remix(files_dir, relaxed_files, angry_files):
-    """                                                                                     
-    remix files according to emotion class                                
-                                                                                            
-    :param relaxed_files: your relaxed files                                    
-    :param angry_files: your angry files                                                                                  
-    :param files_dir: data tag dir                                           
-    """                                                                                         
-
-    if angry_files:
-        print (repr(angry_files)+"emotion is angry")
-
-    if relaxed_files:
-        print (repr(relaxed_files)+"emotion is relaxed")
-                                                  
-    for location in os.walk(files_dir):
-             sound_names = [s.split('.')[0] for s in location[2]]   
-             break                                                    
-                 
-    files_1 = set(sound_names).intersection(angry_files)
-    files_2 = set(sound_names).intersection(relaxed_files)
-                                                           
-    try:                                                      
-        if files_1 and (not os.path.exists(files_dir+'/attack/angry')):                                                    
-            os.mkdir(files_dir+'/attack/angry')                                                              
-        if files_2 and (not os.path.exists(files_dir+'/attack/relaxed')):                                               
-            os.mkdir(files_dir+'/attack/relaxed')           
-    except Exception, e: 
-        raise IOError("Sonifications of described sounds haven't been found")                                                                         
-                                        
-    for e in files_1:
-        shutil.copy(files_dir+'/attack/'+(str(e))+'attack.ogg', files_dir+'/attack/angry/'+(str(e))+'attack.ogg')
-                                                                                         
-    for e in files_2:
-        shutil.copy(files_dir+'/attack/'+(str(e))+'attack.ogg', files_dir+'/attack/relaxed/'+(str(e))+'attack.ogg')
-
-
-    anger_dir = files_dir+'/attack/angry' 
-    for subdirs, dirs, sounds in os.walk(anger_dir):  
-    	angry_audio = [MonoLoader(filename=anger_dir+'/'+angry_f)() for angry_f in sounds]
-    angry_audio = [scratch_music(i) for i in angry_audio]
-    angry_N = min([len(i) for i in angry_audio])  
-    angry_samples = [i[:angry_N]/i.max() for i in angry_audio]  
-    angry_x = np.array(angry_samples).sum(axis=0) 
-    angry_X = 0.5*angry_x/angry_x.max()
-    angry_Harmonic, angry_Percussive = decompose.hpss(librosa.core.stft(angry_X))
-    angry_harmonic = istft(angry_Harmonic) 
-    MonoWriter(filename=files_dir+'/attack/angry/angry_mix_attack.ogg', format = 'ogg', sampleRate = 44100)(angry_harmonic)
-
-    tenderness_dir = files_dir+'/attack/relaxed'
-    for subdirs, dirs, tender_sounds in os.walk(tenderness_dir):
-    	tender_audio = [MonoLoader(filename=tenderness_dir+'/'+tender_f)() for tender_f in tender_sounds]
-    tender_audio = [scratch_music(i) for i in tender_audio]
-    tender_N = min([len(i) for i in tender_audio])  
-    tender_samples = [i[:tender_N]/i.max() for i in tender_audio]  
-    tender_x = np.array(tender_samples).sum(axis=0) 
-    tender_X = 0.5*tender_x/tender_x.max()
-    tender_Harmonic, tender_Percussive = decompose.hpss(librosa.core.stft(tender_X))
-    tender_harmonic = istft(tender_Harmonic)  
-    MonoWriter(filename=files_dir+'/attack/relaxed/relaxed_mix_attack.ogg', format = 'ogg', sampleRate = 44100)(tender_harmonic) 
-
-def dissonance_emotions_remix(files_dir, relaxed_files, angry_files):
-    """                                                                                     
-    remix files according to emotion class                                
-                                                                                            
-    :param relaxed_files: your relaxed files                                   
-    :param angry_files: your angry files                                                                                
-    :param files_dir: data tag dir                                           
-    """                                                                                         
-
-    if angry_files:
-        print (repr(angry_files)+"emotion is angry")
-
-    if relaxed_files:
-        print (repr(relaxed_files)+"emotion is relaxed")
-                                                  
-    for location in os.walk(files_dir):
-             sound_names = [s.split('.')[0] for s in location[2]]   
-             break                                                    
-                 
-    files_1 = set(sound_names).intersection(angry_files)
-    files_2 = set(sound_names).intersection(relaxed_files)
-                                                           
-    try:                                                      
-        if files_1 and (not os.path.exists(files_dir+'/dissonance/sad')) :                                                    
-            os.mkdir(files_dir+'/dissonance/sad')                                                              
-        if files_2 and (not os.path.exists(files_dir+'/dissonance/happy')):                                               
-            os.mkdir(files_dir+'/dissonance/happy')           
-    except Exception, e: 
-        raise IOError("Sonifications of described sounds haven't been found")                                                                         
-                                        
-    for e in files_1:
-        shutil.copy(files_dir+'/dissonance/'+(str(e))+'dissonance.ogg', files_dir+'/dissonance/angry/'+(str(e))+'dissonance.ogg')
-                                                                                         
-    for e in files_2:
-        shutil.copy(files_dir+'/dissonance/'+(str(e))+'dissonance.ogg', files_dir+'/dissonance/relaxed/'+(str(e))+'dissonance.ogg')
-
-
-    fear_dir = files_dir+'/dissonance/angry' 
-    for subdirs, dirs, sounds in os.walk(fear_dir):  
-    	fear_audio = [MonoLoader(filename=fear_dir+'/'+fear_f)() for fear_f in sounds]
-    fear_audio = [scratch_music(i) for i in fear_audio]
-    fear_N = min([len(i) for i in fear_audio])  
-    fear_samples = [i[:fear_N]/i.max() for i in fear_audio]  
-    fear_x = np.array(fear_samples).sum(axis=0) 
-    fear_X = 0.5*fear_x/fear_x.max()
-    fear_Harmonic, fear_Percussive = decompose.hpss(librosa.core.stft(fear_X))
-    fear_harmonic = istft(fear_Harmonic) 
-    MonoWriter(filename=files_dir+'/dissonance/angry/angry_mix_dissonance.ogg', format = 'ogg', sampleRate = 44100)(fear_harmonic)
-  
-
-    happiness_dir = files_dir+'/dissonance/relaxed'
-    for subdirs, dirs, happy_sounds in os.walk(happiness_dir):
-    	happy_audio = [MonoLoader(filename=happiness_dir+'/'+happy_f)() for happy_f in happy_sounds]
-    happy_audio = [scratch_music(i) for i in happy_audio]
-    happy_N = min([len(i) for i in happy_audio])  
-    happy_samples = [i[:happy_N]/i.max() for i in happy_audio]  
-    happy_x = np.array(happy_samples).sum(axis=0) 
-    happy_X = 0.5*happy_x/happy_x.max()
-    happy_Harmonic, happy_Percussive = decompose.hpss(librosa.core.stft(happy_X))
-    happy_harmonic = istft(happy_Harmonic)  
-    MonoWriter(filename=files_dir+'/dissonance/relaxed/relaxed_mix_dissonance.ogg', format = 'ogg', sampleRate = 44100)(happy_harmonic) 
-
-def mfcc_emotions_remix(files_dir, relaxed_files, angry_files):
-    """                                                                                     
-    remix files according to emotion class                                
-                                                                                            
-    :param relaxed_files: your relaxed files                                   
-    :paramangry_files: your angry files                                                                                  
-    :param files_dir: data tag dir                                           
-    """                                                                                         
-
-    if angry_files:
-        print (repr(angry_files)+"emotion is angry")
-
-    if relaxed_files:
-        print (repr(relaxed_files)+"emotion is relaxed")
-                                                  
-    for location in os.walk(files_dir):
-             sound_names = [s.split('.')[0] for s in location[2]]   
-             break                                                    
-                 
-    files_1 = set(sound_names).intersection(angry_files)
-    files_2 = set(sound_names).intersection(relaxed_files)
-                                                           
-    try:                                                      
-        if files_1 and (not os.path.exists(files_dir+'/mfcc/angry')):                                                    
-            os.mkdir(files_dir+'/mfcc/angry')                                                              
-        if files_2 and (not os.path.exists(files_dir+'/mfcc/relaxed')):                                               
-            os.mkdir(files_dir+'/mfcc/relaxed')           
-    except Exception, e: 
-        raise IOError("Sonifications of described sounds haven't been found")                                                                       
-                                        
-    for e in files_1:
-        shutil.copy(files_dir+'/mfcc/'+(str(e))+'mfcc.ogg', files_dir+'/mfcc/angry/'+(str(e))+'mfcc.ogg')
-                                                                                         
-    for e in files_2:
-        shutil.copy(files_dir+'/mfcc/'+(str(e))+'mfcc.ogg', files_dir+'/mfcc/relaxed/'+(str(e))+'mfcc.ogg')
-
-
-    fear_dir = files_dir+'/mfcc/angry' 
-    for subdirs, dirs, sounds in os.walk(fear_dir):  
-    	fear_audio = [MonoLoader(filename=fear_dir+'/'+fear_f)() for fear_f in sounds]
-    fear_audio = [scratch_music(i) for i in fear_audio]
-    fear_N = min([len(i) for i in fear_audio])  
-    fear_samples = [i[:fear_N]/i.max() for i in fear_audio]  
-    fear_x = np.array(fear_samples).sum(axis=0) 
-    fear_X = 0.5*fear_x/fear_x.max()
-    fear_Harmonic, fear_Percussive = decompose.hpss(librosa.core.stft(fear_X))
-    fear_harmonic = istft(fear_Harmonic) 
-    MonoWriter(filename=files_dir+'/mfcc/angry/angry_mix_mfcc.ogg', format = 'ogg', sampleRate = 44100)(fear_harmonic)
-  
-
-    happiness_dir = files_dir+'/mfcc/relaxed'
-    for subdirs, dirs, happy_sounds in os.walk(happiness_dir):
-    	happy_audio = [MonoLoader(filename=happiness_dir+'/'+happy_f)() for happy_f in happy_sounds]
-    happy_audio = [scratch_music(i) for i in happy_audio]
-    happy_N = min([len(i) for i in happy_audio])  
-    happy_samples = [i[:happy_N]/i.max() for i in happy_audio]  
-    happy_x = np.array(happy_samples).sum(axis=0) 
-    happy_X = 0.5*happy_x/happy_x.max()
-    happy_Harmonic, happy_Percussive = decompose.hpss(librosa.core.stft(happy_X))
-    happy_harmonic = istft(happy_Harmonic)  
-    MonoWriter(filename=files_dir+'/mfcc/relaxed/relaxed_mix_mfcc.ogg', format = 'ogg', sampleRate = 44100)(happy_harmonic) 
- 
-
-def centroid_emotions_remix(files_dir, relaxed_files, angry_files):
-    """                                                                                     
-    remix files according to emotion class                                
-                                                                                            
-    :param relaxed_files: your relaxed files                                    
-    :param angry_files: your angry files                                                                                   
-    :param files_dir: data tag dir                                          
-    """                                                                                         
-
-    if angry_files:
-        print (repr(angry_files)+"emotion is angry")
-
-    if relaxed_files:
-        print (repr(relaxed_files)+"emotion is relaxed")
-                                                  
-    for location in os.walk(files_dir):
-             sound_names = [s.split('.')[0] for s in location[2]]   
-             break                                                    
-                 
-    files_1 = set(sound_names).intersection(angry_files)
-    files_2 = set(sound_names).intersection(relaxed_files)
-                                                           
-    try:                                                      
-        if files_1 and (not os.path.exists(files_dir+'/centroid/angry')):                                                    
-            os.mkdir(files_dir+'/centroid/angry')                                                              
-        if files_2 and (not os.path.exists(files_dir+'/centroid/relaxed')):                                               
-            os.mkdir(files_dir+'/centroid/relaxed')           
-    except Exception, e: 
-        raise IOError("Sonifications of described sounds haven't been found")                                                                       
-                                        
-    for e in files_1:
-        shutil.copy(files_dir+'/centroid/'+(str(e))+'centroid.ogg', files_dir+'/centroid/angry/'+(str(e))+'centroid.ogg')
-                                                                                         
-    for e in files_2:
-        shutil.copy(files_dir+'/centroid/'+(str(e))+'centroid.ogg', files_dir+'/centroid/relaxed/'+(str(e))+'centroid.ogg')
-
-
-    fear_dir = files_dir+'/centroid/angry' 
-    for subdirs, dirs, sounds in os.walk(fear_dir):  
-    	fear_audio = [MonoLoader(filename=fear_dir+'/'+fear_f)() for fear_f in sounds]
-    fear_audio = [scratch_music(i) for i in fear_audio]
-    fear_N = min([len(i) for i in fear_audio])  
-    fear_samples = [i[:fear_N]/i.max() for i in fear_audio]  
-    fear_x = np.array(fear_samples).sum(axis=0) 
-    fear_X = 0.5*fear_x/fear_x.max()
-    fear_Harmonic, fear_Percussive = decompose.hpss(librosa.core.stft(fear_X))
-    fear_harmonic = istft(fear_Harmonic) 
-    MonoWriter(filename=files_dir+'/centroid/angry/angry_mix_centroid.ogg', format = 'ogg', sampleRate = 44100)(fear_harmonic)
-  
-
-    relaxed_dir = files_dir+'/centroid/relaxed'
-    for subdirs, dirs, relaxed_sounds in os.walk(relaxed_dir):
-    	relaxed_audio = [MonoLoader(filename=relaxed_dir+'/'+relaxed_f)() for relaxed_f in relaxed_sounds]
-    relaxed_audio = [scratch_music(i) for i in relaxed_audio]
-    relaxed_N = min([len(i) for i in relaxed_audio])  
-    relaxed_samples = [i[:relaxed_N]/i.max() for i in relaxed_audio]  
-    relaxed_x = np.array(relaxed_samples).sum(axis=0) 
-    relaxed_X = 0.5*relaxed_x/relaxed_x.max()
-    relaxed_Harmonic, relaxed_Percussive = decompose.hpss(librosa.core.stft(relaxed_X))
-    relaxed_harmonic = istft(relaxed_Harmonic)  
-    MonoWriter(filename=files_dir+'/centroid/relaxed/relaxed_mix_centroid.ogg', format = 'ogg', sampleRate = 44100)(relaxed_harmonic) 
-
-def hfc_emotions_remix(files_dir, classes_files):
-    """                                                                                     
-    remix files according to emotion class                                
-                                                                                            
-    :param classes_files: neg_and_pos result (read main_svm class documentation)
-    :param files_dir: data tag dir                                           
-    """                                                                                         
-
-    if classes_files:
-        print (repr([classes_files.happy_files, classes_files.angry_files, classes_files.relaxed_files])+"emotion is not sad")
-
-    if classes_files.sad_files:
-        print (repr(classes_files.sad_files)+"emotion is sad")
-                                                  
-    for location in os.walk(files_dir):
-             sound_names = [s.split('.')[0] for s in location[2]]   
-             break   
-
-    not_sad_f = list([set(classes_files.happy_files), set(classes_files.angry_files), set(classes_files.relaxed_files)])
-                 
-    files_1 = [set(sound_names).intersection(tuple(not_sad_f[i])) for i in range(len(not_sad_f))]
-
-    files_2 = set(sound_names).intersection(classes_files.sad_files)
-                                                           
-    try:                                                      
-        if files_1 and (not os.path.exists(files_dir+'/hfc/not sad')):                                                    
-            os.mkdir(files_dir+'/hfc/not sad')                                                              
-        if files_2 and (not os.path.exists(files_dir+'/hfc/sad')):                                               
-            os.mkdir(files_dir+'/hfc/sad')           
-    except Exception, e: 
-        raise IOError("Sonifications of described sounds haven't been found")                                                                     
-                                        
-    for i in range(len(files_1)):
-        for f in files_1[i]:
-            try:
-                shutil.copy(files_dir+'/hfc/'+(str(f))+'hfc.ogg', files_dir+'/hfc/not sad/'+(str(f))+'hfc.ogg')
-            except Exception, e:
-                print IOError("No sound file found")
-                                                                                         
-    for f in files_2:
-        try:
-            shutil.copy(files_dir+'/hfc/'+(str(f))+'hfc.ogg', files_dir+'/hfc/sad/'+(str(f))+'hfc.ogg')
-        except Exception, e:
-            print IOError("No sound file found")
-
-    sad_dir = files_dir+'/hfc/sad' 
-    for subdirs, dirs, sounds in os.walk(sad_dir):  
-    	sad_audio = [MonoLoader(filename=sad_dir+'/'+sad_f)() for sad_f in sounds]
-    sad_audio = [scratch_music(i) for i in sad_audio]
-    sad_N = min([len(i) for i in sad_audio])  
-    sad_samples = [i[:sad_N]/i.max() for i in sad_audio]  
-    sad_x = np.array(sad_samples).sum(axis=0) 
-    sad_X = 0.5*sad_x/sad_x.max()
-    sad_Harmonic, sad_Percussive = decompose.hpss(librosa.core.stft(sad_X))
-    sad_percussive = istft(sad_Percussive) 
-    MonoWriter(filename=files_dir+'/hfc/sad/sad_mix_hfc.ogg', format = 'ogg', sampleRate = 44100)(sad_percussive)
-  
-
-    not_sad_dir = files_dir+'/hfc/not sad'
-    for subdirs, dirs, not_sad_sounds in os.walk(not_sad_dir):
-    	not_sad_audio = [MonoLoader(filename=not_sad_dir+'/'+not_sad_f)() for not_sad_f in not_sad_sounds]
-    not_sad_N = min([len(i) for i in not_sad_audio])  
-    not_sad_samples = [i[:not_sad_N]/i.max() for i in not_sad_audio]
-    not_sad_samples = [scratch_music(i) for i in not_sad_samples]  
-    not_sad_x = np.array(not_sad_samples).sum(axis=0) 
-    not_sad_X = 0.5*not_sad_x/not_sad_x.max()
-    not_sad_Harmonic, not_sad_Percussive = decompose.hpss(librosa.core.stft(not_sad_X))
-    not_sad_percussive = istft(not_sad_Percussive)  
-    MonoWriter(filename=files_dir+'/hfc/not sad/not_sad_mix_hfc.ogg', format = 'ogg', sampleRate = 44100)(not_sad_percussive) 
-
-def loudness_emotions_remix(files_dir, classes_files):
-    """                                                                                     
-    remix files according to emotion class                                
-                                                                                            
-    :param classes_files: neg_and_pos result (read main_svm class documentation)                          
-    :param files_dir: data tag dir                                           
-    """                                                                                         
-
-    if classes_files.angry_files:
-        print (repr(angry_files)+"emotion is angry")
-
-    if classes_files:
-        print (repr(classes_files)+"emotion is Not Happy")
-                                                  
-    for location in os.walk(files_dir):
-             sound_names = [s.split('.')[0] for s in location[2]]   
-             break                                                    
-                 
-    not_happy_f = list([set(classes_files.sad_files), set(classes_files.angry_files), set(classes_files.relaxed_files)])
-                 
-    files_1 = [set(sound_names).intersection(tuple(not_happy_f[i])) for i in range(len(not_happy_f))]
-
-    files_2 = set(sound_names).intersection(classes_files.angry_files)
-                                                           
-    try:                                                      
-        if files_1:                                                    
-            os.mkdir(files_dir+'/loudness/not happy')                                                              
-        if files_2:                                               
-            os.mkdir(files_dir+'/loudness/angry')           
-    except Exception, e: 
-        raise IOError("Sonifications of described sounds haven't been found")                                                                      
-                                        
-    for i in range(len(files_1)):
-        for f in files_1[i]:
-            try:
-                shutil.copy(files_dir+'/loudness/'+(str(f))+'loudness.ogg', files_dir+'/loudness/not happy/'+(str(f))+'loudness.ogg')
-            except Exception, e:
-                print IOError("No sound file found")
-                                                                                         
-    for f in files_2:
-        try:
-            shutil.copy(files_dir+'/loudness/'+(str(f))+'loudness.ogg', files_dir+'/loudness/angry'+(str(f))+'loudness.ogg')
-        except Exception, e:
-            print IOError("No sound file found")
-
-
-    sad_dir = files_dir+'/loudness/not happy' 
-    for subdirs, dirs, sounds in os.walk(sad_dir):  
-    	sad_audio = [MonoLoader(filename=sad_dir+'/'+sad_f)() for sad_f in sounds]
-    sad_audio = [scratch_music(i) for i in sad_audio]
-    sad_N = min([len(i) for i in sad_audio])  
-    sad_samples = [i[:sad_N]/i.max() for i in sad_audio]  
-    sad_x = np.array(sad_samples).sum(axis=0) 
-    sad_X = 0.5*sad_x/sad_x.max()
-    sad_Harmonic, sad_Percussive = decompose.hpss(librosa.core.stft(sad_X))
-    sad_harmonic = istft(sad_Harmonic) 
-    MonoWriter(filename=files_dir+'/loudness/not happy/not_happy_mix_loudness.ogg', format = 'ogg', sampleRate = 44100)(sad_harmonic)
-  
-
-    angry_dir = files_dir+'/loudness/angry'
-    for subdirs, dirs, angry_sounds in os.walk(angry_dir):
-    	angry_audio = [MonoLoader(filename=angry_dir+'/'+angry_f)() for angry_f in angry_sounds]
-    angry_audio = [scratch_music(i) for i in angry_audio]
-    angry_N = min([len(i) for i in angry_audio])  
-    angry_samples = [i[:angry_N]/i.max() for i in angry_audio]  
-    angry_x = np.array(angry_samples).sum(axis=0) 
-    angry_X = 0.5*angry_x/angry_x.max()
-    angry_Harmonic, angry_Percussive = decompose.hpss(librosa.core.stft(angry_X))
-    angry_harmonic = istft(angry_Harmonic)  
-    MonoWriter(filename=files_dir+'/loudness/angry/angry_mix_loudness.ogg', format = 'ogg', sampleRate = 44100)(angry_harmonic) 
-
-def inharmonicity_emotions_remix(files_dir, classes_files):
-    """                                                                                     
-    remix files according to emotion class                                
-                                                                                            
-    :param classes_files: neg_and_pos result (read main_svm class documentation)
-    :param files_dir: data tag dir                                        
-    """                                                                                         
-                                                  
-    for location in os.walk(files_dir):
-             sound_names = [s.split('.')[0] for s in location[2]]   
-             break                                                    
-                 
-    not_relaxed_f = list([set(classes_files.sad_files), set(classes_files.angry_files), set(classes_files.happy_files)])
-    not_angry_f = list([set(classes_files.sad_files), set(classes_files.relaxed_files), set(classes_files.happy_files)])
-
-    if not_relaxed_f:
-        print (repr(not_relaxed_f)+"emotion is not relaxed")
-
-    if not_angry_f:
-        print (repr(not_angry_f)+"emotion is not angry")
-                 
-    files_1 = [set(sound_names).intersection(tuple(not_relaxed_f[i])) for i in range(len(not_relaxed_f))]
-
-    files_2 = [set(sound_names).intersection(tuple(not_angry_f[i])) for i in range(len(not_angry_f))]
-                                                           
-    try:                                                      
-        if files_1:                                                    
-            os.mkdir(files_dir+'/inharmonicity/not relaxed')                                                              
-        if files_2:                                               
-            os.mkdir(files_dir+'/inharmonicity/not angry')           
-    except Exception, e: 
-        raise IOError("Sonifications of described sounds haven't been found")                                                                     
-                                        
-    for i in range(len(files_1)):
-        for f in files_1[i]:
-            try:
-                shutil.copy(files_dir+'/inharmonicity/'+(str(f))+'inharmonicity.ogg', files_dir+'/inharmonicity/not relaxed'+(str(f))+'inharmonicity.ogg')
-            except Exception, e:
-                print IOError("No sound file found")
-                                                                                         
-    for i in range(len(files_2)):
-        for f in files_2[i]:
-            try:
-                shutil.copy(files_dir+'/inharmonicity/'+(str(f))+'inharmonicity.ogg', files_dir+'/inharmonicity/not angry'+(str(f))+'inharmonicity.ogg')
-            except Exception, e:
-                print IOError("No sound file found")
-
-    sad_dir = files_dir+'/inharmonicity/not relaxed' 
-    for subdirs, dirs, sounds in os.walk(sad_dir):  
-    	sad_audio = [MonoLoader(filename=sad_dir+'/'+sad_f)() for sad_f in sounds]
-    sad_audio = [scratch_music(i) for i in sad_audio]
-    sad_N = min([len(i) for i in sad_audio])  
-    sad_samples = [i[:sad_N]/i.max() for i in sad_audio]  
-    sad_x = np.array(sad_samples).sum(axis=0) 
-    sad_X = 0.5*sad_x/sad_x.max()
-    sad_Harmonic, sad_Percussive = decompose.hpss(librosa.core.stft(sad_X))
-    sad_harmonic = istft(sad_Harmonic) 
-    MonoWriter(filename=files_dir+'/inharmonicity/not relaxed/not_relaxed_mix_inharmonicity.ogg', format = 'ogg', sampleRate = 44100)(sad_harmonic)
-  
-
-    not_angry_dir = files_dir+'/inharmonicity/not angry'
-    for subdirs, dirs, not_angry_sounds in os.walk(not_angry_dir):
-    	not_angry_audio = [MonoLoader(filename=not_angry_dir+'/'+not_angry_f)() for not_angry_f in not_angry_sounds]
-    not_angry_audio = [scratch_music(i) for i in not_angry_audio]
-    not_angry_N = min([len(i) for i in not_angry_audio])  
-    not_angry_samples = [i[:not_angry_N]/i.max() for i in not_angry_audio]  
-    not_angry_x = np.array(not_angry_samples).sum(axis=0) 
-    not_angry_X = 0.5*not_angry_x/not_angry_x.max()
-    not_angry_Harmonic, angry_Percussive = decompose.hpss(librosa.core.stft(not_angry_X))
-    not_angry_harmonic = istft(not_angry_Harmonic)  
-    MonoWriter(filename=files_dir+'/inharmonicity/not angry/not_angry_mix_inharmonicity.ogg', format = 'ogg', sampleRate = 44100)(not_angry_harmonic)
-
-def contrast_emotions_remix(files_dir, classes_files):
-    """                                                                                     
-    remix files according to emotion class                                
-                                                                                            
-    :param classes_files: neg_and_pos result (read main_svm class documentation)
-    :param files_dir: data tag dir                                             
-    """                                                                                         
-
-    for location in os.walk(files_dir):
-             sound_names = [s.split('.')[0] for s in location[2]]   
-             break                                                    
-                 
-    not_relaxed_f = list([set(classes_files.sad_files), set(classes_files.angry_files), set(classes_files.happy_files)])
-    not_angry_f = list([set(classes_files.sad_files), set(classes_files.relaxed_files), set(classes_files.happy_files)])
-
-    if not_relaxed_f:
-        print (repr(not_relaxed_f)+"emotion is not relaxed")
-
-    if not_angry_f:
-        print (repr(not_angry_f)+"emotion is not angry")
-                 
-    files_1 = [set(sound_names).intersection(tuple(not_relaxed_f[i])) for i in range(len(not_relaxed_f))]
-
-    files_2 = [set(sound_names).intersection(tuple(not_angry_f[i])) for i in range(len(not_angry_f))]
-                                                           
-    try:                                                      
-        if files_1:                                                    
-            os.mkdir(files_dir+'/valleys/not relaxed')                                                              
-        if files_2:                                               
-            os.mkdir(files_dir+'/valleys/not angry')           
-    except Exception, e: 
-        raise IOError("Sonifications of described sounds haven't been found")                                                                     
-                                        
-    for i in range(len(files_1)):
-        for f in files_1[i]:
-            try:
-                shutil.copy(files_dir+'/valleys/'+(str(f))+'contrast.ogg', files_dir+'/valleys/not relaxed'+(str(f))+'contrast.ogg')
-            except Exception, e:
-                print IOError("No sound file found")
-                                                                                         
-    for i in range(len(files_2)):
-        for f in files_2[i]:
-            try:
-                shutil.copy(files_dir+'/valleys/'+(str(f))+'contrast.ogg', files_dir+'/valleys/not angry'+(str(f))+'contrast.ogg')
-            except Exception, e:
-                print IOError("No sound file found")
-
-    sad_dir = files_dir+'/valleys/not relaxed' 
-    for subdirs, dirs, sounds in os.walk(sad_dir):  
-    	sad_audio = [MonoLoader(filename=sad_dir+'/'+sad_f)() for sad_f in sounds]
-    sad_audio = [scratch_music(i) for i in sad_audio]
-    sad_N = min([len(i) for i in sad_audio])  
-    sad_samples = [i[:sad_N]/i.max() for i in sad_audio]  
-    sad_x = np.array(sad_samples).sum(axis=0) 
-    sad_X = 0.5*sad_x/sad_x.max()
-    sad_Harmonic, sad_Percussive = decompose.hpss(librosa.core.stft(sad_X))
-    sad_harmonic = istft(sad_Harmonic) 
-    MonoWriter(filename=files_dir+'/valleys/not relaxed/not_relaxed_mix_contrast.ogg', format = 'ogg', sampleRate = 44100)(sad_harmonic)
-  
-
-    not_angry_dir = files_dir+'/valleys/not angry'
-    for subdirs, dirs, not_angry_sounds in os.walk(not_angry_dir):
-    	not_angry_audio = [MonoLoader(filename=not_angry_dir+'/'+not_angry_f)() for not_angry_f in not_angry_sounds]
-    not_angry_audio = [scratch_music(i) for i in not_angry_audio]
-    not_angry_N = min([len(i) for i in not_angry_audio])  
-    not_angry_samples = [i[:not_angry_N]/i.max() for i in not_angry_audio]  
-    not_angry_x = np.array(not_angry_samples).sum(axis=0) 
-    not_angry_X = 0.5*not_angry_x/not_angry_x.max()
-    not_angry_Harmonic, angry_Percussive = decompose.hpss(librosa.core.stft(not_angry_X))
-    not_angry_harmonic = istft(not_angry_Harmonic)  
-    MonoWriter(filename=files_dir+'/valleys/not angry/not_angry_mix_contrast.ogg', format = 'ogg', sampleRate = 44100)(not_angry_harmonic) 
-
 #locate all files in data emotions dir
-def multitag_emotions_dir(tags_dirs, angry_files, sad_files, relaxed_files, happy_files):
+def multitag_emotions_dir(tags_dirs, files_dir, generator):
     """                                                                                     
-    remix all files according to multitag emotions classes                                
+    locate all files in folders according to multitag emotions classes                                
 
     :param tags_dirs: directories of tags in data                                                                                            
-    :param angry_files: files with multitag negative value
-    :param sad_files: files with multitag sad value
-    :param relaxed_files: files with multitag relaxed value
-    :param happy_files: files with multitag happy value
-                                                                                                                                                                         
+    :param files_dir: main directory where to save files
+    :param generator: generator containing the files (use neg_and_pos)                                                                                                               
     """                                                                                         
     files_format = ['.mp3', '.ogg', '.undefined', '.wav', '.mid', '.wma', '.amr']
+    
+    emotions_folder = ["/emotions/angry/", "/emotions/sad", "/emotions/relaxed", "/emotions/happy"]
+    
+    emotions = ["anger", "sadness", "relaxation", "happiness"]                                                                 
 
-    print ("Sound files evoking anger as emotion: " + repr(angry_files))
-
-    print ("Sound files evoking relaxation as emotion: " + repr(relaxed_files))
-
-    print ("Sound files evoking sadness as emotion: " + repr(sad_files))
-
-    print ("Sound files evoking happiness as emotion: " + repr(happy_files))
-
-    sounds = []
-                                                  
-    for tag in tags_dirs:
-            for types in next(os.walk(tag)):
-               for t in types:
-                   if os.path.splitext(t)[1] in files_format:
-                       sounds.append(t)
-
-    sound_names = []
-
-    for s in sounds:
-         sound_names.append(s.split('.')[0])                                                  
-                 
-    files_0 = set(sound_names).intersection(angry_files)
-    files_1 = set(sound_names).intersection(sad_files) 
-    files_2 = set(sound_names).intersection(relaxed_files) 
-    files_3 = set(sound_names).intersection(happy_files)                                                                     
-                                        
-    for tag in tags_dirs:
-                 for types in next(os.walk(tag)):
-                    for t in types:
-                        if os.path.splitext(t)[0] in files_0:
-                            if t in types:
-                                shutil.copy(os.path.join(tag, t), os.path.join(files_dir+ "/emotions/angry/",t))
-                        if os.path.splitext(t)[0] in files_1:
-                            if t in types:
-                                shutil.copy(os.path.join(tag, t), os.path.join(files_dir + "/emotions/sad",t))
-                        if os.path.splitext(t)[0] in files_2:
-                            if t in types:
-                                shutil.copy(os.path.join(tag, t), os.path.join(files_dir + "/emotions/relaxed", t)) 
-                        if os.path.splitext(t)[0] in files_3:
-                            if t in types:
-                                shutil.copy(os.path.join(tag, t), os.path.join(files_dir + "/emotions/happy", t))
-
+    for t, c in list(generator):
+        for tag in tags_dirs:
+             for f in (list(os.walk(tag, topdown = False)))[-1][-1]:
+                 if t.split('.')[0] == f.split('.')[0]:
+                     if not f in list(os.walk(str().join((files_dir,emotions_folder[c])), topdown=False))[-1][-1]:
+                         shutil.copy(os.path.join(tag, f), os.path.join(files_dir+emotions_folder[c], f))     
+                         print str().join((str(f),' evokes ',emotions[c]))
 
 from transitions import Machine
 import random
 import subprocess
 
 #sub-directories examples, you can change the location according to where you might have specified another sounds location
-not_happy_dir = ['data/emotions/negative_arousal/sad', 'data/emotions/positive_arousal/angry', 'data/emotions/negative_arousal/relaxed']
-not_sad_dir = ['data/emotions/positive_arousal/happy', 'data/emotions/positive_arousal/angry', 'data/emotions/negative_arousal/relaxed']
-not_angry_dir = ['data/emotions/positive_arousal/happy', 'data/emotions/negative_arousal/sad', 'data/emotions/negative_arousal/relaxed']
-not_relaxed_dir = ['data/emotions/positive_arousal/happy', 'data/emotions/negative_arousal/sad', 'data/emotions/positive_arousal/angry']
-
-def speedx(sound_array, factor):
-    """
-    Multiplies the sound's speed by a factor
-    :param sound_array: your input sound 
-    :param factor: your speed up factor                                                                              
-    :returns:                                                                                                         
-      - faster sound
-    """
-    indices = np.round( np.arange(0, len(sound_array), factor) )
-    indices = indices[indices < len(sound_array)]
-    return sound_array[np.int32(indices)]
-
-#apply crossfading into scratching method
-@memoize
-def crossfade(audio1, audio2):
-    """ 
-    Apply crossfading to 2 audio tracks. The fade function is randomly applied
-    :param audio1: your first signal 
-    :param audio2: your second signal                                                                            
-    :returns:                                                                                                         
-      - crossfaded audio
-    """
-    def quadratic_fade_out(u):  
-        return (np.float32([(1 - u[i]) * u[i] for i in range(len(u))]), u*u) 
-    def quadratic_fade_in(u):     
-        return (np.float32([(1 - u[i]) * u[i] for i in range(len(u))]), np.float32([1 - ((1 - u[i]) * u[i]) for i in range(len(u))]))
-    u = audio1/float(len(audio1))            
-    if choice([0,1]) == 0:
-        amp1, amp2 = quadratic_fade_in(u)      
-    else:
-        amp1, amp2 = quadratic_fade_out(u)       
-    return (audio1 * amp1) + (audio2 * amp2) 
-
-#scratch your records
-def scratch(audio):
-    """ 
-    This function performs scratching effects to sound arrays 
-    :param audio: the signal you want to scratch                                                                           
-    :returns:                                                                                                         
-      - scratched signal
-    """
-    proportion = len(audio)/16
-    def hand_move(audio, rev_audio): #simulation of hand motion in a turntable
-        forwards = speedx(audio, randint(2,3))
-        backwards = speedx(np.array(rev_audio), randint(2,3))
-        forwards = np.append(np.cumsum(forwards).max(), forwards)
-        backwards = np.append(np.cumsum(backwards).max(), backwards)
-        backwards = np.append(backwards, np.cumsum(backwards).max())
-        if len(forwards) > len(backwards):
-            cf = crossfade(forwards[len(forwards) - len(forwards[:len(backwards)]):], backwards)
-            return np.concatenate([forwards[:len(forwards) - len(forwards[:len(backwards)])], cf])
-        else:
-            cf = crossfade(forwards, backwards[len(backwards) - len(backwards[:len(forwards)]):])
-            return np.concatenate([forwards[:len(forwards) - len(forwards[:len(backwards)])], cf])
-    rev_audio = np.array(list(reversed(audio)))
-    hand_a = hand_move(audio, rev_audio)
-    hand_b = hand_move(audio[:proportion * 12], rev_audio[:proportion*12])
-    hand_c = hand_move(audio[proportion:], rev_audio)
-    hand_d = hand_move(audio[proportion:proportion*12], rev_audio[:proportion*12])
-    hand_e = hand_move(audio, rev_audio[:proportion*2])
-    hand_f = hand_move(audio[:proportion*12], rev_audio[proportion*2:proportion*12])
-    hand_g = hand_move(audio[:proportion*2], rev_audio[proportion*2:])
-    hand_h = hand_move(audio[proportion*3:proportion*12], rev_audio[proportion*3:proportion*12])
-    mov = lambda: choice((hand_a, hand_b, hand_c, hand_d, hand_e, hand_f, hand_g, hand_h))
-    return np.concatenate([mov(), mov(), mov()])
-
-def scratch_music(audio):
-    """ 
-    Enclosing function that performs DJ scratching and crossfading to a signal. First of all an arbitrary ammount of times to scratch the audio is chosen to segment the sound n times and also to arbitrarily decide the scratching technique 
-    :param audio: the signal you want to scratch                                                                           
-    :returns:                                                                                                         
-      - scratched recording
-    """
-    iterations = choice(range(int(Duration()(audio) / 8)))
-    for i in range(iterations):
-        sound = do_segmentation(audio_input = audio, audio_input_from_filename = False, audio_input_from_array = True, sec_len = choice(range(2,8)), save_file = False) 
-        scratches = scratch(sound)
-        samples_len = len(scratches)
-        position = choice(range(int(Duration()(audio)))) * 44100
-        audio = np.concatenate([audio[:position - samples_len], scratches, audio[position + samples_len:]])
-    return audio
+not_happy_dir = ['data/emotions/sad', 'data/emotions/angry', 'data/emotions/relaxed']
+not_sad_dir = ['data/emotions/happy', 'data/emotions/angry', 'data/emotions/relaxed']
+not_angry_dir = ['data/emotions/happy', 'data/emotions/sad', 'data/emotions/relaxed']
+not_relaxed_dir = ['data/emotions/happy', 'data/emotions/sad', 'data/emotions/angry']
 
 #Johnny, Music Emotional State Machine
 class MusicEmotionStateMachine(object):
@@ -1455,171 +707,236 @@ class MusicEmotionStateMachine(object):
             def __init__(self, name):
                 self.name = name
                 self.machine = Machine(model=self, states=MusicEmotionStateMachine.states, initial='angry')
-            def sad_music_remix(self, neg_arous_dir, harmonic = None):
-                    for subdirs, dirs, sounds in os.walk(neg_arous_dir):                            
-                             x = MonoLoader(filename=neg_arous_dir+'/'+random.choice(sounds[:-1]))() 
-                             y = MonoLoader(filename=neg_arous_dir+'/'+random.choice(sounds[:]))() 
-                    x, y = [scratch_music(i) for i in (x,y)]
-                    negative_arousal_audio = np.array((x,y))                        
-                    negative_arousal_N = min([len(i) for i in negative_arousal_audio])                                            
-                    negative_arousal_samples = [i[:negative_arousal_N]/i.max() for i in negative_arousal_audio]  
-                    negative_arousal_x = np.array(negative_arousal_samples).sum(axis=0)                     
-                    negative_arousal_X = 0.5*negative_arousal_x/negative_arousal_x.max()
-                    negative_arousal_Harmonic, negative_arousal_Percussive = decompose.hpss(librosa.core.stft(negative_arousal_X))
-                    if harmonic is True:
-                    	return negative_arousal_Harmonic
-                    if harmonic is False or harmonic is None:
-                    	sad_percussive = istft(negative_arousal_Percussive)
-                    	remix_filename = 'data/emotions/remixes/sad/'+str(time.strftime("%Y%m%d-%H:%M:%S"))+'multitag_remix.ogg'
-                    	MonoWriter(filename=remix_filename, format = 'ogg', sampleRate = 44100)(sad_percussive)
-                    	subprocess.call(["ffplay", "-nodisp", "-autoexit", remix_filename])
-            def happy_music_remix(self, pos_arous_dir, harmonic = None):
-                for subdirs, dirs, sounds in os.walk(pos_arous_dir):  
-                    x = MonoLoader(filename=pos_arous_dir+'/'+random.choice(sounds[:-1]))()
-                    y = MonoLoader(filename=pos_arous_dir+'/'+random.choice(sounds[:]))()
-                x, y = [scratch_music(i) for i in (x,y)]
-                positive_arousal_audio = np.array((x,y))
-                positive_arousal_N = min([len(i) for i in positive_arousal_audio])  
-                positive_arousal_samples = [i[:positive_arousal_N]/i.max() for i in positive_arousal_audio]  
+            def source_separation(self, x):   
+                if not Duration()(x) > 10:
+                    stftx = librosa.stft(x)
+                    real = stftx.real
+                    imag = stftx.imag
+                    ssp = find_sparse_source_points(real, imag) #find sparsity in the signal
+                    cos_dist = cosine_distance(ssp) #cosine distance from sparse data
+                    sources = find_number_of_sources(cos_dist) #find possible number of sources
+                    if (sources == 0) or (sources == 1):  #this means x is an instrumental track and doesn't have more than one source        
+                        print "There's only one visible source"   
+                        return x 
+                    else:
+                        print "Separating sources"              
+                        xs = NMF(stftx, sources)
+                        return xs[0] #take the bass part #TODO: correct NMF to return noiseless reconstruction
+                else: 
+                    stftx = librosa.stft(x[:441000]) #take 10 seconds of signal data to find sources
+                    print "It can take some time to find any source in this signal"           
+                    real = stftx.real
+                    imag = stftx.imag
+                    ssp = find_sparse_source_points(real, imag) #find sparsity in the signal
+                    cos_dist = cosine_distance(ssp) #cosine distance from sparse data
+                    sources = find_number_of_sources(cos_dist) #find possible number of sources
+                    if (sources == 0) or (sources == 1):  #this means x is an instrumental track and doesn't have more than one source 
+                        print "There's only one visible source"        
+                        return x    
+                    else:  
+                        print "Separating sources"          
+                        xs = NMF(librosa.stft(x), sources)
+                        return xs[0] #take the bass part #TODO: correct NMF to return noiseless reconstruction
+            def sad_music_remix(self, neg_arous_dir, files, decisions, harmonic = None):
+                for subdirs, dirs, sounds in os.walk(neg_arous_dir):   
+                    fx = random.choice(sounds[:-1])                    
+                    fy = random.choice(sounds[:])                      
+                x = MonoLoader(filename = neg_arous_dir + '/' + fx)()  
+                y = MonoLoader(filename = neg_arous_dir + '/' + fy)()  
+                fx = fx.split('.')[0]                                  
+                fy = fy.split('.')[0]                                  
+                fx = np.where(files == fx)[0][0]                       
+                fy = np.where(files == fy)[0][0]                       
+                if harmonic is False or None:                          
+                    dec_x = get_coordinate(fx, 1, decisions)                                                        
+                    dec_y = get_coordinate(fy, 1, decisions)
+                else:
+                    dec_x = get_coordinate(fx, 2, decisions)
+                    dec_y = get_coordinate(fy, 2, decisions)
+                x = self.source_separation(x)   
+                x = scratch_music(x, dec_x)
+                x = x[np.nonzero(x)]                            
+                y = scratch_music(y, dec_y)
+                y = y[np.nonzero(y)]                            
+                x, y = same_time(x,y)                                                                       
+                negative_arousal_samples = [i/i.max() for i in (x,y)]                                                                       
+                negative_arousal_x = np.array(negative_arousal_samples).sum(axis=0)                                                           
+                negative_arousal_x = 0.5*negative_arousal_x/negative_arousal_x.max()                                                              
+                if harmonic is True:                                   
+                    return librosa.decompose.hpss(librosa.stft(negative_arousal_x), margin = (1.0, 5.0))[0]                 
+                if harmonic is False or harmonic is None:
+                    interv = RhythmExtractor2013()(negative_arousal_x)[1] * 44100
+                    steps = overlapped_intervals(interv)
+                    output = librosa.effects.remix(negative_arousal_x, steps, align_zeros = False)
+                    remix_filename = 'data/emotions/remixes/sad/'+str(time.strftime("%Y%m%d-%H:%M:%S"))+'multitag_remix.ogg' 
+                    MonoWriter(filename=remix_filename, format = 'ogg', sampleRate = 44100)(np.float32(output))
+                    subprocess.call(["ffplay", "-nodisp", "-autoexit", remix_filename]) 
+            def happy_music_remix(self, pos_arous_dir, files, decisions, harmonic = None):
+                for subdirs, dirs, sounds in os.walk(pos_arous_dir):   
+                    fx = random.choice(sounds[:-1])                    
+                    fy = random.choice(sounds[:])                      
+                x = MonoLoader(filename = pos_arous_dir + '/' + fx)()  
+                y = MonoLoader(filename = pos_arous_dir + '/' + fy)()  
+                fx = fx.split('.')[0]                                  
+                fy = fy.split('.')[0]                                  
+                fx = np.where(files == fx)[0][0]                       
+                fy = np.where(files == fy)[0][0]                       
+                if harmonic is False or None:                          
+                    dec_x = get_coordinate(fx, 3, decisions)                                                        
+                    dec_y = get_coordinate(fy, 3, decisions)
+                else:
+                    dec_x = get_coordinate(fx, 0, decisions)
+                    dec_y = get_coordinate(fy, 0, decisions)
+                x = self.source_separation(x) 
+                x = scratch_music(x, dec_x)                            
+                y = scratch_music(y, dec_y)
+                x = x[np.nonzero(x)]                           
+                y = y[np.nonzero(y)]
+                x, y = same_time(x,y)  
+                positive_arousal_samples = [i/i.max() for i in (x,y)]  
                 positive_arousal_x = np.array(positive_arousal_samples).sum(axis=0) 
-                positive_arousal_X = 0.5*positive_arousal_x/positive_arousal_x.max()
-                positive_arousal_Harmonic, positive_arousal_Percussive = decompose.hpss(librosa.core.stft(positive_arousal_X))
+                positive_arousal_x = 0.5*positive_arousal_x/positive_arousal_x.max()
 		if harmonic is True:
-			return positive_arousal_Harmonic
+                    return librosa.decompose.hpss(librosa.stft(positive_arousal_x), margin = (1.0, 5.0))[0]  
 		if harmonic is False or harmonic is None:
-		        happy_percussive = istft(positive_arousal_Percussive)
-		        remix_filename = 'data/emotions/remixes/happy/'+str(time.strftime("%Y%m%d-%H:%M:%S"))+'multitag_remix.ogg'
-		        MonoWriter(filename=remix_filename, format = 'ogg', sampleRate = 44100)(happy_percussive)
-		        subprocess.call(["ffplay", "-nodisp", "-autoexit", remix_filename])
-            def relaxed_music_remix(self, neg_arous_dir):
-                neg_arousal_h = MusicEmotionStateMachine('remix').sad_music_remix(neg_arous_dir, harmonic = True)
-                relaxed_harmonic = istft(neg_arousal_h)
-                relaxed_harmonic = 0.5*relaxed_harmonic/relaxed_harmonic.max()
+                    interv = RhythmExtractor2013()(positive_arousal_x)[1] * 44100
+                    steps = overlapped_intervals(interv)
+                    output = librosa.effects.remix(positive_arousal_x, steps, align_zeros = True)
+                    remix_filename = 'data/emotions/remixes/happy/'+str(time.strftime("%Y%m%d-%H:%M:%S"))+'multitag_remix.ogg'
+                    MonoWriter(filename=remix_filename, format = 'ogg', sampleRate = 44100)(np.float32(output))
+                    subprocess.call(["ffplay", "-nodisp", "-autoexit", remix_filename])
+            def relaxed_music_remix(self, neg_arous_dir, files, decisions):
+                neg_arousal_h = self.sad_music_remix(neg_arous_dir, files, decisions, harmonic = True)
+                relaxed_harmonic = librosa.istft(neg_arousal_h)
+                interv = RhythmExtractor2013()(relaxed_harmonic)[1] * 44100
+                steps = overlapped_intervals(interv)
+                output = librosa.effects.remix(relaxed_harmonic, steps, align_zeros = False)
                 remix_filename = 'data/emotions/remixes/relaxed/'+str(time.strftime("%Y%m%d-%H:%M:%S"))+'multitag_remix.ogg'
-                MonoWriter(filename=remix_filename, format = 'ogg', sampleRate = 44100)(relaxed_harmonic)
+                MonoWriter(filename=remix_filename, format = 'ogg', sampleRate = 44100)(output)
                 subprocess.call(["ffplay", "-nodisp", "-autoexit", remix_filename])
-            def angry_music_remix(self, pos_arous_dir):
-                pos_arousal_h = MusicEmotionStateMachine('remix').happy_music_remix(pos_arous_dir, harmonic = True)
-                angry_harmonic = istft(pos_arousal_h)
-                angry_harmonic = 0.5*angry_harmonic/angry_harmonic.max()
+            def angry_music_remix(self, pos_arous_dir, files, decisions):
+                pos_arousal_h = self.happy_music_remix(pos_arous_dir, files, decisions, harmonic = True)
+                angry_harmonic = librosa.istft(pos_arousal_h)
+                interv = RhythmExtractor2013()(angry_harmonic)[1] * 44100
+                steps = overlapped_intervals(interv)
+                output = librosa.effects.remix(angry_harmonic, steps, align_zeros = True)
                 remix_filename = 'data/emotions/remixes/angry/'+str(time.strftime("%Y%m%d-%H:%M:%S"))+'multitag_remix.ogg'
-                MonoWriter(filename=remix_filename, format = 'ogg', sampleRate = 44100)(angry_harmonic)
+                MonoWriter(filename=remix_filename, format = 'ogg', sampleRate = 44100)(np.float32(output))
                 subprocess.call(["ffplay", "-nodisp", "-autoexit", remix_filename])
-            def not_happy_music_remix(self, neg_arous_dir):
+            def not_happy_music_remix(self, neg_arous_dir, files, decisions):
                 sounds = []
                 for i in range(len(neg_arous_dir)):
                     for subdirs, dirs, s in os.walk(neg_arous_dir[i]):                                  
                         sounds.append(subdirs + '/' + random.choice(s))
-                x = MonoLoader(filename= random.choice(sounds[:-1]))()
-                y = MonoLoader(filename= random.choice(sounds[:]))()
-                x_tempo = beat.beat_track(x)[0] 
-                y_tempo = beat.beat_track(y)[0] 
-                if x_tempo < y_tempo:
-                    y = effects.time_stretch(y, x_tempo/y_tempo)
-                    if y.size < x.size:                                   
-                        y = np.resize(y, x.size)
-                    else:                                   
-                        x = np.resize(x, y.size)
-                else:
-                    pass
-                if x_tempo > y_tempo:
-                    x = effects.time_stretch(x, y_tempo/x_tempo)
-                    if x.size < y.size:                                           
-                        x = np.resize(x, y.size)
-                    else:                                   
-                        y = np.resize(y, x.size)
-                x, y = [scratch_music(i) for i in (x,y)]
+                fx = random.choice(sounds[:-1])
+                fy = random.choice(sounds[:])                    
+                x = MonoLoader(filename = fx)()  
+                y = MonoLoader(filename = fy)()  
+                fx = fx.split('/')[1].split('.')[0]                                  
+                fy = fy.split('/')[1].split('.')[0]                                  
+                fx = np.where(files == fx)[0]                     
+                fy = np.where(files == fy)[0]                     
+                dec_x = get_coordinate(fx, choice(range(3)), decisions)               
+                dec_y = get_coordinate(fy, choice(range(3)), decisions)
+                x = self.source_separation(x) 
+                x = scratch_music(x, dec_x)                            
+                y = scratch_music(y, dec_y)
+                x = x[np.nonzero(x)]                           
+                y = y[np.nonzero(y)]
+                x, y = same_time(x, y)
                 not_happy_x = np.sum((x,y),axis=0) 
-                not_happy_X = 0.5*not_happy_x/not_happy_x.max()
+                not_happy_x = 0.5*not_happy_x/not_happy_x.max()
+                interv = RhythmExtractor2013()(not_happy_x)[1] * 44100
+                steps = overlapped_intervals(interv)
+                output = librosa.effects.remix(not_happy_x, steps[::-1], align_zeros = False)
                 remix_filename = 'data/emotions/remixes/not happy/'+str(time.strftime("%Y%m%d-%H:%M:%S"))+'multitag_remix.ogg'
-                MonoWriter(filename=remix_filename, sampleRate = 44100, format = 'ogg')(not_happy_X)
+                MonoWriter(filename=remix_filename, sampleRate = 44100, format = 'ogg')(np.float32(output))
                 subprocess.call(["ffplay", "-nodisp", "-autoexit", remix_filename])
-            def not_sad_music_remix(self, pos_arous_dir):
+            def not_sad_music_remix(self, pos_arous_dir, files, decisions):
                 sounds = []
                 for i in range(len(pos_arous_dir)):
                     for subdirs, dirs, s in os.walk(pos_arous_dir[i]):                                  
                         sounds.append(subdirs + '/' + random.choice(s))
-                x = MonoLoader(filename= random.choice(sounds[:-1]))()
-                y = MonoLoader(filename= random.choice(sounds[:]))()
-                x, y = [scratch_music(i) for i in (x,y)]
-                x_tempo = beat.beat_track(x)[0] 
-                y_tempo = beat.beat_track(y)[0] 
-                if x_tempo < y_tempo:
-                    x = effects.time_stretch(x, y_tempo/x_tempo)
-                    if y.size < x.size:                                   
-                        y = np.resize(y, x.size)
-                    else:                                   
-                        x = np.resize(x, y.size)
-                else:
-                    pass
-                if x_tempo > y_tempo:
-                    y = effects.time_stretch(y, x_tempo/y_tempo)
-                    if x.size < y.size:                                           
-                        x = np.resize(x, y.size)
-                    else:                                   
-                        y = np.resize(y, x.size)
+                fx = random.choice(sounds[:-1])
+                fy = random.choice(sounds[:])                    
+                x = MonoLoader(filename = fx)()  
+                y = MonoLoader(filename = fy)()  
+                fx = fx.split('/')[1].split('.')[0]                                  
+                fy = fy.split('/')[1].split('.')[0]                                  
+                fx = np.where(files == fx)[0]                    
+                fy = np.where(files == fy)[0]                    
+                dec_x = get_coordinate(fx, choice([0,2,3]), decisions)               
+                dec_y = get_coordinate(fy, choice([0,2,3]), decisions)
+                x = self.source_separation(x) 
+                x = scratch_music(x, dec_x)                            
+                y = scratch_music(y, dec_y)
+                x = x[np.nonzero(x)]                           
+                y = y[np.nonzero(y)]
+                x, y = same_time(x,y)
                 not_sad_x = np.sum((x,y),axis=0) 
-                not_sad_X = 0.5*not_sad_x/not_sad_x.max()
+                not_sad_x = 0.5*not_sad_x/not_sad_x.max()
+                interv = RhythmExtractor2013()(not_sad_x)[1] * 44100
+                steps = overlapped_intervals(interv)
+                output = librosa.effects.remix(not_sad_x, steps[::-1], align_zeros = True)
                 remix_filename = 'data/emotions/remixes/not sad/'+str(time.strftime("%Y%m%d-%H:%M:%S"))+'multitag_remix.ogg'
-                MonoWriter(filename= remix_filename, sampleRate = 44100, format = 'ogg')(not_sad_X)
+                MonoWriter(filename= remix_filename, sampleRate = 44100, format = 'ogg')(np.float32(output))
                 subprocess.call(["ffplay", "-nodisp", "-autoexit", remix_filename])
-            def not_angry_music_remix(self, neg_arous_dir):
+            def not_angry_music_remix(self, neg_arous_dir, files, decisions):
                 sounds = []
                 for i in range(len(neg_arous_dir)):
                     for subdirs, dirs, s in os.walk(neg_arous_dir[i]):                                  
                         sounds.append(subdirs + '/' + random.choice(s))
-                x = MonoLoader(filename= random.choice(sounds[:-1]))()
-                y = MonoLoader(filename= random.choice(sounds[:]))()
-                x_tempo = beat.beat_track(x)[0] 
-                y_tempo = beat.beat_track(y)[0]
-                x, y = [scratch_music(i) for i in (x,y)]
-                if x_tempo < y_tempo:
-                    y = effects.time_stretch(y, x_tempo/y_tempo)
-                    if y.size < x.size:                                   
-                        y = np.resize(y, x.size)
-                    else:                                   
-                        x = np.resize(x, y.size)
-                else:
-                    pass
-                if x_tempo > y_tempo:
-                    x = effects.time_stretch(x, y_tempo/x_tempo)
-                    if x.size < y.size:                                           
-                        x = np.resize(x, y.size)
-                    else:                                   
-                        y = np.resize(y, x.size) 
+                fx = random.choice(sounds[:-1])
+                fy = random.choice(sounds[:])                    
+                x = MonoLoader(filename = fx)()  
+                y = MonoLoader(filename = fy)()  
+                fx = fx.split('/')[1].split('.')[0]                                  
+                fy = fy.split('/')[1].split('.')[0]                                  
+                fx = np.where(files == fx)[0]                      
+                fy = np.where(files == fy)[0]                      
+                dec_x = get_coordinate(fx, choice(range(1,3)), decisions)               
+                dec_y = get_coordinate(fy, choice(range(1,3)), decisions)
+                x = self.source_separation(x) 
+                x = scratch_music(x, dec_x)                            
+                y = scratch_music(y, dec_y)
+                x = x[np.nonzero(x)]                           
+                y = y[np.nonzero(y)]
+                x, y = same_time(x,y)
                 morph = stft.morph(x1 = x,x2 = y,fs = 44100,w1=np.hanning(1025),N1=2048,w2=np.hanning(1025),N2=2048,H1=512,smoothf=0.1,balancef=0.7)
+                interv = RhythmExtractor2013()(np.float32(morph))[1] * 44100
+                steps = overlapped_intervals(interv)
+                output = librosa.effects.remix(morph, steps[::-1], align_zeros = False)
                 remix_filename = 'data/emotions/remixes/not angry/'+str(time.strftime("%Y%m%d-%H:%M:%S"))+'multitag_remix.ogg'
-                MonoWriter(filename = remix_filename, sampleRate = 44100, format = 'ogg')(np.float32(morph))
+                MonoWriter(filename = remix_filename, sampleRate = 44100, format = 'ogg')(np.float32(output))
                 subprocess.call(["ffplay", "-nodisp", "-autoexit", remix_filename])
-            def not_relaxed_music_remix(self, pos_arous_dir):
+            def not_relaxed_music_remix(self, pos_arous_dir, files, decisions):
                 sounds = []
                 for i in range(len(pos_arous_dir)):
                     for subdirs, dirs, s in os.walk(pos_arous_dir[i]):                                  
                         sounds.append(subdirs + '/' + random.choice(s))
-                x = MonoLoader(filename= random.choice(sounds[:-1]))()
-                y = MonoLoader(filename= random.choice(sounds[:]))()
-                x_tempo = beat.beat_track(x)[0] 
-                y_tempo = beat.beat_track(y)[0]
-                x, y = [scratch_music(i) for i in (x,y)] 
-                if x_tempo < y_tempo:
-                    x = effects.time_stretch(x, y_tempo/x_tempo)
-                    if y.size < x.size:                                   
-                        y = np.resize(y, x.size)
-                    else:                                   
-                        x = np.resize(x, y.size)
-                else:
-                    pass
-                if x_tempo > y_tempo:
-                    y = effects.time_stretch(y, x_tempo/y_tempo)
-                    if x.size < y.size:                                           
-                        x = np.resize(x, y.size)
-                    else:                                   
-                        y = np.resize(y, x.size)
+                fx = random.choice(sounds[:-1])
+                fy = random.choice(sounds[:])                    
+                x = MonoLoader(filename = fx)()  
+                y = MonoLoader(filename = fy)()  
+                fx = fx.split('/')[1].split('.')[0]                                  
+                fy = fy.split('/')[1].split('.')[0]                                  
+                fx = np.where(files == fx)[0]                     
+                fy = np.where(files == fy)[0]                      
+                dec_x = get_coordinate(fx, choice([0,1,3]), decisions)               
+                dec_y = get_coordinate(fy, choice([0,1,3]), decisions)
+                x = self.source_separation(x) 
+                x = scratch_music(x, dec_x)                            
+                y = scratch_music(y, dec_y)
+                x = x[np.nonzero(x)]                           
+                y = y[np.nonzero(y)]
+                x, y = same_time(x,y)
                 morph = stft.morph(x1 = x,x2 = y,fs = 44100,w1=np.hanning(1025),N1=2048,w2=np.hanning(1025),N2=2048,H1=512,smoothf=0.01,balancef=0.7)
+                interv = RhythmExtractor2013()(np.float32(morph))[1] * 44100
+                steps = overlapped_intervals(interv)
+                output = librosa.effects.remix(morph, steps[::-1], align_zeros = True)
                 remix_filename = 'data/emotions/remixes/not relaxed/'+str(time.strftime("%Y%m%d-%H:%M:%S"))+'multitag_remix.ogg'
-                MonoWriter(filename = remix_filename, sampleRate = 44100, format = 'ogg')(np.float32(morph)) 
+                MonoWriter(filename = remix_filename, sampleRate = 44100, format = 'ogg')(np.float32(output)) 
                 subprocess.call(["ffplay", "-nodisp", "-autoexit", remix_filename])
-
 
 Usage = "./MusicEmotionMachine.py [FILES_DIR] [MULTITAG CLASSIFICATION False/True/None]"
 if __name__ == '__main__':
@@ -1655,70 +972,41 @@ if __name__ == '__main__':
             best_estimators = GridSearch(svm_layers(), fx, labl, Cs, reg_params, kernel_configs)
             C, reg_param, kernels_config = best_kernels_output(best_estimators, kernel_configs)
             msvm = main_svm(fx, labl, C[0], reg_param[0], 1./fx.shape[1], kernels_config)
-            neg_and_pos = msvm.neg_and_pos(files)
+            msvm.save_decisions()  
+            msvm.save_classes(files)          
             emotions_data_dir()
-            multitag_emotions_dir(tags_dirs, neg_and_pos.angry_files, neg_and_pos.sad_files, neg_and_pos.relaxed_files, neg_and_pos.happy_files)
-        if sys.argv[2] in ('None'):
-            files = descriptors_and_keys(files_dir, None)._files
-            features = descriptors_and_keys(files_dir, None)._features
-            fscaled = feature_scaling(features)
-            labels = KMeans_clusters(fscaled)
-            input_layers = svm_layers()
-            input_layers.layer_computation(fscaled, labels)
-
-            fx = input_layers.sum_fx()
-
-            labl = input_layers.best_labels()
-
-            Cs = [1./0.33, 1./0.4, 1./0.6, 1./0.8] #it should work well with less parameter searching
-            reg_params = [0.33, 0.4, 0.6, 0.8] 
-            kernel_configs = [['linear', 'poly']] #Also can use rbf with linear if you've got difficult to handle data, or try your parameters
-            best_estimators = GridSearch(svm_layers(), fx, labl, Cs, reg_params, kernel_configs)
-            C, reg_param, kernels_config = best_kernels_output(best_estimators, kernel_configs)
-            msvm = main_svm(fx, labl, C[0], reg_param[0], 1./features.shape[1], kernels_config)
-            neg_and_pos = msvm.neg_and_pos(files)
-
-            #only remix the better extracted emotions that can be obtained from descriptions
-            bpm_emotions_remix(files_dir, neg_and_pos.sad_files, neg_and_pos.happy_files)
-            attack_emotions_remix(files_dir, neg_and_pos.sad_files, neg_and_pos.angry_files)
-            dissonance_emotions_remix(files_dir, neg_and_pos.relaxed_files, neg_and_pos.angry_files)
-            mfcc_emotions_remix(files_dir, neg_and_pos.relaxed_files, neg_and_pos.angry_files)
-            centroid_emotions_remix(files_dir, neg_and_pos.relaxed_files, neg_and_pos.angry_files)
-            hfc_emotions_remix(files_dir, neg_and_pos)
-            loudness_emotions_remix(files_dir, neg_and_pos)
-            inharmonicity_emotions_remix(files_dir, neg_and_pos)
-            contrast_emotions_remix(files_dir, neg_and_pos)
-        if sys.argv[2] in ('False'): 
-		me = MusicEmotionStateMachine("Johnny") #calling Johnny                        
-		me.machine.add_ordered_transitions()    #Johnny is very sensitive                  
-		                                                          
-		while(1):                                                 
-		    me.next_state()                                       
-		    if me.state == random.choice(me.states):              
-		        if me.state == 'happy':                           
-		            print me.state                                
-		            me.happy_music_remix('data/emotions/positive_arousal/happy', harmonic = None)
-		        if me.state == 'sad':                  
-		            print me.state                     
-		            me.sad_music_remix('data/emotions/negative_arousal/sad', harmonic = None)  
-		        if me.state == 'angry':                
-		            print me.state                     
-		            me.angry_music_remix('data/emotions/positive_arousal/angry')
-		        if me.state == 'relaxed':              
-		            print me.state                     
-		            me.relaxed_music_remix('data/emotions/negative_arousal/relaxed')
-		        if me.state == 'not happy':              
-		            print me.state                     
-		            me.not_happy_music_remix(not_happy_dir)
-		        if me.state == 'not sad':              
-		            print me.state                     
-		            me.not_sad_music_remix(not_sad_dir)
-		        if me.state == 'not angry':              
-		            print me.state                     
-		            me.not_angry_music_remix(not_angry_dir)
-		        if me.state == 'not relaxed':              
-		            print me.state                     
-		            me.not_relaxed_music_remix(not_relaxed_dir)
+            multitag_emotions_dir(tags_dirs, files_dir, msvm.neg_and_pos(files))
+        if (sys.argv[2] in ('None')) or (sys.argv[2] in ('False')):     
+            files, labels, decisions = read_file('utils/files_classes.txt')                
+            me = MusicEmotionStateMachine("Johnny") #calling Johnny                           
+            me.machine.add_ordered_transitions()    #Johnny is very sensitive                 
+            while(1):                                                   
+                me.next_state()                                         
+                if me.state == random.choice(me.states):                
+                    if me.state == 'happy':                             
+                        print me.state                                  
+                        me.happy_music_remix('data/emotions/happy', files, decisions, harmonic = None)                       
+                    if me.state == 'sad':                       
+                        print me.state                                  
+                        me.sad_music_remix('data/emotions/sad', files, decisions, harmonic = None)
+                    if me.state == 'angry':                             
+                        print me.state                                  
+                        me.angry_music_remix('data/emotions/angry', files, decisions)
+                    if me.state == 'relaxed':                           
+                        print me.state                                  
+                        me.relaxed_music_remix('data/emotions/relaxed', files, decisions)
+                    if me.state == 'not happy':                         
+                        print me.state                                  
+                        me.not_happy_music_remix(not_happy_dir, files, decisions)  
+                    if me.state == 'not sad':                           
+                        print me.state                                  
+                        me.not_sad_music_remix(not_sad_dir, files, decisions)      
+                    if me.state == 'not angry':                         
+                        print me.state                                  
+                        me.not_angry_music_remix(not_angry_dir, files, decisions)  
+                    if me.state == 'not relaxed':                       
+                        print me.state                                  
+                        me.not_relaxed_music_remix(not_relaxed_dir, files, decisions)                      
                                                        
     except Exception, e:                     
         logger.exception(e)
