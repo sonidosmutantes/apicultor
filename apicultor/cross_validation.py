@@ -37,7 +37,7 @@ def GridSearch(model, features, targets, Cs, reg_params, kernel_configs):
     :returns:                                                                                                         
       - the best estimator values (its accuracy score, its C and its reg_param value)
     """  
-    test_n = (20 * 1114)/100 # an auto test size for lower number of samples 
+    test_n = (20 * len(features))/100 # an auto test size for lower number of samples 
     train_n = n - test_n 
     features_train, targets_train, features_test, targets_test = features[:train_n], targets[:train_n], features[train_n:], targets[train_n:]               
     params = defaultdict(list)
