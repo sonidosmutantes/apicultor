@@ -8,8 +8,11 @@ import numpy as np
 import scipy
 from essentia import *
 from essentia.standard import *
+import logging
 
-#TODO: add standard logging
+logging.basicConfig(level=logging.DEBUG)
+logger = logging.getLogger(__name__)  
+
 ext_filter = ['.mp3','.ogg','.undefined','.wav','.wma','.mid', '.amr']
 
 # descriptores de interés
@@ -66,14 +69,6 @@ def process_file(inputSoundFile, frameSize = 1024, hopSize = 512):
     spectrum = Spectrum()
     spectral_peaks = SpectralPeaks(sampleRate = sampleRate, orderBy='frequency')
     audio = offset_filter(input_signal)
-
-    #++++more helpers++++
-    onsets_location = Onsets()
-    detect_by_hfc = OnsetDetection(method = 'hfc')
-    fft = FFT()
-
-    cartesian_to_polar = CartesianToPolar()
-    audio_f0 = PitchYinFFT()(spectrum(w_hann(audio)))[0]
 
     # compute for all frames in our audio and add it to the pool
     pool = essentia.Pool()
@@ -205,10 +200,11 @@ if __name__ == '__main__':
                     print( "\n*** Processing %s\n"%audio_input )
                     process_file( audio_input )
                 except Exception, e:
-                    print("\n\n*** ERROR: %s***\n\n"%str(e))
-                    error_count += 1                          
+                    print logger.exception(e)
+                    error_count += 1 
+                    continue					                		                         
         print("Errors: %i"%error_count)
         sys.exit( -error_count )
     except Exception, e:
-        print(e)
+        logger.exception(e)
         exit(1)
