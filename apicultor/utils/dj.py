@@ -1,24 +1,43 @@
 #! /usr/bin/env python
 # -*- coding: utf-8 -*-
 
-from __future__ import division
 from cache import memoize
 from DoSegmentation import *
 import numpy as np
 from random import choice, randint
+from essentia import array
 from essentia.standard import LowPass, NoiseAdder, Windowing, FFT
 from librosa.effects import time_stretch
 import librosa
 import scipy
 from smst.utils.math import to_db_magnitudes, from_db_magnitudes
 
+seconds_to_indices = lambda times: np.int32(times * 44100)
+
+def hfc_onsets(audio):
+    """
+    Find onsets in music based on High Frequency Content
+    :param audio: the input signal                                                                         
+    :returns:                                                                                                         
+      - hfcs = onsets locations in seconds
+    """
+    fft = FFT()
+    w_hann = Windowing(type = 'hann')
+    detect_by_hfc = OnsetDetection(method = 'hfc')
+    cartesian_to_polar = CartesianToPolar()
+    hfcs = []
+    for frame in FrameGenerator(audio, 1024, 512, startFromZero = True, lastFrameToEndOfFile=True):
+        ctp_mag, ctp_phase, = cartesian_to_polar(fft(w_hann(frame)))
+        hfcs.append(detect_by_hfc(ctp_mag, ctp_phase))
+    hfcs = Onsets()(array([hfcs]),[1])
+    return hfcs
+
 @memoize
 def NMF(stft, n_sources):
     """
     Sound source separation using NMF
     :param stft: the short-time Fourier Transform of the signal
-    :param n_sources: the number of sources
-    :param n: the length of the signal                                                                          
+    :param n_sources: the number of sources                                                                         
     :returns:                                                                                                         
       - Ys: sources
     """
@@ -31,7 +50,13 @@ def NMF(stft, n_sources):
     del Ys
     return ys
 
-def overlapped_intervals(interv):                          
+def overlapped_intervals(interv):   
+    """
+    Create sections of intervals
+    :param interv: list of indices                                                                     
+    :returns:                                                                                                         
+      - steps: steps from an index to the other
+    """                       
     steps = []                                 
     for i in xrange(1, len(interv)):      
         steps.append([interv[i-1], interv[i]])
@@ -57,19 +82,19 @@ def speedx(sound_array, factor):
     return sound_array[np.int32(indices)]
 
 #apply crossfading into scratching method
-@memoize
-def crossfade(audio1, audio2):
+def crossfade(audio1, audio2, slices):
     """ 
     Apply crossfading to 2 audio tracks. The fade function is randomly applied
     :param audio1: your first signal 
-    :param audio2: your second signal                                                                            
+    :param audio2: your second signal
+    :param slices: slices of intervals                                                                            
     :returns:                                                                                                         
       - crossfaded audio
     """
     def fade_out(audio):  
-        dbs = to_db_magnitudes(audio)
+        dbs = to_db_magnitudes(np.concatenate(audio))
         thres = dbs.max()                
-        db_steps = np.arange(abs(dbs.max()), 130)
+        db_steps = np.arange(abs(dbs.max()), len(audio))
         start = 0
         try:
             sections = len(dbs)/len(db_steps)
@@ -80,11 +105,11 @@ def crossfade(audio1, audio2):
             dbs[start:sections + start] -= db_steps[i]
             start += sections
             i += 1         
-        return audio * from_db_magnitudes(dbs)
+        return np.concatenate(audio) * from_db_magnitudes(dbs)
     def fade_in(audio):  
-        dbs = to_db_magnitudes(audio)[::-1]
+        dbs = to_db_magnitudes(np.concatenate(audio))[::-1]
         thres = dbs.max()                
-        db_steps = np.arange(abs(dbs.max()), 120)
+        db_steps = np.arange(abs(dbs.max()), len(audio))
         start = 0
         try:
             sections = len(dbs)/len(db_steps)
@@ -96,14 +121,21 @@ def crossfade(audio1, audio2):
             start += sections
             i += 1 
         dbs = dbs[::-1]      
-        return audio * from_db_magnitudes(dbs)           
+        return np.concatenate(audio) * from_db_magnitudes(dbs)  
+    amp1 = np.nonzero(librosa.zero_crossings(audio1))[-1]
+    amp2 = np.nonzero(librosa.zero_crossings(audio2))[-1] 
+    amp1 = amp1[librosa.util.match_events(slices[0], amp1)]
+    amp2 = amp2[librosa.util.match_events(slices[1], amp2)]
+    amp1 = [audio1[slice(amp1[i][0], amp1[i][1])] for i in xrange(len(amp1))]
+    amp2 = [audio2[slice(amp2[i][0], amp2[i][1])] for i in xrange(len(amp2))]    
     if choice([0,1]) == 0:
-        amp1=  fade_out(audio1)
-        amp2=  fade_in(audio2)      
+        amp1=  np.concatenate(fade_out(amp1))
+        amp2=  np.concatenate(fade_in(amp2))      
     else:
-        amp1 = fade_in(audio2) 
-        amp2 = fade_out(audio1)       
-    result = amp1 + amp2
+        amp2 = np.concatenate(fade_in(amp2)) 
+        amp1 = np.concatenate(fade_out(amp1)) 
+    size = np.min([amp1.size, amp2.size])
+    result = np.sum([amp1[:size], amp2[:size]], axis = 1) 
     return 0.5 * result / result.max() 
 
 #scratch your records
@@ -115,35 +147,33 @@ def scratch(audio, coordinate = False):
     :returns:                                                                                                         
       - scratched signal
     """
-    proportion = len(audio)/16
-    if 0 > proportion:
-        return audio
+    proportion = range(len(audio))[0:len(audio):len(audio)/16]
+    prop = overlapped_intervals(proportion)
     audio = LowPass(cutoffFrequency = 30)(audio)
-    audio = NoiseAdder(level = -70)(audio) #create noisy part for vinyl in turntable 
-    def hand_move(audio, rev_audio): #simulation of hand motion in a turntable
+    audio = NoiseAdder(level = -100)(audio) #create noisy part for vinyl in turntable 
+    def hand_move(audio, rev_audio, prop, slices): #simulation of hand motion in a turntable
         if (coordinate == False) or (coordinate == None):               
-            factors = [randint(2,3), randint(2,3)]           
-            forwards = speedx(audio, factors[0])             
-            backwards = speedx(np.array(rev_audio), factors[1])  
+            forwards = np.concatenate([speedx(audio[i[0]:i[1]], randint(2,3)) for i in prop])          
+            backwards = np.concatenate([speedx(rev_audio[i[0]:i[1]], randint(2,3)) for i in prop])    
         else:
             factor = distance_velocity(audio, coordinate)
-            forwards = speedx(audio, factor)
-            backwards = speedx(rev_audio, factor)
-        if len(forwards) > len(backwards):
-            cf = crossfade(forwards[len(forwards) - len(forwards[:len(backwards)]):], backwards)
-            return np.concatenate([forwards[:len(forwards) - len(forwards[:len(backwards)])], cf])
-        else:
-            cf = crossfade(forwards, backwards[len(backwards) - len(backwards[:len(forwards)]):])
-            return np.concatenate([forwards[:len(forwards) - len(forwards[:len(backwards)])], cf])
+            forwards = np.concatenate([speedx(audio[i[0]:i[1]], factor) for i in prop]) 
+            backwards = np.concatenate([speedx(audio[i[0]:i[1]], factor) for i in prop])                  
+        if len(forwards) > len(backwards):                         
+            cf = crossfade(forwards, backwards, slices)
+            return cf
+        else:                                                      
+            cf = crossfade(forwards, backwards, slices)
+            return cf
     rev_audio = audio[::-1]
-    hand_a = lambda: hand_move(audio, rev_audio)
-    hand_b = lambda: hand_move(audio[:proportion * 12], rev_audio[:proportion*12])
-    hand_c = lambda: hand_move(audio[proportion:], rev_audio)
-    hand_d = lambda: hand_move(audio[proportion:proportion*12], rev_audio[:proportion*12])
-    hand_e = lambda: hand_move(audio, rev_audio[:proportion*2])
-    hand_f = lambda: hand_move(audio[:proportion*12], rev_audio[proportion*2:proportion*12])
-    hand_g = lambda: hand_move(audio[:proportion*2], rev_audio[proportion*2:])
-    hand_h = lambda: hand_move(audio[proportion*3:proportion*12], rev_audio[proportion*3:proportion*12])
+    hand_a = lambda: hand_move(audio, rev_audio, prop, slices = [prop, prop])
+    hand_b = lambda: hand_move(audio, rev_audio, prop, slices = [prop[:12], prop[:12]])
+    hand_c = lambda: hand_move(audio, rev_audio, prop, slices = [prop[1:], prop])
+    hand_d = lambda: hand_move(audio, rev_audio, prop, slices = [prop[1:12], prop[:12]])
+    hand_e = lambda: hand_move(audio, rev_audio, prop, slices = [prop, prop[:2]])
+    hand_f = lambda: hand_move(audio, rev_audio, prop, slices = [prop[:12], prop[2:12]])
+    hand_g = lambda: hand_move(audio, rev_audio, prop, slices = [prop[:2], prop[2:]])
+    hand_h = lambda: hand_move(audio, rev_audio, prop, slices = [prop[3:12], prop[3:12]])
     movs = [hand_a, hand_b, hand_c, hand_d, hand_e, hand_f, hand_g, hand_h]
     return np.concatenate([choice(movs)()])
 
@@ -158,15 +188,15 @@ def scratch_music(audio, coordinate = False):
     dur = int(Duration()(audio))
     if not dur >= 8:
         try:                                                      
-            iterations = choice(range(int(Duration()(audio) / 2))) + 1
-        except IndexError: #audio is too short to be scratched
+            iterations = choice(range(dur / 2)) + 1
+        except IndexError, e: #audio is too short to be scratched
             return audio
     else:
-        iterations = choice(range(int(Duration()(audio) / 8))) + 1
+        iterations = choice(range(dur / 8)) + 1
     for i in xrange(iterations):
         sound = do_segmentation(audio_input = np.float32(audio), audio_input_from_filename = False, audio_input_from_array = True, sec_len = choice(range(2,3)), save_file = False) 
         scratches = scratch(sound, coordinate)
         samples_len = len(scratches)
-        position = choice(range(int(Duration()(np.float32(audio))))) * 44100
+        position = choice(range(dur)) * 44100
         audio = np.concatenate([audio[:position - samples_len], scratches, audio[position + samples_len:]])
     return audio
