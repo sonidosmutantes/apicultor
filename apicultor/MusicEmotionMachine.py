@@ -765,9 +765,10 @@ class MusicEmotionStateMachine(object):
                 if harmonic is True:                                   
                     return librosa.decompose.hpss(librosa.stft(negative_arousal_x), margin = (1.0, 5.0))[0]                 
                 if harmonic is False or harmonic is None:
-                    interv = RhythmExtractor2013()(negative_arousal_x)[1] * 44100
+                    onsets = hfc_onsets(negative_arousal_x)
+                    interv = seconds_to_indices(onsets)
                     steps = overlapped_intervals(interv)
-                    output = librosa.effects.remix(negative_arousal_x, steps, align_zeros = False)
+                    output = librosa.effects.remix(negative_arousal_x, steps[::-1], align_zeros = False)
                     remix_filename = 'data/emotions/remixes/sad/'+str(time.strftime("%Y%m%d-%H:%M:%S"))+'multitag_remix.ogg' 
                     MonoWriter(filename=remix_filename, format = 'ogg', sampleRate = 44100)(np.float32(output))
                     subprocess.call(["ffplay", "-nodisp", "-autoexit", remix_filename]) 
@@ -801,16 +802,17 @@ class MusicEmotionStateMachine(object):
 		if harmonic is False or harmonic is None:
                     interv = RhythmExtractor2013()(positive_arousal_x)[1] * 44100
                     steps = overlapped_intervals(interv)
-                    output = librosa.effects.remix(positive_arousal_x, steps, align_zeros = True)
+                    output = librosa.effects.remix(positive_arousal_x, steps, align_zeros = False)
                     remix_filename = 'data/emotions/remixes/happy/'+str(time.strftime("%Y%m%d-%H:%M:%S"))+'multitag_remix.ogg'
                     MonoWriter(filename=remix_filename, format = 'ogg', sampleRate = 44100)(np.float32(output))
                     subprocess.call(["ffplay", "-nodisp", "-autoexit", remix_filename])
             def relaxed_music_remix(self, neg_arous_dir, files, decisions):
                 neg_arousal_h = self.sad_music_remix(neg_arous_dir, files, decisions, harmonic = True)
                 relaxed_harmonic = librosa.istft(neg_arousal_h)
-                interv = RhythmExtractor2013()(relaxed_harmonic)[1] * 44100
+                onsets = hfc_onsets(relaxed_harmonic)
+                interv = seconds_to_indices(onsets)
                 steps = overlapped_intervals(interv)
-                output = librosa.effects.remix(relaxed_harmonic, steps, align_zeros = False)
+                output = librosa.effects.remix(relaxed_harmonic, steps[::-1], align_zeros = True)
                 remix_filename = 'data/emotions/remixes/relaxed/'+str(time.strftime("%Y%m%d-%H:%M:%S"))+'multitag_remix.ogg'
                 MonoWriter(filename=remix_filename, format = 'ogg', sampleRate = 44100)(output)
                 subprocess.call(["ffplay", "-nodisp", "-autoexit", remix_filename])
@@ -846,9 +848,10 @@ class MusicEmotionStateMachine(object):
                 x, y = same_time(x, y)
                 not_happy_x = np.sum((x,y),axis=0) 
                 not_happy_x = 0.5*not_happy_x/not_happy_x.max()
-                interv = RhythmExtractor2013()(not_happy_x)[1] * 44100
+                onsets = hfc_onsets(not_happy_x)
+                interv = seconds_to_indices(onsets)
                 steps = overlapped_intervals(interv)
-                output = librosa.effects.remix(not_happy_x, steps[::-1], align_zeros = False)
+                output = librosa.effects.remix(not_happy_x, steps[::-1], align_zeros = True)
                 remix_filename = 'data/emotions/remixes/not happy/'+str(time.strftime("%Y%m%d-%H:%M:%S"))+'multitag_remix.ogg'
                 MonoWriter(filename=remix_filename, sampleRate = 44100, format = 'ogg')(np.float32(output))
                 subprocess.call(["ffplay", "-nodisp", "-autoexit", remix_filename])
@@ -903,7 +906,8 @@ class MusicEmotionStateMachine(object):
                 y = y[np.nonzero(y)]
                 x, y = same_time(x,y)
                 morph = stft.morph(x1 = x,x2 = y,fs = 44100,w1=np.hanning(1025),N1=2048,w2=np.hanning(1025),N2=2048,H1=512,smoothf=0.1,balancef=0.7)
-                interv = RhythmExtractor2013()(np.float32(morph))[1] * 44100
+                onsets = hfc_onsets(np.float32(morph))
+                interv = seconds_to_indices(onsets)
                 steps = overlapped_intervals(interv)
                 output = librosa.effects.remix(morph, steps[::-1], align_zeros = False)
                 remix_filename = 'data/emotions/remixes/not angry/'+str(time.strftime("%Y%m%d-%H:%M:%S"))+'multitag_remix.ogg'
@@ -933,7 +937,7 @@ class MusicEmotionStateMachine(object):
                 morph = stft.morph(x1 = x,x2 = y,fs = 44100,w1=np.hanning(1025),N1=2048,w2=np.hanning(1025),N2=2048,H1=512,smoothf=0.01,balancef=0.7)
                 interv = RhythmExtractor2013()(np.float32(morph))[1] * 44100
                 steps = overlapped_intervals(interv)
-                output = librosa.effects.remix(morph, steps[::-1], align_zeros = True)
+                output = librosa.effects.remix(morph, steps[::-1], align_zeros = False)
                 remix_filename = 'data/emotions/remixes/not relaxed/'+str(time.strftime("%Y%m%d-%H:%M:%S"))+'multitag_remix.ogg'
                 MonoWriter(filename = remix_filename, sampleRate = 44100, format = 'ogg')(np.float32(output)) 
                 subprocess.call(["ffplay", "-nodisp", "-autoexit", remix_filename])
