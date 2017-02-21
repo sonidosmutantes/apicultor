@@ -68,7 +68,6 @@ def get_coordinate(index, cls, decisions):
 def distance_velocity(audio, coordinate):
     return np.min((np.max([coordinate/len(audio), 0.36]), 10))
 
-@memoize
 def speedx(sound_array, factor):
     """
     Multiplies the sound's speed by a factor
@@ -92,7 +91,7 @@ def crossfade(audio1, audio2, slices):
       - crossfaded audio
     """
     def fade_out(audio):  
-        dbs = to_db_magnitudes(np.concatenate(audio))
+        dbs = to_db_magnitudes(audio)
         thres = dbs.max()                
         db_steps = np.arange(abs(dbs.max()), len(audio))
         start = 0
@@ -104,10 +103,10 @@ def crossfade(audio1, audio2, slices):
         while (start + len(db_steps)) < len(dbs):
             dbs[start:sections + start] -= db_steps[i]
             start += sections
-            i += 1         
-        return np.concatenate(audio) * from_db_magnitudes(dbs)
+            i += 1  
+        return audio * from_db_magnitudes(dbs)
     def fade_in(audio):  
-        dbs = to_db_magnitudes(np.concatenate(audio))[::-1]
+        dbs = to_db_magnitudes(audio)[::-1]
         thres = dbs.max()                
         db_steps = np.arange(abs(dbs.max()), len(audio))
         start = 0
@@ -120,22 +119,26 @@ def crossfade(audio1, audio2, slices):
             dbs[start:sections + start] -= db_steps[i]
             start += sections
             i += 1 
-        dbs = dbs[::-1]      
-        return np.concatenate(audio) * from_db_magnitudes(dbs)  
+        dbs = dbs[::-1]    
+        return audio * from_db_magnitudes(dbs)  
     amp1 = np.nonzero(librosa.zero_crossings(audio1))[-1]
     amp2 = np.nonzero(librosa.zero_crossings(audio2))[-1] 
     amp1 = amp1[librosa.util.match_events(slices[0], amp1)]
     amp2 = amp2[librosa.util.match_events(slices[1], amp2)]
-    amp1 = [audio1[slice(amp1[i][0], amp1[i][1])] for i in xrange(len(amp1))]
-    amp2 = [audio2[slice(amp2[i][0], amp2[i][1])] for i in xrange(len(amp2))]    
+    a = []
+    for i in xrange(len(amp1)):
+        a.append(list(audio1[slice(amp1[i][0], amp1[i][1])]))
+    a_rev = []
+    for i in xrange(len(amp2)):
+        a_rev.append(list(audio2[slice(amp2[i][0], amp2[i][1])]))
     if choice([0,1]) == 0:
-        amp1=  np.concatenate(fade_out(amp1))
-        amp2=  np.concatenate(fade_in(amp2))      
+        amp1=  fade_out(np.concatenate(a))
+        amp2=  fade_in(np.concatenate(a_rev))
     else:
-        amp2 = np.concatenate(fade_in(amp2)) 
-        amp1 = np.concatenate(fade_out(amp1)) 
-    size = np.min([amp1.size, amp2.size])
-    result = np.sum([amp1[:size], amp2[:size]], axis = 1) 
+        amp2 = fade_in(np.concatenate(a_rev))
+        amp1 = fade_out(np.concatenate(a))
+    size = min([len(amp1), len(amp2)])
+    result = amp1[:size] + amp2[:size] 
     return 0.5 * result / result.max() 
 
 #scratch your records
@@ -158,13 +161,9 @@ def scratch(audio, coordinate = False):
         else:
             factor = distance_velocity(audio, coordinate)
             forwards = np.concatenate([speedx(audio[i[0]:i[1]], factor) for i in prop]) 
-            backwards = np.concatenate([speedx(audio[i[0]:i[1]], factor) for i in prop])                  
-        if len(forwards) > len(backwards):                         
-            cf = crossfade(forwards, backwards, slices)
-            return cf
-        else:                                                      
-            cf = crossfade(forwards, backwards, slices)
-            return cf
+            backwards = np.concatenate([speedx(audio[i[0]:i[1]], factor) for i in prop])                        
+        cf = crossfade(forwards, backwards, slices)
+        return cf
     rev_audio = audio[::-1]
     hand_a = lambda: hand_move(audio, rev_audio, prop, slices = [prop, prop])
     hand_b = lambda: hand_move(audio, rev_audio, prop, slices = [prop[:12], prop[:12]])
@@ -190,11 +189,13 @@ def scratch_music(audio, coordinate = False):
         try:                                                      
             iterations = choice(range(dur / 2)) + 1
         except IndexError, e: #audio is too short to be scratched
+            pass
+        finally:
             return audio
     else:
         iterations = choice(range(dur / 8)) + 1
     for i in xrange(iterations):
-        sound = do_segmentation(audio_input = np.float32(audio), audio_input_from_filename = False, audio_input_from_array = True, sec_len = choice(range(2,3)), save_file = False) 
+        sound = do_segmentation(audio_input = np.float32(audio), audio_input_from_filename = False, audio_input_from_array = True, sec_len = choice(range(2,6)), save_file = False) 
         scratches = scratch(sound, coordinate)
         samples_len = len(scratches)
         position = choice(range(dur)) * 44100
