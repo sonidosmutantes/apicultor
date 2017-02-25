@@ -739,7 +739,7 @@ class MusicEmotionStateMachine(object):
                         return xs[0] #take the bass part #TODO: correct NMF to return noiseless reconstruction
             def sad_music_remix(self, neg_arous_dir, files, decisions, harmonic = None):
                 for subdirs, dirs, sounds in os.walk(neg_arous_dir):   
-                    fx = random.choice(sounds[:-1])                    
+                    fx = random.choice(sounds[::-1])                    
                     fy = random.choice(sounds[:])                      
                 x = MonoLoader(filename = neg_arous_dir + '/' + fx)()  
                 y = MonoLoader(filename = neg_arous_dir + '/' + fy)()  
@@ -765,16 +765,17 @@ class MusicEmotionStateMachine(object):
                 if harmonic is True:                                   
                     return librosa.decompose.hpss(librosa.stft(negative_arousal_x), margin = (1.0, 5.0))[0]                 
                 if harmonic is False or harmonic is None:
-                    onsets = hfc_onsets(negative_arousal_x)
+                    onsets = hfc_onsets(np.float32(negative_arousal_x))
                     interv = seconds_to_indices(onsets)
                     steps = overlapped_intervals(interv)
                     output = librosa.effects.remix(negative_arousal_x, steps[::-1], align_zeros = False)
+                    output = librosa.effects.pitch_shift(output, sr = 44100, n_steps = 3)
                     remix_filename = 'data/emotions/remixes/sad/'+str(time.strftime("%Y%m%d-%H:%M:%S"))+'multitag_remix.ogg' 
                     MonoWriter(filename=remix_filename, format = 'ogg', sampleRate = 44100)(np.float32(output))
                     subprocess.call(["ffplay", "-nodisp", "-autoexit", remix_filename]) 
             def happy_music_remix(self, pos_arous_dir, files, decisions, harmonic = None):
                 for subdirs, dirs, sounds in os.walk(pos_arous_dir):   
-                    fx = random.choice(sounds[:-1])                    
+                    fx = random.choice(sounds[::-1])                    
                     fy = random.choice(sounds[:])                      
                 x = MonoLoader(filename = pos_arous_dir + '/' + fx)()  
                 y = MonoLoader(filename = pos_arous_dir + '/' + fy)()  
@@ -795,7 +796,7 @@ class MusicEmotionStateMachine(object):
                 y = y[np.nonzero(y)]
                 x, y = same_time(x,y)  
                 positive_arousal_samples = [i/i.max() for i in (x,y)]  
-                positive_arousal_x = np.array(positive_arousal_samples).sum(axis=0) 
+                positive_arousal_x = np.float32(positive_arousal_samples).sum(axis=0) 
                 positive_arousal_x = 0.5*positive_arousal_x/positive_arousal_x.max()
 		if harmonic is True:
                     return librosa.decompose.hpss(librosa.stft(positive_arousal_x), margin = (1.0, 5.0))[0]  
@@ -803,16 +804,18 @@ class MusicEmotionStateMachine(object):
                     interv = RhythmExtractor2013()(positive_arousal_x)[1] * 44100
                     steps = overlapped_intervals(interv)
                     output = librosa.effects.remix(positive_arousal_x, steps, align_zeros = False)
+                    output = librosa.effects.pitch_shift(output, sr = 44100, n_steps = 4)
                     remix_filename = 'data/emotions/remixes/happy/'+str(time.strftime("%Y%m%d-%H:%M:%S"))+'multitag_remix.ogg'
                     MonoWriter(filename=remix_filename, format = 'ogg', sampleRate = 44100)(np.float32(output))
                     subprocess.call(["ffplay", "-nodisp", "-autoexit", remix_filename])
             def relaxed_music_remix(self, neg_arous_dir, files, decisions):
                 neg_arousal_h = self.sad_music_remix(neg_arous_dir, files, decisions, harmonic = True)
                 relaxed_harmonic = librosa.istft(neg_arousal_h)
-                onsets = hfc_onsets(relaxed_harmonic)
+                onsets = hfc_onsets(np.float32(relaxed_harmonic))
                 interv = seconds_to_indices(onsets)
                 steps = overlapped_intervals(interv)
                 output = librosa.effects.remix(relaxed_harmonic, steps[::-1], align_zeros = True)
+                output = librosa.effects.pitch_shift(output, sr = 44100, n_steps = 4)
                 remix_filename = 'data/emotions/remixes/relaxed/'+str(time.strftime("%Y%m%d-%H:%M:%S"))+'multitag_remix.ogg'
                 MonoWriter(filename=remix_filename, format = 'ogg', sampleRate = 44100)(output)
                 subprocess.call(["ffplay", "-nodisp", "-autoexit", remix_filename])
@@ -822,6 +825,7 @@ class MusicEmotionStateMachine(object):
                 interv = RhythmExtractor2013()(angry_harmonic)[1] * 44100
                 steps = overlapped_intervals(interv)
                 output = librosa.effects.remix(angry_harmonic, steps, align_zeros = True)
+                output = librosa.effects.pitch_shift(output, sr = 44100, n_steps = 3)
                 remix_filename = 'data/emotions/remixes/angry/'+str(time.strftime("%Y%m%d-%H:%M:%S"))+'multitag_remix.ogg'
                 MonoWriter(filename=remix_filename, format = 'ogg', sampleRate = 44100)(np.float32(output))
                 subprocess.call(["ffplay", "-nodisp", "-autoexit", remix_filename])
@@ -830,7 +834,7 @@ class MusicEmotionStateMachine(object):
                 for i in range(len(neg_arous_dir)):
                     for subdirs, dirs, s in os.walk(neg_arous_dir[i]):                                  
                         sounds.append(subdirs + '/' + random.choice(s))
-                fx = random.choice(sounds[:-1])
+                fx = random.choice(sounds[::-1])
                 fy = random.choice(sounds[:])                    
                 x = MonoLoader(filename = fx)()  
                 y = MonoLoader(filename = fy)()  
@@ -848,10 +852,11 @@ class MusicEmotionStateMachine(object):
                 x, y = same_time(x, y)
                 not_happy_x = np.sum((x,y),axis=0) 
                 not_happy_x = 0.5*not_happy_x/not_happy_x.max()
-                onsets = hfc_onsets(not_happy_x)
+                onsets = hfc_onsets(np.float32(not_happy_x))
                 interv = seconds_to_indices(onsets)
                 steps = overlapped_intervals(interv)
                 output = librosa.effects.remix(not_happy_x, steps[::-1], align_zeros = True)
+                output = librosa.effects.pitch_shift(output, sr = 44100, n_steps = 3)
                 remix_filename = 'data/emotions/remixes/not happy/'+str(time.strftime("%Y%m%d-%H:%M:%S"))+'multitag_remix.ogg'
                 MonoWriter(filename=remix_filename, sampleRate = 44100, format = 'ogg')(np.float32(output))
                 subprocess.call(["ffplay", "-nodisp", "-autoexit", remix_filename])
@@ -860,7 +865,7 @@ class MusicEmotionStateMachine(object):
                 for i in range(len(pos_arous_dir)):
                     for subdirs, dirs, s in os.walk(pos_arous_dir[i]):                                  
                         sounds.append(subdirs + '/' + random.choice(s))
-                fx = random.choice(sounds[:-1])
+                fx = random.choice(sounds[::-1])
                 fy = random.choice(sounds[:])                    
                 x = MonoLoader(filename = fx)()  
                 y = MonoLoader(filename = fy)()  
@@ -877,10 +882,11 @@ class MusicEmotionStateMachine(object):
                 y = y[np.nonzero(y)]
                 x, y = same_time(x,y)
                 not_sad_x = np.sum((x,y),axis=0) 
-                not_sad_x = 0.5*not_sad_x/not_sad_x.max()
+                not_sad_x = np.float32(0.5*not_sad_x/not_sad_x.max())
                 interv = RhythmExtractor2013()(not_sad_x)[1] * 44100
                 steps = overlapped_intervals(interv)
                 output = librosa.effects.remix(not_sad_x, steps[::-1], align_zeros = True)
+                output = librosa.effects.pitch_shift(output, sr = 44100, n_steps = 4)
                 remix_filename = 'data/emotions/remixes/not sad/'+str(time.strftime("%Y%m%d-%H:%M:%S"))+'multitag_remix.ogg'
                 MonoWriter(filename= remix_filename, sampleRate = 44100, format = 'ogg')(np.float32(output))
                 subprocess.call(["ffplay", "-nodisp", "-autoexit", remix_filename])
@@ -889,7 +895,7 @@ class MusicEmotionStateMachine(object):
                 for i in range(len(neg_arous_dir)):
                     for subdirs, dirs, s in os.walk(neg_arous_dir[i]):                                  
                         sounds.append(subdirs + '/' + random.choice(s))
-                fx = random.choice(sounds[:-1])
+                fx = random.choice(sounds[::-1])
                 fy = random.choice(sounds[:])                    
                 x = MonoLoader(filename = fx)()  
                 y = MonoLoader(filename = fy)()  
@@ -910,6 +916,7 @@ class MusicEmotionStateMachine(object):
                 interv = seconds_to_indices(onsets)
                 steps = overlapped_intervals(interv)
                 output = librosa.effects.remix(morph, steps[::-1], align_zeros = False)
+                output = librosa.effects.pitch_shift(output, sr = 44100, n_steps = 4)
                 remix_filename = 'data/emotions/remixes/not angry/'+str(time.strftime("%Y%m%d-%H:%M:%S"))+'multitag_remix.ogg'
                 MonoWriter(filename = remix_filename, sampleRate = 44100, format = 'ogg')(np.float32(output))
                 subprocess.call(["ffplay", "-nodisp", "-autoexit", remix_filename])
@@ -918,7 +925,7 @@ class MusicEmotionStateMachine(object):
                 for i in range(len(pos_arous_dir)):
                     for subdirs, dirs, s in os.walk(pos_arous_dir[i]):                                  
                         sounds.append(subdirs + '/' + random.choice(s))
-                fx = random.choice(sounds[:-1])
+                fx = random.choice(sounds[::-1])
                 fy = random.choice(sounds[:])                    
                 x = MonoLoader(filename = fx)()  
                 y = MonoLoader(filename = fy)()  
@@ -938,6 +945,7 @@ class MusicEmotionStateMachine(object):
                 interv = RhythmExtractor2013()(np.float32(morph))[1] * 44100
                 steps = overlapped_intervals(interv)
                 output = librosa.effects.remix(morph, steps[::-1], align_zeros = False)
+                output = librosa.effects.pitch_shift(output, sr = 44100, n_steps = 3)
                 remix_filename = 'data/emotions/remixes/not relaxed/'+str(time.strftime("%Y%m%d-%H:%M:%S"))+'multitag_remix.ogg'
                 MonoWriter(filename = remix_filename, sampleRate = 44100, format = 'ogg')(np.float32(output)) 
                 subprocess.call(["ffplay", "-nodisp", "-autoexit", remix_filename])
