@@ -92,23 +92,8 @@ def crossfade(audio1, audio2, slices):
     """
     def fade_out(audio):  
         dbs = to_db_magnitudes(audio)
-        thres = dbs.max()                
-        db_steps = np.arange(abs(dbs.max()), len(audio))
-        start = 0
-        try:
-            sections = len(dbs)/len(db_steps)
-        except Exception, e:
-            return audio
-        i = 0                            
-        while (start + len(db_steps)) < len(dbs):
-            dbs[start:sections + start] -= db_steps[i]
-            start += sections
-            i += 1  
-        return audio * from_db_magnitudes(dbs)
-    def fade_in(audio):  
-        dbs = to_db_magnitudes(audio)[::-1]
-        thres = dbs.max()                
-        db_steps = np.arange(abs(dbs.max()), len(audio))
+        thres = max(dbs)             
+        db_steps = np.arange(abs(thres), 120)
         start = 0
         try:
             sections = len(dbs)/len(db_steps)
@@ -119,8 +104,34 @@ def crossfade(audio1, audio2, slices):
             dbs[start:sections + start] -= db_steps[i]
             start += sections
             i += 1 
-        dbs = dbs[::-1]    
-        return audio * from_db_magnitudes(dbs)  
+        if dbs.argmin() == 0:
+            dbs = dbs[::-1]
+        faded = from_db_magnitudes(dbs)
+        faded[audio < 0] *= -1  
+        return faded
+    def fade_in(audio):  
+        dbs = to_db_magnitudes(audio)
+        try:
+            thres = max(dbs)
+        except Exception, e:
+            return audio
+        dbs = dbs[::-1]            
+        db_steps = np.arange(abs(thres), 120)
+        start = 0
+        try:
+            sections = len(dbs)/len(db_steps)
+        except Exception, e:
+            return audio
+        i = 0                            
+        while (start + len(db_steps)) < len(dbs):
+            dbs[start:sections + start] -= db_steps[i]
+            start += sections
+            i += 1  
+        if dbs.argmin() != 0:
+            dbs = dbs[::-1]
+        faded = from_db_magnitudes(dbs) 
+        faded[audio < 0] *= -1  
+        return  faded 
     amp1 = np.nonzero(librosa.zero_crossings(audio1))[-1]
     amp2 = np.nonzero(librosa.zero_crossings(audio2))[-1] 
     amp1 = amp1[librosa.util.match_events(slices[0], amp1)]
@@ -152,8 +163,9 @@ def scratch(audio, coordinate = False):
     """
     proportion = range(len(audio))[0:len(audio):len(audio)/16]
     prop = overlapped_intervals(proportion)
-    audio = LowPass(cutoffFrequency = 30)(audio)
     audio = NoiseAdder(level = -100)(audio) #create noisy part for vinyl in turntable 
+    audio = LowPass(cutoffFrequency = 22050)(audio)
+    audio = LowPass(cutoffFrequency = 30)(audio)
     def hand_move(audio, rev_audio, prop, slices): #simulation of hand motion in a turntable
         if (coordinate == False) or (coordinate == None):               
             forwards = np.concatenate([speedx(audio[i[0]:i[1]], randint(2,3)) for i in prop])          
