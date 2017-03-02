@@ -1,4 +1,4 @@
-# Docker build (ETA 3hs)
+# Docker build (ETA 30min)
 
 Tutorial para "dockerizar" apiCultor by [azimut].
 
@@ -86,16 +86,13 @@ cd /opt/apicultor
 ```
 
 ## Notas sobre mantenimiento y TODOs
-
-* Agregar más pip o apt-get que falten
-* Se usa [ubuntu-slim] porque se prefiere una imágen simple como base, probablemente haya que migrar a la oficial de ubuntu
-* No se usa un `Dockerfile` principalmente porque `essentia`(600MB) y `apicultor`(130MB) son un tanto pesados para bajar y encima tener que poner en una imagen de Docker. Si algun dia `docker build` soporta volumenes o alguna de las otras opciones es usable habría que usar un `Dockerfile`.
- * Ver opcin de descargar el master .zip y usar un `Dockerfile`...
- * Si se migrase a un Dockerfile, probablemente habría que usar uno para essentia y uno para apicultor que use el anterior como base
+* Se usa [ubuntu-slim] porque se prefiere una imágen simple como base.
+* No se usa un `Dockerfile` principalmente porque `essentia`(600MB) y `apicultor`(130MB) son un tanto pesados para bajar y encima tener que poner en una imagen de Docker. Si algún día `docker build` soporta volumenes o alguna de las otras opciones es usable, habría que usar un `Dockerfile`.
+ * Ver opción de descargar el master .zip y usar un `Dockerfile`.
+ * Si se migrase a un Dockerfile, probablemente habría que usar uno para essentia y uno para apicultor que use el anterior como base.
 * Pushear la imagen a dockerhub.
-* Medir el tiempo mejor
-* Essentia es compilado staticamente (segun el flag) y los binding pueden moverse a un egg lo que haría posible distribuir esto mas fácil
- * (ver si no esta hecho ya)
+* "Essentia es compilado estáticamente (segun el flag) y los binding pueden moverse a un egg lo que haría posible distribuir esto mas fácil" (ver si no esta hecho ya).
+* Medir el tiempo mejor.
 
 [azimut]: https://github.com/azimut
 [docker]: https://docs.docker.com/engine/installation/
