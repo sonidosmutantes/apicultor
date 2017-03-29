@@ -8,6 +8,8 @@ El código da soporte para el procesamiento de sonidos de la web utilizando téc
 
 Funciona a través de una API REST para la consulta externa de archivos y descriptores desde SuperCollider, pyo, pd o cualquier otro tipo de entorno que maneje protocolos estándar.
 
+Extrae miel de RedPanal con técnicas de Music Information Retrieval (MIR).
+
 ## Performances utilizando estas herramientas:
 
 ### Cierre de Taller de Experimentación Sonora:
