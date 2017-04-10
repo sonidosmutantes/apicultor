@@ -14,3 +14,4 @@
 * Performance (with real service) and data from searchs (public interaction)
 * pyo library instrument (realtime synthesis using sounds extracted with APIcultor)
 * Release v1.01
+* Build a SuperCollider quark (API calls)

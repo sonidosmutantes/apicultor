@@ -1,4 +1,4 @@
-# Docker build (ETA 3hs)
+# Docker build (ETA 30min)
 
 Tutorial para "dockerizar" apiCultor by [azimut].
 
@@ -9,6 +9,7 @@ Si uno no tiene GNU+Linux o en particular Ubuntu, se puede "virtualizar" con [do
 ## Dependencias
 
 Se asume que se tienen clonados los repos de Essentia y apiCultor en los siguientes paths:
+
 ```
 $ cd
 $ mkdir -p projects
@@ -16,22 +17,34 @@ $ git clone https://github.com/MTG/essentia $HOME/git/essentia
 $ git clone https://github.com/sonidosmutantes/apicultor $HOME/git/apicultor
 ```
 
-## Docker build
-Se crea un nuevo container
+## Docker run
+
+Se crea un nuevo container de nombre apicultor. Se hace port forwarding entre el puerto 5000 del container y del host.
+
 ```
-$ sudo docker run  --name apicultor -v $HOME/git/essentia/:/opt/essentia -v $HOME/git/apicultor/:/opt/apicultor -ti gcr.io/google_containers/ubuntu-slim:0.6 /bin/bash
+$ sudo docker run -p 5000:5000 --name apicultor -v $HOME/git/essentia/:/opt/essentia -v $HOME/git/apicultor/:/opt/apicultor -ti gcr.io/google_containers/ubuntu-slim:0.6 /bin/bash
 ```
+
+Si se usa Linux/Ubuntu como host, agregar:  
+``` 
+--net="host"
+```
+
 ### Essentia build
 Una vez dentro se siguen los pasos para instalar las dependencias y buildear [essentia].
+
 ```
+# apt-get update
 # apt-get install build-essential libyaml-dev libfftw3-dev libavcodec-dev libavformat-dev libavutil-dev libavresample-dev python-dev libsamplerate0-dev libtag1-dev
 # apt-get install python-numpy-dev python-numpy python-yaml
 # cd /opt/essentia
 # ./waf configure --mode=release --build-static --with-python --with-cpptests --with-examples --with-vamp
 # ./waf install
 ```
+
 ### ApiCultor
 (En docker)
+
 ```
 # apt-get install python-pip ffmpeg
 # pip install bs4 regex wget matplotlib numpy scipy scikit-learn colorama librosa transitions
@@ -39,28 +52,47 @@ Una vez dentro se siguen los pasos para instalar las dependencias y buildear [es
 ```
  
 #### (Opcional)
+
 ```
 # pip2 install flask flask-autodoc
+# apt-get install net-tools git
 ```
 
 ## Docker commit
+
 ```
 Obtener ID y commit
-$ docker ps -a
+$ docker ps
 $ docker commit [ID]
 ```
 
-## Notas sobre mantenimiento y TODOs
+## Lanzar una nueva terminal
 
-* Agregar más pip o apt-get que falten
-* Se usa [ubuntu-slim] porque se prefiere una imágen simple como base, probablemente haya que migrar a la oficial de ubuntu
-* No se usa un `Dockerfile` principalmente porque `essentia`(600MB) y `apicultor`(130MB) son un tanto pesados para bajar y encima tener que poner en una imagen de Docker. Si algun dia `docker build` soporta volumenes o alguna de las otras opciones es usable habría que usar un `Dockerfile`.
-  * Ver opcin de descargar el master .zip y usar un `Dockerfile`...
-  * Si se migrase a un Dockerfile, probablemente habría que usar uno para essentia y uno para apicultor que use el anterior como base
+```
+$ docker exec -it apicultor bash
+```
+
+## Lanzar el mock ApiCultor web service (port: 5000)
+
+```
+$ docker exec -it apicultor /opt/run_ws.sh
+```
+
+Donde run_ws.sh:
+
+```
+cd /opt/apicultor
+./MockRedPanalAPI_service.py
+```
+
+## Notas sobre mantenimiento y TODOs
+* Se usa [ubuntu-slim] porque se prefiere una imágen simple como base.
+* No se usa un `Dockerfile` principalmente porque `essentia`(600MB) y `apicultor`(130MB) son un tanto pesados para bajar y encima tener que poner en una imagen de Docker. Si algún día `docker build` soporta volumenes o alguna de las otras opciones es usable, habría que usar un `Dockerfile`.
+ * Ver opción de descargar el master .zip y usar un `Dockerfile`.
+ * Si se migrase a un Dockerfile, probablemente habría que usar uno para essentia y uno para apicultor que use el anterior como base.
 * Pushear la imagen a dockerhub.
-* Medir el tiempo mejor
-* Essentia es compilado staticamente (segun el flag) y los binding pueden moverse a un egg lo que haría posible distribuir esto mas fácil
-  * (ver si no esta hecho ya)
+* "Essentia es compilado estáticamente (segun el flag) y los binding pueden moverse a un egg lo que haría posible distribuir esto mas fácil" (ver si no esta hecho ya).
+* Medir el tiempo mejor.
 
 [azimut]: https://github.com/azimut
 [docker]: https://docs.docker.com/engine/installation/
