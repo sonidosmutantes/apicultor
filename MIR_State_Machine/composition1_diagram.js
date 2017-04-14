@@ -1,0 +1,37 @@
+
+{ "nodeKeyProperty": "id",
+  "nodeDataArray": [
+    { "id": 0, "text": "A" },
+    { "id": 1, "text": "B" },
+    { "id": 2, "text": "C" },
+    { "id": 3, "text": "D" },
+    { "id": 4, "text": "E" },
+    { "id": 5, "text": "F" },
+    { "id": 6, "text": "G" },
+    { "id": 7, "text": "H" }
+  ],
+  "linkDataArray": [
+    { "from": 0, "to": 0, "text": "0.3"},
+    { "from": 0, "to": 1, "text": "0.7" },
+    { "from": 1, "to": 1, "text": "0.2" },
+    { "from": 1, "to": 2, "text": "0.4" },
+    { "from": 1, "to": 3, "text": "0.4" },
+    { "from": 2, "to": 2, "text": "0.5" },
+    { "from": 2, "to": 1, "text": "0.5" },
+    { "from": 3, "to": 3, "text": "0.1" },
+    { "from": 3, "to": 4, "text": "0.3" },
+    { "from": 3, "to": 5, "text": "0.6" },
+    { "from": 4, "to": 4, "text": "0.2" },
+    { "from": 4, "to": 3, "text": "0.1" },
+    { "from": 4, "to": 6, "text": "0.4" },
+    { "from": 4, "to": 7, "text": "0.3" },
+    { "from": 5, "to": 5, "text": "0.3" },
+    { "from": 5, "to": 3, "text": "0.2" },
+    { "from": 5, "to": 6, "text": "0.5" },
+    { "from": 6, "to": 6, "text": "0.8" },
+    { "from": 6, "to": 4, "text": "0.1" },
+    { "from": 6, "to": 5, "text": "0.1" },
+    { "from": 7, "to": 7, "text": "0.8" },
+    { "from": 7, "to": 0, "text": "0.2" },
+  ]
+}

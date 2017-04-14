@@ -1,4 +1,4 @@
-#! /usr/bin/env python
+#! /usr/bin/env python2
 # -*- coding: utf-8 -*-
 
 import pykov # Markov chains helpers
@@ -6,8 +6,7 @@ import time
 import random
 import urllib2
 import OSC
-
-#Read config from config.json (not ir repo)
+import sys
 
 # RedPanal API
 URL_BASE = "http://127.0.0.1:5000" #TODO: get from a config file
