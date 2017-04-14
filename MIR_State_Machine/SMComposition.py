@@ -76,6 +76,7 @@ if __name__ == '__main__':
     snd_dict["G"] = C_snd
     snd_dict["H"] = C_snd
 
+    #normalize audio output
 
     s = Server().boot()
     #s = Server(audio='jack').boot()
@@ -98,11 +99,14 @@ if __name__ == '__main__':
 #FIXME: Time
     # duration = 1 #FIXME: hardcoded (default duration)
     # time_bt_states = 1 # (delay within states...)
-    #state = 'idle' #start state
-    state = "A" #start state
 #########################
 #########################
 
+    # Init conditions
+    #state = 'idle' #start state
+    state = "A" #start state
+    previous_state = "H" #start state
+    
     #Fixed amount or infinite with while(1 ) ()
     # events = 10 # or loop with while(1)
     # for i in range(events):
@@ -131,17 +135,38 @@ if __name__ == '__main__':
         #     #TODO: get duration from msg (via API)
         #     time.sleep(duration)
 
-
+        #(optional) change sound in the same state or not (add as json config file)
+        if state!=previous_state:
+            #retrieve new sound
+            call = '/list/samples' #gets only wav files because SuperCollider
+            response = urllib2.urlopen(URL_BASE + call).read()
+            audioFiles = list()
+            for file in response.split('\n'):
+                if len(file)>0: #avoid null paths
+                    audioFiles.append(file)
+                    # print file
+            file_chosen = audioFiles[ random.randint(0,len(audioFiles)-1) ]
+            print file_chosen
+            file_chosen = "."+file_chosen # path adjustment
+        
         time_bt_states = states_dur[ state ]
         # time_between_notes = random.uniform(0.,2.) #in seconds
         #time.sleep(time_between_notes)
         #TODO: add random variation time?
 
+        #TODO: transpose all to the same pitch
+
+
+        # File to play
+        # file_chosen = snd_dict[state]
         # play sound
-        sfplay = SfPlayer(snd_dict[state], speed=1, loop=False, mul=sffade).out()
-    
+        # sfplay = SfPlayer(snd_dict[state], speed=1, loop=False, mul=sffade).out()
+        sfplay = SfPlayer(file_chosen, loop=True, mul=0.7)
+        pva = PVAnal(sfplay, size=1024, overlaps=4, wintype=2)
+        pvs = PVAddSynth(pva, pitch=1., num=500, first=10, inc=10).mix(2).out() 
         #delay within states
         time.sleep(time_bt_states)
 
         #next state
+        previous_state = state
         state = T.succ(state).choose() #ne state
