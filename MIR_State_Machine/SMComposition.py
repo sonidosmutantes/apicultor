@@ -32,7 +32,9 @@ osc_client.connect( ( sc_IP, sc_Port ) )
 # inharmonic
 
 
-
+def set_ramp_time():
+    pos.time = porta.get()
+    
 Usage = "./StateMachine.py [StateComposition.json]"
 if __name__ == '__main__':
       
@@ -159,12 +161,40 @@ if __name__ == '__main__':
 
         # File to play
         # file_chosen = snd_dict[state]
+
         # play sound
         # sfplay = SfPlayer(snd_dict[state], speed=1, loop=False, mul=sffade).out()
+
+        # MIDI        
+        # notes = Notein(poly=10, scale=1, mul=.5)
+        # p = Port(notes['velocity'], .001, .5)
+
+        #Phase Vocoder
         sfplay = SfPlayer(file_chosen, loop=True, mul=0.7)
         pva = PVAnal(sfplay, size=1024, overlaps=4, wintype=2)
         pvs = PVAddSynth(pva, pitch=1., num=500, first=10, inc=10).mix(2).out() 
-        #delay within states
+        # pvs = PVAddSynth(pva, pitch=notes['pitch'], num=500, first=10, inc=10, mul=p).mix(2).out()
+        
+        # # Granulator sound
+        # snd = SndTable(file_chosen)
+        # env = HannTable()
+        # # note_in_pitch = 62
+        # # posx = Port( Midictl(ctlnumber=[78], minscale=0, maxscale=snd.getSize()), 0.02)
+        # # posf = Port( Midictl(ctlnumber=[16], minscale=0, maxscale=snd.getSize()), 0.02)
+        # #porta = Midictl(ctlnumber=[79], minscale=0., maxscale=60.)
+        # # posxx = (note_in_pitch-48.)/(96.-48.)*posf+posx
+        # # pos = SigTo(posxx)
+        # # tf = TrigFunc(Change(porta), function=set_ramp_time)
+        # # pitch = Port(Midictl(ctlnumber=[17], minscale=0.0, maxscale=2.0),0.02)
+        # # noisemul = Midictl(ctlnumber=[18], minscale=0.0, maxscale=0.2)
+        # # noiseadd = Port(Midictl(ctlnumber=[19], minscale=0.0, maxscale=1.0),0.02)
+        # # dur = Noise(mul=noisemul)+noiseadd
+        # pitch = 62
+        # dur = 3
+        # pos = 1
+        # g = Granulator(snd, env, pitch*0.1/dur, pos , dur, 16, mul=.3).mix(2).out()
+
+        # Delay within states
         time.sleep(time_bt_states)
 
         #next state
