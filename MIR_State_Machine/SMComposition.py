@@ -26,12 +26,97 @@ sc_IP = '127.0.0.1' #Local SC server
 sc_IP = '192.168.56.1' # Remote server is the host of the VM
 osc_client.connect( ( sc_IP, sc_Port ) )
 
-# 3 states  (each row must sum 1)
-# idle -> no sound
-# harmonic -> choose one harmonic sound (or note) from database with a given frec and time?
-# inharmonic
+# Pyo Sound Server
+#TODO: normalize audio output
+s = Server().boot()
+#s = Server(audio='jack').boot()
+s.start()
+# sffade = Fader(fadein=0.05, fadeout=1, dur=0, mul=0.5).play()
+
+# Mixer
+# 3 outputs mixer, 1 second of amplitude fade time
+#mm = Mixer(outs=3, chnls=2, time=1)
+
+a = Sine(freq=10, mul=0.3) #start signal
+c = Clip(a, mul=2)
+d = c.mix(2).out()
+
+# Loads the sound file in RAM. Beginning and ending points
+# can be controlled with "start" and "stop" arguments.
+#t = SndTable(path)
+
+    # #FIXME: test purposes
+    # #hardcoded sound files
+    # A_snd = "../samples/1194_sample0.wav"
+    # B_snd = "../samples/Solo_guitar_solo_sample1.wav"
+    # C_snd = "../samples/Cuesta_caminar_batero_sample3.wav"
+    # snd_dict = dict()
+    # snd_dict["A"] = A_snd
+    # snd_dict["B"] = B_snd
+    # snd_dict["C"] = C_snd
+    # snd_dict["D"] = C_snd
+    # snd_dict["E"] = C_snd
+    # snd_dict["F"] = C_snd
+    # snd_dict["G"] = C_snd
+    # snd_dict["H"] = C_snd
 
 
+def external_synth(new_file):
+    """
+        Sends OSC
+        Sends OSC to external synthesis engine like SuperCollider or pd
+    """
+    print("\tPlaying %s"%new_file)
+    msg = OSC.OSCMessage()
+    msg.setAddress("/play")
+
+    #mac os #FIXME
+    msg.append( "/Users/hordia/Documents/apicultor"+new_file.split('.')[1]+'.wav' )
+
+    try:
+        osc_client.send(msg)
+    except Exception,e:
+        print(e)
+    #TODO: get duration from msg (via API)
+    time.sleep(duration)
+#external_synth()
+
+def pyo_synth(new_file):
+    #Phase Vocoder
+    sfplay = SfPlayer(new_file, loop=True, mul=0.7)
+    pva = PVAnal(sfplay, size=1024, overlaps=4, wintype=2)
+    pvs = PVAddSynth(pva, pitch=1., num=500, first=10, inc=10).mix(2)#.out() 
+    # pvs = PVAddSynth(pva, pitch=notes['pitch'], num=500, first=10, inc=10, mul=p).mix(2).out()
+
+    c.setInput(pvs, fadetime=.25)
+    # c = c.mix(2).out()
+#pyo_synth()
+
+def granular_synth(new_file):
+    """
+        Granulator sound
+    """
+    pass
+    # snd = SndTable(file_chosen)
+    # env = HannTable()
+    # # note_in_pitch = 62
+    # # posx = Port( Midictl(ctlnumber=[78], minscale=0, maxscale=snd.getSize()), 0.02)
+    # # posf = Port( Midictl(ctlnumber=[16], minscale=0, maxscale=snd.getSize()), 0.02)
+    # #porta = Midictl(ctlnumber=[79], minscale=0., maxscale=60.)
+    # # posxx = (note_in_pitch-48.)/(96.-48.)*posf+posx
+    # # pos = SigTo(posxx)
+    # # tf = TrigFunc(Change(porta), function=set_ramp_time)
+    # # pitch = Port(Midictl(ctlnumber=[17], minscale=0.0, maxscale=2.0),0.02)
+    # # noisemul = Midictl(ctlnumber=[18], minscale=0.0, maxscale=0.2)
+    # # noiseadd = Port(Midictl(ctlnumber=[19], minscale=0.0, maxscale=1.0),0.02)
+    # # dur = Noise(mul=noisemul)+noiseadd
+    # pitch = 62
+    # dur = 3
+    # pos = 1
+    # g = Granulator(snd, env, pitch*0.1/dur, pos , dur, 16, mul=.3).mix(2).out()
+#granulator_synth()
+
+#TODO: chequear si se usa
 def set_ramp_time():
     pos.time = porta.get()
     
@@ -63,27 +148,6 @@ if __name__ == '__main__':
         except:
             states_dur[ st['text'] ] = 1. # default duration
 
-    #FIXME: test purposes
-    #hardcoded sound files
-    A_snd = "../samples/1194_sample0.wav"
-    B_snd = "../samples/Solo_guitar_solo_sample1.wav"
-    C_snd = "../samples/Cuesta_caminar_batero_sample3.wav"
-    snd_dict = dict()
-    snd_dict["A"] = A_snd
-    snd_dict["B"] = B_snd
-    snd_dict["C"] = C_snd
-    snd_dict["D"] = C_snd
-    snd_dict["E"] = C_snd
-    snd_dict["F"] = C_snd
-    snd_dict["G"] = C_snd
-    snd_dict["H"] = C_snd
-
-    #normalize audio output
-
-    s = Server().boot()
-    #s = Server(audio='jack').boot()
-    s.start()
-    sffade = Fader(fadein=0.05, fadeout=1, dur=0, mul=0.5).play()
     
     sd = states_dict
     T = pykov.Matrix()
@@ -108,35 +172,14 @@ if __name__ == '__main__':
     #state = 'idle' #start state
     state = "A" #start state
     previous_state = "H" #start state
-    
+
+
+
     #Fixed amount or infinite with while(1 ) ()
     # events = 10 # or loop with while(1)
     # for i in range(events):
     while(1):
         print( state ) # TODO: call the right method for the state here
-        # if state=='harmonic':
-        #     call = '/list/samples' #gets only wav files because SuperCollider
-        #     response = urllib2.urlopen(URL_BASE + call).read()
-        #     audioFiles = list()
-        #     for file in response.split('\n'):
-        #         if len(file)>0: #avoid null paths
-        #             audioFiles.append(file)
-        #             # print file
-        #     file_chosen = audioFiles[ random.randint(0,len(audioFiles)-1) ]
-        #     print("\tPlaying %s"%file_chosen)
-        #     msg = OSC.OSCMessage()
-        #     msg.setAddress("/play")
-
-        #     #mac os
-        #     msg.append( "/Users/hordia/Documents/apicultor"+file_chosen.split('.')[1]+'.wav' )
-
-        #     try:
-        #         osc_client.send(msg)
-        #     except Exception,e:
-        #         print(e)
-        #     #TODO: get duration from msg (via API)
-        #     time.sleep(duration)
-
         #(optional) change sound in the same state or not (add as json config file)
         if state!=previous_state:
             #retrieve new sound
@@ -150,53 +193,32 @@ if __name__ == '__main__':
             file_chosen = audioFiles[ random.randint(0,len(audioFiles)-1) ]
             print file_chosen
             file_chosen = "."+file_chosen # path adjustment
-        
+
+            # Hardcoded sound for each MIR state
+            # file_chosen = snd_dict[state]
+
+            pyo_synth(file_chosen)
+            # granular_synth(file_chosen)
+            # external_synth(file_chosen)
+
+
         time_bt_states = states_dur[ state ]
         # time_between_notes = random.uniform(0.,2.) #in seconds
         #time.sleep(time_between_notes)
         #TODO: add random variation time?
-
         #TODO: transpose all to the same pitch
-
-
-        # File to play
-        # file_chosen = snd_dict[state]
-
-        # play sound
-        # sfplay = SfPlayer(snd_dict[state], speed=1, loop=False, mul=sffade).out()
 
         # MIDI        
         # notes = Notein(poly=10, scale=1, mul=.5)
         # p = Port(notes['velocity'], .001, .5)
 
-        #Phase Vocoder
-        sfplay = SfPlayer(file_chosen, loop=True, mul=0.7)
-        pva = PVAnal(sfplay, size=1024, overlaps=4, wintype=2)
-        pvs = PVAddSynth(pva, pitch=1., num=500, first=10, inc=10).mix(2).out() 
-        # pvs = PVAddSynth(pva, pitch=notes['pitch'], num=500, first=10, inc=10, mul=p).mix(2).out()
-        
-        # # Granulator sound
-        # snd = SndTable(file_chosen)
-        # env = HannTable()
-        # # note_in_pitch = 62
-        # # posx = Port( Midictl(ctlnumber=[78], minscale=0, maxscale=snd.getSize()), 0.02)
-        # # posf = Port( Midictl(ctlnumber=[16], minscale=0, maxscale=snd.getSize()), 0.02)
-        # #porta = Midictl(ctlnumber=[79], minscale=0., maxscale=60.)
-        # # posxx = (note_in_pitch-48.)/(96.-48.)*posf+posx
-        # # pos = SigTo(posxx)
-        # # tf = TrigFunc(Change(porta), function=set_ramp_time)
-        # # pitch = Port(Midictl(ctlnumber=[17], minscale=0.0, maxscale=2.0),0.02)
-        # # noisemul = Midictl(ctlnumber=[18], minscale=0.0, maxscale=0.2)
-        # # noiseadd = Port(Midictl(ctlnumber=[19], minscale=0.0, maxscale=1.0),0.02)
-        # # dur = Noise(mul=noisemul)+noiseadd
-        # pitch = 62
-        # dur = 3
-        # pos = 1
-        # g = Granulator(snd, env, pitch*0.1/dur, pos , dur, 16, mul=.3).mix(2).out()
+        # # Add inputs to the mixer
+        # mm.addInput(voice=new_voice, input=sfplay)
+        #mm.addInput(voice=new_voice, input=pvs)
 
         # Delay within states
         time.sleep(time_bt_states)
 
         #next state
         previous_state = state
-        state = T.succ(state).choose() #ne state
+        state = T.succ(state).choose() #new state
