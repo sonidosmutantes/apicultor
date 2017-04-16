@@ -30,6 +30,7 @@ ext_filter = ['.mp3','.ogg','.ogg','.wav']
 #TODO: definir una interfaz, luego implementar (leyendo json files y accediendo la BD)
 #from JsonMirFilesData import *
 import JsonMirFilesData as mirdata
+#TODO: see MIR_State_Machine classes
 #from DBMirData import *
 
 #########################

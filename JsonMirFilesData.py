@@ -1,5 +1,9 @@
 # -*- coding: UTF-8 -*-
 
+"""
+    Used by MockRedPanalAPI_service.py
+"""
+
 import os
 import flask
 from flask import jsonify

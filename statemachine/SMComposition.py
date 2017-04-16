@@ -10,8 +10,10 @@ import sys
 import json
 from pyo import *
 
-DATA_PATH = "../data"
-SAMPLES_PATH = "../samples"
+# from mirdbapi.FreesoundDB import FreesounDB 
+
+DATA_PATH = "data"
+SAMPLES_PATH = "samples"
 
 # RedPanal API
 URL_BASE = "http://127.0.0.1:5000" #TODO: get from a config file
@@ -60,6 +62,11 @@ d = c.mix(2).out()
     # snd_dict["G"] = C_snd
     # snd_dict["H"] = C_snd
 
+# def freesound_search(api_key="", id=""):
+#     call = """curl -H "Authorization: Token %(api_key)s" 'http://www.freesound.org/apiv2/sounds/%(id)s/'"""%locals()
+#     response = urllib2.urlopen(call).read()
+#     print(response)
+# #freesound_search()
 
 def external_synth(new_file):
     """
@@ -127,15 +134,27 @@ if __name__ == '__main__':
         print("\nBad amount of input arguments\n\t", Usage, "\n")
         sys.exit(1)
 
-    json_data = ""
+    # JSON config file
+    config = ""
     try:
-        json_file = sys.argv[1] 
-        # with open(json_file,'r') as file:
-        #     json_data = json.load( file )
-        json_data = json.load( open(json_file,'r') )
+        config = json.load( open(".apicultor_config.json",'r') )
     except Exception, e:
         print(e)
-        print("JSON file error")
+        print("No json config file or error.")
+        # sys.exit(2)
+    
+    api_key = config["Freesound.org"][0]["API_KEY"]
+    
+    #JSON composition file
+    json_data = ""
+    try:
+        json_comp_file = sys.argv[1] 
+        # with open(json_file,'r') as file:
+        #     json_data = json.load( file )
+        json_data = json.load( open(json_comp_file,'r') )
+    except Exception, e:
+        print(e)
+        print("JSON composition file error.")
         sys.exit(2)
 
 
@@ -192,7 +211,7 @@ if __name__ == '__main__':
                     # print file
             file_chosen = audioFiles[ random.randint(0,len(audioFiles)-1) ]
             print file_chosen
-            file_chosen = "."+file_chosen # path adjustment
+            # file_chosen = "."+file_chosen # path adjustment
 
             # Hardcoded sound for each MIR state
             # file_chosen = snd_dict[state]
