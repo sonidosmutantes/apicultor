@@ -78,9 +78,9 @@ $ sudo apt-get install python-tk
 * Essentia (ver instrucciones para compilar aquí: http://essentia.upf.edu/documentation/installing.html)
 
 ## State Machine
-
+```
 $ sudo pip install git+git://github.com/riccardoscalco/Pykov@master #both Python2 and Python3
-
+```
 Note that Pykov depends on numpy and scipy
 
 ## OSC
@@ -88,7 +88,7 @@ Note that Pykov depends on numpy and scipy
 # OSC Service Example
 $ sudo pip install python-osc
 
-# State Machine Example
+# OSC to the State Machine Example
 $ git clone https://github.com/ptone/pyosc.git
 $ cd pyosc && sudo ./setup.py install
 

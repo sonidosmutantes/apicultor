@@ -211,7 +211,6 @@ if __name__ == '__main__':
                     # print file
             file_chosen = audioFiles[ random.randint(0,len(audioFiles)-1) ]
             print file_chosen
-            # file_chosen = "."+file_chosen # path adjustment
 
             # Hardcoded sound for each MIR state
             # file_chosen = snd_dict[state]
