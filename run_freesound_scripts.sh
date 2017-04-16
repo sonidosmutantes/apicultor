@@ -1,1 +1,1 @@
-python -m mirdbapi.FreesoundDB
+python -m mir.db.FreesoundDB

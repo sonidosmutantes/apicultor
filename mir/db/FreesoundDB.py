@@ -1,3 +1,4 @@
+# -*- coding: UTF-8 -*-
 import json
 import sys
 import urllib2
@@ -10,8 +11,9 @@ import subprocess
 # $ sudo pip2 install oauth2
 # ```
 
-from mirdbapi.imirdbapi import * 
-class FreesoundAPI(IMirDbApi):
+from mir.db.api import MirDbApi
+
+class FreesoundAPI(MirDbApi):
     __api_key = ""
 
     def get_access_token(self, client_id, client_secret, auth_code):
