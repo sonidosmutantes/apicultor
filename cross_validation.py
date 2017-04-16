@@ -1,8 +1,8 @@
 #! /usr/bin/env python
 # -*- coding: utf-8 -*-
 
-from sklearn.metrics import accuracy_score, mean_squared_error
-from itertools import product
+from collections import defaultdict
+from sklearn.metrics import mean_squared_error
 import numpy as np
 import time
 import logging
@@ -37,10 +37,9 @@ def GridSearch(model, features, targets, Cs, reg_params, kernel_configs):
     :returns:                                                                                                         
       - the best estimator values (its accuracy score, its C and its reg_param value)
     """  
-    test_n = n/10 # 1/10 of data to test 
+    test_n = (20 * len(features))/100 # an auto test size for lower number of samples 
     train_n = n - test_n 
-    features_train, targets_train, features_test, targets_test = features[:train_n], targets[:train_n], features[train_n:], targets[train_n:]                                
-    from collections import defaultdict               
+    features_train, targets_train, features_test, targets_test = features[:train_n], targets[:train_n], features[train_n:], targets[train_n:]               
     params = defaultdict(list)
     timing = defaultdict(list)      
     scores = defaultdict(list) 
@@ -57,39 +56,45 @@ def GridSearch(model, features, targets, Cs, reg_params, kernel_configs):
     [timing['classifier times'].append([]) for i in range(len(kernel_configs))]              
     params['C'].append(Cs)        
     params['reg_param'].append(reg_params)
-    for i in range(len(kernel_configs)):
-        for j in range(len(params['C'][0])):
+    for i in xrange(len(kernel_configs)):
+        for j in xrange(len(params['C'][0])):
             try:                                                   
                 training_time = time.time()                            
-                clf_train = model.fit_model(features_train, targets_train, kernel_configs[i][0], kernel_configs[i][1], params['C'][0][j], params['reg_param'][0][j], 1./features.shape[1])                          
+                clf_train = model.fit_model(features_train, targets_train, kernel_configs[i][0], kernel_configs[i][1], params['C'][0][j], params['reg_param'][0][j], 1./features_train.shape[1])                          
                 training_time = np.abs(training_time - time.time())            
                 timing['training_times'][i].append(training_time)         
-                print ("Training time is: " + str(training_time))      
+                print str().join(("Training time is: ", str(training_time)))      
                 clf_predictions_train = model.predictions(features_train, targets_train)                    
                 train_scores['scorings'][i].append(score(targets_train, clf_predictions_train))                                                  
-                print ("Train Scoring Error is: " + str(train_scores['scorings'][i][j])) 
-                clf_test = model.fit_model(features_test, targets_test, kernel_configs[i][0], kernel_configs[i][1], params['C'][0][j], params['reg_param'][0][j], 1./features.shape[1])                                                                      
-                clf_predictions_test = model.predictions(features_test, targets_test)                       
+                print str().join(("Train Scoring Error is: ", str(train_scores['scorings'][i][j]))) 
+                clf_test = model.fit_model(features_test, targets_test, kernel_configs[i][0], kernel_configs[i][1], params['C'][0][j], params['reg_param'][0][j], 1./features_test.shape[1])                                                                      
+                clf_predictions_test = model.predictions(features_test, targets_test)                      
                 test_scores['scorings'][i].append(score(targets_test, clf_predictions_test))                                                     
-                print ("Test Scoring Error is: " + str(test_scores['scorings'][i][j]))                                                                 
+                print str().join(("Test Scoring Error is: ", str(test_scores['scorings'][i][j])))      
                 clf_time = time.time()                                 
                 clf = model.fit_model(features, targets, kernel_configs[i][0], kernel_configs[i][1], params['C'][0][j], params['reg_param'][0][j], 1./features.shape[1])                                            
                 clf_time = np.abs(clf_time - time.time())                      
                 timing['classifier times'][i].append(clf_time)            
-                print ("Classification time is: " + str(clf_time))     
+                print str().join(("Classification time is: ", str(clf_time)))     
                 clf_predictions = model.predictions(features, targets)          
                 scores['scorings'][i].append(score(targets, clf_predictions))                                                                    
-                print ("Scoring error is: " + str(scores['scorings'][i][j]))    
+                print str().join(("Scoring error is: ", str(scores['scorings'][i][j])))    
             except Exception, e:                                       
-                print logger.exception(e)
+                print "A not optimal tuning has been found. Continuing..."
+                if len(train_scores['scorings'][i])-1 == j: train_scores['scorings'][i].pop(j)
+                if len(train_scores['scorings'][i])-1 != j: train_scores['scorings'][i].append(2)
+                if len(test_scores['scorings'][i])-1 == j: test_scores['scorings'][i].pop(j)
+                if len(test_scores['scorings'][i])-1 != j: test_scores['scorings'][i].append(2)
+                if len(scores['scorings'][i])-1 == j: scores['scorings'][i].pop(j)
+                if len(scores['scorings'][i])-1 != j: scores['scorings'][i].append(2)
         best_estimator['score'][i].append(min(scores['scorings'][i]))
         best_estimator['C'][i].append(params['C'][0][np.array(scores['scorings'][i]).argmin()])
         best_estimator['reg_param'][i].append(params['reg_param'][0][np.array(scores['scorings'][i]).argmin()])
-        print (("Best estimators are: ") + ("C: ") + str(best_estimator['C'][i]) + ("Regularization parameter: ") + str(best_estimator['reg_param'][i])) 
-        print (("Mean training error scorings: ") + str(np.mean(train_scores['scorings'][i])))
-        print (("std training error scorings: ") + str(np.mean(train_scores['scorings'][i])))
-        print (("Mean test error scorings: ") + str(np.std(test_scores['scorings'][i])))
-        print (("std test error scorings: ") + str(np.std(test_scores['scorings'][i])))
-        print (("Mean error scorings: ") + str(np.mean(scores['scorings'][i])))
-        print (("std error scorings: ") + str(np.std(scores['scorings'][i])))
+        print str().join(("Best estimators are: ", "C: ", str(best_estimator['C'][i]), " Regularization parameter: ", str(best_estimator['reg_param'][i]))) 
+        print str().join(("Mean training error scorings: ", str(np.mean(train_scores['scorings'][i]))))
+        print str().join(("std training error scorings: ", str(np.mean(train_scores['scorings'][i]))))
+        print str().join(("Mean test error scorings: ", str(np.std(test_scores['scorings'][i]))))
+        print str().join(("std test error scorings: ", str(np.std(test_scores['scorings'][i]))))
+        print str().join(("Mean error scorings: ", str(np.mean(scores['scorings'][i]))))
+        print str().join(("std error scorings: ", str(np.std(scores['scorings'][i]))))
     return best_estimator

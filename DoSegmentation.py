@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 
 import sys
-from MusicEmotionMachine import memoize
+from cache import memoize
 import numpy as np
 import essentia
 from essentia.standard import *

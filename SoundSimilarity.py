@@ -1,61 +1,25 @@
 #! /usr/bin/env python
 # -*- coding: utf-8 -*-
 
+from MusicEmotionMachine import scratch_music
+from utils.data import *
 import time
 from colorama import Fore
 import numpy as np                                                      
 import matplotlib.pyplot as plt                                   
-import os, sys                                                          
-import json    
-import re                                                         
+import os, sys                                                      
 from sklearn import preprocessing
+from essentia.standard import *
 from sklearn.decomposition.pca import PCA                                      
 from sklearn.cluster import AffinityPropagation
-import shutil                                            
+from collections import defaultdict
+from random import choice
+import shutil
+import librosa
+import logging
 
-def get_files(files_dir):
-	"""
-	return a list of .json files to read
-
-	:param files_dir: directory where sounds are located
-	"""
-	try:
-		files = [(files) for subdir, dirs, files in os.walk(files_dir+'/descriptores')]
-		return files
-	except:
-		if not os.path.exists(files_dir+'/descriptores'):
-			print ("No .json files found")
-
-def get_dics(files_dir):
-	"""
-	return a list containing all descriptions of tag directory reading the .json files
-
-	:param files_dir: directory where sounds are located
-	"""
-	try:
-		for subdir, dirs, files in os.walk(files_dir+'/descriptores'):
-			dics = [json.load(open(subdir+'/'+f)) for f in files]  
-		return dics
-	except:
-		if not os.path.exists(files_dir+'/descriptores'):
-			print ("No readable MIR data found")
-
-class desc_pair():
-	"""
-	obtain description values after choosing descriptors
-
-	:param desc1: first descriptor values
-	:param desc2: second descriptor values
-	:returns:
-	  - euclidean_labels: labels of clusters
-	""" 
-	def __init__(self, files, dics):
-		self._files = files
-		self._dics = dics
-		self.descriptors = ['lowlevel.dissonance.mean', 'lowlevel.mfcc_bands.mean', 'sfx.inharmonicity.mean', 'rhythm.bpm.mean', 'lowlevel.spectral_contrast.mean', 'lowlevel.spectral_centroid.mean', 'metadata.duration.mean', 'lowlevel.mfcc.mean', 'loudness.level.mean', 'rhythm.bpm_ticks.mean', 'lowlevel.spectral_valleys.mean', 'sfx.logattacktime.mean', 'lowlevel.hfc.mean'] # modify according to features_and_keys
-		self.features = re.findall(r"[+-]? *(?:\d+(?:\.\d*)?|\.\d+)(?:[eE][+-]?\d+)?", str(self._dics))  
-		self.files_features = np.array_split(self.features, np.array(self._files).size) 
-		self.keys = [i for i,x in enumerate(self.descriptors)]
+logging.basicConfig(level=logging.DEBUG)
+logger = logging.getLogger(__name__)
 
 def get_desc_pair(descriptors, files_features, keys):
 
@@ -128,69 +92,38 @@ def bpm_cluster_files(files_dir, descriptor, euclidean_labels, files):
     :param descriptor: descriptor used for similarity                                       
     :param euclidean_labels: groups of clusters                                             
     :param files: the .json files (use get_files)                                           
-    """                                                                                     
-    first_group = [i for i, x in enumerate(euclidean_labels) if x == 0]                       
-    second_group = [i for i, x in enumerate(euclidean_labels) if x == 1]
-                                                                       
-    for i, x in enumerate(euclidean_labels):                           
-        if x == 2:                                                     
-            third_group = [i for i, x in enumerate(euclidean_labels) if x ==2]
-            group3 = map(lambda json: files[0][json], third_group)     
-            files3 = [i.split('.json')[0] for i in group3]             
-        else:                                                                                                                
-            print ("Reading groups")                                                                                         
-                                                                                                                             
-    for i, x in enumerate(euclidean_labels):                                                                                 
-        if x == 3:                                                                                                           
-            fourth_group = [i for i, x in enumerate(euclidean_labels) if x ==3]                                              
-            group4 = map(lambda json: files[0][json], fourth_group)                                                          
-            files4 = [i.split('.json')[0] for i in group4]                                                                   
-        else:                                                                                                                
-            print ("Reading groups")                                                                                         
-                                                                                                                             
-    print ("Saving files in clusters directory")                                                                             
-                                                                                                                             
-    group1 = map(lambda json: files[0][json], first_group)                                                                   
-    group2 = map(lambda json: files[0][json], second_group) 
-                                                           
-    files1 = [i.split('.json')[0] for i in group1]
-    files2 = [i.split('.json')[0] for i in group2]
-                                                  
-    for subdirs, dirs, sounds in os.walk(files_dir+'/tempo'):
-        if subdirs == (files_dir+'/tempo'):
-            for s in sounds:
-                sound_names = [s.split('tempo.ogg')[0] for s in sounds]                                                  
-                 
-    files_1 = set(sound_names).intersection(files1)
-    files_2 = set(sound_names).intersection(files2)
-    try:                                           
-        files_3 = set(sound_names).intersection(files3)
-        if files_3:                                    
-                  os.makedirs(files_dir+'/tempo/2')
-        for e in files_3:                          
-                  shutil.copy(files_dir+'/tempo/'+(str(e))+'tempo.ogg', files_dir+'/tempo/2/'+(str(e))+'tempo.ogg')          
-    except:                                                                                                                  
-            print ("Creating two directories of clusters") 
-    try:                                           
-        files_4 = set(sound_names).intersection(files4)
-        if files_4:                                    
-                  os.makedirs(files_dir+'/tempo/3')
-        for e in files_4:                          
-                  shutil.copy(files_dir+'/tempo/'+(str(e))+'tempo.ogg', files_dir+'/tempo/3/'+(str(e))+'tempo.ogg')          
-    except:                                                                                                                  
-            print ("Creating three directories of clusters") 
-                                                           
-    if files_1:                                               
-        os.makedirs(files_dir+'/tempo/0')                                    
-                                      
-    if files_2:                                               
-        os.makedirs(files_dir+'/tempo/1')                                                                       
-                                        
-    for e in files_1:
-        shutil.copy(files_dir+'/tempo/'+(str(e))+'tempo.ogg', files_dir+'/tempo/0/'+(str(e))+'tempo.ogg')
-                                                                                         
-    for e in files_2:
-        shutil.copy(files_dir+'/tempo/'+(str(e))+'tempo.ogg', files_dir+'/tempo/1/'+(str(e))+'tempo.ogg')
+    """  
+    groups = [[] for i in xrange(len(np.unique(euclidean_labels)))]
+    for i, x in enumerate(euclidean_labels):
+        groups[x].append([files[0][i], x])
+                
+    for c in xrange(len(groups)):
+        if not os.path.exists(files_dir+'/tempo/'+str(c)):
+            os.makedirs(files_dir+'/tempo/'+str(c))
+            os.makedirs(files_dir+'/tempo/'+str(c)+'/remix')
+        for t in groups[c]:
+            for s in list(os.walk(files_dir+'/tempo', topdown=False))[-1][-1]:
+                 if str(t[0]).split('.json')[0] == s.split('tempo.ogg')[0]:
+                     shutil.copy(files_dir+'/tempo/'+s, files_dir+'/tempo/'+str(c)+'/'+s)     
+                     print str().join((str(t))) 
+        try:
+            simil_audio = [MonoLoader(filename=files_dir+'/tempo/'+str(c)+f)() for f in list(os.walk(files_dir+'/tempo/'+str(c), topdown = False))[-1][-1]]
+            audio0 = scratch_music(choice(simil_audio))
+            audio1 = scratch_music(choice(simil_audio)) 
+            del simil_audio                               
+            audio_N = min([len(i) for i in [audio0, audio1]])  
+            audio_samples = [i[:audio_N]/i.max() for i in [audio0, audio1]]                                               
+            simil_x = np.array(audio_samples).sum(axis=0) 
+            del audio_samples
+            simil_x = 0.5*simil_x/simil_x.max()      
+            h, p = librosa.decompose.hpss(librosa.core.stft(simil_x))
+            del simil_x, h
+            p = librosa.istft(p)                                                
+            MonoWriter(filename=files_dir+'/tempo/'+str(c)+'/remix/'+'similarity_mix_bpm.ogg', format = 'ogg', sampleRate = 44100)(p)  
+            del p
+        except Exception, e:
+            print logger.exception(e)
+            continue
 
 # save mfcc clusters files in mfcc clusters directory
 def mfcc_cluster_files(files_dir, descriptor, euclidean_labels, files):
@@ -202,60 +135,38 @@ def mfcc_cluster_files(files_dir, descriptor, euclidean_labels, files):
     :param euclidean_labels: groups of clusters 
     :param files: the .json files (use get_files)
     """
-    first_group = [i for i, x in enumerate(euclidean_labels) if x == 0]
-    second_group = [i for i, x in enumerate(euclidean_labels) if x == 1]
-
+    groups = [[] for i in xrange(len(np.unique(euclidean_labels)))]
     for i, x in enumerate(euclidean_labels):
-        if x == 2:
-            third_group = [i for i, x in enumerate(euclidean_labels) if x ==2]
-            group3 = map(lambda json: files[0][json], third_group)
-            files3 = [i.split('.json')[0] for i in group3]
-        else:
-            print ("Reading groups")
-
-    for i, x in enumerate(euclidean_labels):
-        if x == 3:
-            fourth_group = [i for i, x in enumerate(euclidean_labels) if x ==3]
-            group4 = map(lambda json: files[0][json], fourth_group)
-            files4 = [i.split('.json')[0] for i in group4]
-        else:
-            print ("Reading groups") 
-
-    print ("Saving files in clusters directory")
-
-    group1 = map(lambda json: files[0][json], first_group)
-    group2 = map(lambda json: files[0][json], second_group)
-
-    files1 = [i.split('.json')[0] for i in group1]
-    files2 = [i.split('.json')[0] for i in group2]
-
-    for subdirs, dirs, sounds in os.walk(files_dir+'/mfcc'):
-        if subdirs == (files_dir+'/mfcc'):
-            for s in sounds:
-                sound_names = [s.split('mfcc.ogg')[0] for s in sounds]
-            
-    files_1 = set(sound_names).intersection(files1)
-    files_2 = set(sound_names).intersection(files2)
-    try:
-        files_3 = set(sound_names).intersection(files3)
-        if files_3:
-            os.mkdir(files_dir+'/mfcc/2')
-        for e in files_3:
-            shutil.copy(files_dir+'/mfcc/'+(str(e))+'mfcc.ogg', files_dir+'/mfcc/2/'+(str(e))+'mfcc.ogg')
-    except:
-        print ("Creating two directories of clusters") 
-
-    if files_1:
-        os.mkdir(files_dir+'/mfcc/0')
-
-    if files_2:
-        os.mkdir(files_dir+'/mfcc/1')
-
-    for e in files_1:
-        shutil.copy(files_dir+'/mfcc/'+(str(e))+'mfcc.ogg', files_dir+'/mfcc/0/'+(str(e))+'mfcc.ogg')
-
-    for e in files_2:
-        shutil.copy(files_dir+'/mfcc/'+(str(e))+'mfcc.ogg', files_dir+'/mfcc/1/'+(str(e))+'mfcc.ogg')
+        groups[x].append([files[0][i], x])
+                
+    for c in xrange(len(groups)):
+        if not os.path.exists(files_dir+'/mfcc/'+str(c)):
+            os.makedirs(files_dir+'/mfcc/'+str(c))
+            os.makedirs(files_dir+'/mfcc/'+str(c)+'/remix')            
+        for t in groups[c]:       
+            for s in list(os.walk(files_dir+'/mfcc', topdown=False))[-1][-1]:
+                 if str(t[0]).split('.')[0] == s.split('mfcc.ogg')[0]:
+                     shutil.copy(files_dir+'/mfcc/'+s, files_dir+'/mfcc/'+str(c)+'/'+s)     
+                     print t
+ 
+        try: 
+            simil_audio = [MonoLoader(filename=files_dir+'/mfcc/'+str(c)+f)() for f in list(os.walk(files_dir+'/mfcc/'+str(c), topdown = False))[-1][-1]]
+            audio0 = scratch_music(choice(simil_audio))
+            audio1 = scratch_music(choice(simil_audio)) 
+            del simil_audio                   
+            audio_N = min([len(i) for i in [audio0, audio1]])  
+            audio_samples = [i[:audio_N]/i.max() for i in [audio0, audio1]]                                                
+            simil_x = np.array(audio_samples).sum(axis=0) 
+            del audio_samples
+            simil_x = 0.5*simil_x/simil_x.max()      
+            h, p = librosa.decompose.hpss(librosa.core.stft(simil_x))
+            del simil_x, p
+            h = librosa.istft(h)                                                
+            MonoWriter(filename=files_dir+'/mfcc/'+str(c)+'/remix/'+'similarity_mix_mfcc.ogg', format = 'ogg', sampleRate = 44100)(h)  
+            del h
+        except Exception, e:
+            print e
+            continue
 
 # save contrast cluster files in contrast cluster directory
 def contrast_cluster_files(files_dir, descriptor, euclidean_labels, files):
@@ -267,61 +178,39 @@ def contrast_cluster_files(files_dir, descriptor, euclidean_labels, files):
     :param euclidean_labels: groups of clusters 
     :param files: the .json files (use get_files)
     """
-    first_group = [i for i, x in enumerate(euclidean_labels) if x == 0]
-    second_group = [i for i, x in enumerate(euclidean_labels) if x == 1]
-
+    groups = [[] for i in xrange(len(np.unique(euclidean_labels)))]
     for i, x in enumerate(euclidean_labels):
-        if x == 2:
-            third_group = [i for i, x in enumerate(euclidean_labels) if x ==2]
-            group3 = map(lambda json: files[0][json], third_group)
-            files3 = [i.split('.json')[0] for i in group3]
-        else:
-            print ("Reading groups")
-
-    for i, x in enumerate(euclidean_labels):
-        if x == 3:
-            fourth_group = [i for i, x in enumerate(euclidean_labels) if x ==3]
-            group4 = map(lambda json: files[0][json], fourth_group)
-            files4 = [i.split('.json')[0] for i in group4]
-        else:
-            print ("Reading groups")
-
-    print ("Saving files in clusters directory")
-
-    group1 = map(lambda json: files[0][json], first_group)
-    group2 = map(lambda json: files[0][json], second_group)
-
-    files1 = [i.split('.json')[0] for i in group1]
-    files2 = [i.split('.json')[0] for i in group2]
-
-    for subdirs, dirs, sounds in os.walk(files_dir+'/valleys'):
-        if subdirs == (files_dir+'/valleys'):
-            for s in sounds:
-                sound_names = [s.split('contrast.ogg')[0] for s in sounds]
+        groups[x].append([files[0][i], x])
+                
+    for c in xrange(len(groups)):
+        if not os.path.exists(files_dir+'/valleys/'+str(c)):
+            os.makedirs(files_dir+'/valleys/'+str(c))
+            os.makedirs(files_dir+'/valleys/'+str(c)+'/remix')  
+        for t in groups[c]:       
+            for s in list(os.walk(files_dir+'/valleys', topdown=False))[-1][-1]:
+                 if str(t[0]).split('.')[0] == s.split('valleys.ogg')[0]:
+                     shutil.copy(files_dir+'/valleys/'+s, files_dir+'/valleys/'+str(c)+'/'+s)     
+                     print t 
+ 
+        try:
+            simil_audio = [MonoLoader(filename=files_dir+'/valleys/'+str(c)+f)() for f in list(os.walk(files_dir+'/valleys/'+str(c), topdown = False))[-1][-1]]
+            audio0 = scratch_music(choice(simil_audio))
+            audio1 = scratch_music(choice(simil_audio)) 
+            del simil_audio                               
+            audio_N = min([len(i) for i in [audio0, audio1]])  
+            audio_samples = [i[:audio_N]/i.max() for i in [audio0, audio1]]                                                  
+            simil_x = np.array(audio_samples).sum(axis=0) 
+            del audio_samples
+            simil_x = 0.5*simil_x/simil_x.max()      
+            h, p = librosa.decompose.hpss(librosa.core.stft(simil_x))
+            del simil_x, p
+            h = librosa.istft(h)                                                
+            MonoWriter(filename=files_dir+'/valleys/'+str(c)+'/remix/'+'similarity_mix_valleys.ogg', format = 'ogg', sampleRate = 44100)(h)  
+            del h
+        except Exception, e:
+            print e
+            continue
             
-    files_1 = set(sound_names).intersection(files1)
-    files_2 = set(sound_names).intersection(files2)
-    try:
-        files_3 = set(sound_names).intersection(files3)
-        if files_3:
-            os.mkdir(files_dir+'/valleys/2')
-        for e in files_3:
-            shutil.copy(files_dir+'/valleys/'+(str(e))+'contrast.ogg', files_dir+'/valleys/2/'+(str(e))+'contrast.ogg')
-    except:
-        print ("Creating two directories of clusters") 
-
-    if files_1:
-        os.mkdir(files_dir+'/valleys/0')
-
-    if files_2:
-        os.mkdir(files_dir+'/valleys/1')
-
-    for e in files_1:
-        shutil.copy(files_dir+'/valleys/'+(str(e))+'contrast.ogg', files_dir+'/valleys/0/'+(str(e))+'contrast.ogg')
-
-    for e in files_2:
-        shutil.copy(files_dir+'/valleys/'+(str(e))+'contrast.ogg', files_dir+'/valleys/1/'+(str(e))+'contrast.ogg')
-
 # save centroid cluster files in centroid cluster directory
 def centroid_cluster_files(files_dir, descriptor, euclidean_labels, files):
     """
@@ -332,144 +221,80 @@ def centroid_cluster_files(files_dir, descriptor, euclidean_labels, files):
     :param euclidean_labels: groups of clusters 
     :param files: the .json files (use get_files)
     """
-    first_group = [i for i, x in enumerate(euclidean_labels) if x == 0]
-    second_group = [i for i, x in enumerate(euclidean_labels) if x == 1]
-
+    groups = [[] for i in xrange(len(np.unique(euclidean_labels)))]
     for i, x in enumerate(euclidean_labels):
-        if x == 2:
-            third_group = [i for i, x in enumerate(euclidean_labels) if x ==2]
-            group3 = map(lambda json: files[0][json], third_group)
-            files3 = [i.split('.json')[0] for i in group3]
-        else:
-            print ("Reading groups")
-
-    for i, x in enumerate(euclidean_labels):
-        if x == 3:
-            fourth_group = [i for i, x in enumerate(euclidean_labels) if x ==3]
-            group4 = map(lambda json: files[0][json], fourth_group)
-            files4 = [i.split('.json')[0] for i in group4]
-        else:
-            print ("Reading groups")
-
-    print ("Saving files in clusters directory")
-
-    group1 = map(lambda json: files[0][json], first_group)
-    group2 = map(lambda json: files[0][json], second_group)
-
-    files1 = [i.split('.json')[0] for i in group1]
-    files2 = [i.split('.json')[0] for i in group2]
-
-    for subdirs, dirs, sounds in os.walk(files_dir+'/centroid'):
-        if subdirs == (files_dir+'/centroid'):
-            for s in sounds:
-                sound_names = [s.split('centroid.ogg')[0] for s in sounds]
+        groups[x].append([files[0][i], x])
+                
+    for c in xrange(len(groups)):
+        if not os.path.exists(files_dir+'/centroid/'+str(c)):
+            os.makedirs(files_dir+'/centroid/'+str(c))
+            os.makedirs(files_dir+'/centroid/'+str(c)+'/remix')        
+        for t in groups[c]:       
+            for s in list(os.walk(files_dir+'/centroid', topdown=False))[-1][-1]:
+                 if str(t[0]).split('.')[0] == s.split('centroid.ogg')[0]:
+                     shutil.copy(files_dir+'/centroid/'+s, files_dir+'/centroid/'+str(c)+'/'+s)     
+                     print t 
+ 
+        try: 
+            simil_audio = [MonoLoader(filename=files_dir+'/centroid/'+str(c)+f)() for f in list(os.walk(files_dir+'/centroid/'+str(c), topdown = False))[-1][-1]]
+            audio0 = scratch_music(choice(simil_audio))
+            audio1 = scratch_music(choice(simil_audio)) 
+            del simil_audio                               
+            audio_N = min([len(i) for i in [audio0, audio1]])  
+            audio_samples = [i[:audio_N]/i.max() for i in [audio0, audio1]]                                                  
+            simil_x = np.array(audio_samples).sum(axis=0) 
+            del audio_samples
+            simil_x = 0.5*simil_x/simil_x.max()      
+            h, p = librosa.decompose.hpss(librosa.core.stft(simil_x))
+            del simil_x, p
+            h = librosa.istft(h)                                                
+            MonoWriter(filename=files_dir+'/centroid/'+str(c)+'/remix/'+'similarity_mix_centroid.ogg', format = 'ogg', sampleRate = 44100)(h)  
+            del h
+        except Exception, e:
+            print e
+            continue
             
-    files_1 = set(sound_names).intersection(files1)
-    files_2 = set(sound_names).intersection(files2)
-    try:
-        files_3 = set(sound_names).intersection(files3)
-        if files_3:
-            os.mkdir(files_dir+'/centroid/2')
-        for e in files_3:
-            shutil.copy(files_dir+'/centroid/'+(str(e))+'centroid.ogg', files_dir+'/centroid/2/'+(str(e))+'centroid.ogg')
-    except:
-        print ("Creating two directories of clusters")
-
-    try:
-        files_4 = set(sound_names).intersection(files4)
-        if files_4:
-            os.mkdir(files_dir+'/centroid/3')
-        for e in files_4:
-            shutil.copy(files_dir+'/centroid/'+(str(e))+'centroid.ogg', files_dir+'/centroid/3/'+(str(e))+'centroid.ogg')
-    except:
-        print ("Creating directories of clusters")  
-
-    if files_1:
-        os.mkdir(files_dir+'/centroid/0')
-
-    if files_2:
-        os.mkdir(files_dir+'/centroid/1')
-
-    for e in files_1:
-        shutil.copy(files_dir+'/centroid/'+(str(e))+'centroid.ogg', files_dir+'/centroid/0/'+(str(e))+'centroid.ogg')
-
-    for e in files_2:
-        shutil.copy(files_dir+'/centroid/'+(str(e))+'centroid.ogg', files_dir+'/centroid/1/'+(str(e))+'centroid.ogg')
-
 # save loudness cluster files in loudness cluster directory
 def loudness_cluster_files(files_dir, descriptor, euclidean_labels, files):
     """
     locate loudness files according to clusters in clusters directories
-
     :param files_dir: directory where sounds are located
     :param descriptor: descriptor used for similarity
     :param euclidean_labels: groups of clusters 
     :param files: the .json files (use get_files)
     """
-    first_group = [i for i, x in enumerate(euclidean_labels) if x == 0]
-    second_group = [i for i, x in enumerate(euclidean_labels) if x == 1]
-
+    groups = [[] for i in xrange(len(np.unique(euclidean_labels)))]
     for i, x in enumerate(euclidean_labels):
-        if x == 2:
-            third_group = [i for i, x in enumerate(euclidean_labels) if x ==2]
-            group3 = map(lambda json: files[0][json], third_group)
-            files3 = [i.split('.json')[0] for i in group3]
-        else:
-            print ("Reading groups")
-
-    for i, x in enumerate(euclidean_labels):
-        if x == 3:
-            fourth_group = [i for i, x in enumerate(euclidean_labels) if x ==3]
-            group4 = map(lambda json: files[0][json], fourth_group)
-            files4 = [i.split('.json')[0] for i in group4]
-        else:
-            print ("Reading groups")
-
-
-    print ("Saving files in clusters directory")
-
-    group1 = map(lambda json: files[0][json], first_group)
-    group2 = map(lambda json: files[0][json], second_group)
-
-    files1 = [i.split('.json')[0] for i in group1]
-    files2 = [i.split('.json')[0] for i in group2]
-
-    for subdirs, dirs, sounds in os.walk(files_dir+'/loudness'):
-        if subdirs == (files_dir+'/loudness'):
-            for s in sounds:
-                sound_names = [s.split('loudness.ogg')[0] for s in sounds]
-            
-    files_1 = set(sound_names).intersection(files1)
-    files_2 = set(sound_names).intersection(files2)
-    try:
-        files_3 = set(sound_names).intersection(files3)
-        if files_3:
-            os.mkdir(files_dir+'/loudness/2')
-        for e in files_3:
-            shutil.copy(files_dir+'/loudness/'+(str(e))+'loudness.ogg', files_dir+'/loudness/2/'+(str(e))+'loudness.ogg')
-    except:
-        print ("Creating two directories of clusters") 
-
-    try:
-        files_4 = set(sound_names).intersection(files4)
-        if files_4:
-            os.mkdir(files_dir+'/loudness/3')
-        for e in files_4:
-            shutil.copy(files_dir+'/loudness/'+(str(e))+'loudness.ogg', files_dir+'/loudness/3/'+(str(e))+'loudness.ogg')
-    except:
-        print ("Creating directories of clusters") 
-
-    if files_1:
-        os.mkdir(files_dir+'/loudness/0')
-
-    if files_2:
-        os.mkdir(files_dir+'/loudness/1')
-
-    for e in files_1:
-        shutil.copy(files_dir+'/loudness/'+(str(e))+'loudness.ogg', files_dir+'/loudness/0/'+(str(e))+'loudness.ogg')
-
-    for e in files_2:
-        shutil.copy(files_dir+'/loudness/'+(str(e))+'loudness.ogg', files_dir+'/loudness/1/'+(str(e))+'loudness.ogg') 
+        groups[x].append([files[0][i], x])
+                
+    for c in xrange(len(groups)):
+        if not os.path.exists(files_dir+'/loudness/'+str(c)):
+            os.makedirs(files_dir+'/loudness/'+str(c))
+            os.makedirs(files_dir+'/loudness/'+str(c)+'/remix')    
+        for t in groups[c]:       
+            for s in list(os.walk(files_dir+'/loudness', topdown=False))[-1][-1]:
+                 if str(t[0]).split('.')[0] == s.split('loudness.ogg')[0]:
+                     shutil.copy(files_dir+'/loudness/'+s, files_dir+'/loudness/'+str(c)+'/'+s)     
+                     print t 
+ 
+        try: 
+            simil_audio = [MonoLoader(filename=files_dir+'/loudness/'+str(c)+f)() for f in list(os.walk(files_dir+'/loudness/'+str(c), topdown = False))[-1][-1]]
+            audio0 = scratch_music(choice(simil_audio))
+            audio1 = scratch_music(choice(simil_audio))
+            del simil_audio                                
+            audio_N = min([len(i) for i in [audio0, audio1]])  
+            audio_samples = [i[:audio_N]/i.max() for i in [audio0, audio1]]                                                  
+            simil_x = np.array(audio_samples).sum(axis=0) 
+            del audio_samples
+            simil_x = 0.5*simil_x/simil_x.max()      
+            h, p = librosa.decompose.hpss(librosa.core.stft(simil_x))
+            del simil_x, p
+            h = librosa.istft(h)                                                
+            MonoWriter(filename=files_dir+'/loudness/'+str(c)+'/remix/'+'similarity_mix_centroid.ogg', format = 'ogg', sampleRate = 44100)(h)  
+            del h
+        except Exception, e:
+            print e
+            continue
 
 # save hfc cluster files in hfc cluster directory
 def hfc_cluster_files(files_dir, descriptor, euclidean_labels, files):
@@ -481,71 +306,39 @@ def hfc_cluster_files(files_dir, descriptor, euclidean_labels, files):
     :param euclidean_labels: groups of clusters 
     :param files: the .json files (use get_files)
     """
-    first_group = [i for i, x in enumerate(euclidean_labels) if x == 0]
-    second_group = [i for i, x in enumerate(euclidean_labels) if x == 1]
-
+    groups = [[] for i in xrange(len(np.unique(euclidean_labels)))]
     for i, x in enumerate(euclidean_labels):
-        if x == 2:
-            third_group = [i for i, x in enumerate(euclidean_labels) if x ==2]
-            group3 = map(lambda json: files[0][json], third_group)
-            files3 = [i.split('.json')[0] for i in group3]
-        else:
-            print ("Reading groups")
-
-    for i, x in enumerate(euclidean_labels):
-        if x == 3:
-            fourth_group = [i for i, x in enumerate(euclidean_labels) if x ==3]
-            group4 = map(lambda json: files[0][json], fourth_group)
-            files4 = [i.split('.json')[0] for i in group4]
-        else:
-            print ("Reading groups")
-
-    print ("Saving files in clusters directory") 
-
-    group1 = map(lambda json: files[0][json], first_group)
-    group2 = map(lambda json: files[0][json], second_group)
-
-    files1 = [i.split('.json')[0] for i in group1]
-    files2 = [i.split('.json')[0] for i in group2]
-
-    for subdirs, dirs, sounds in os.walk(files_dir+'/hfc'):
-        if subdirs == (files_dir+'/hfc'):
-            for s in sounds:
-                sound_names = [s.split('hfc.ogg')[0] for s in sounds]
+        groups[x].append([files[0][i], x])
+                
+    for c in xrange(len(groups)):
+        if not os.path.exists(files_dir+'/hfc/'+str(c)):
+            os.makedirs(files_dir+'/hfc/'+str(c))
+            os.makedirs(files_dir+'/hfc/'+str(c)+'/remix')   
+        for t in groups[c]:       
+            for s in list(os.walk(files_dir+'/hfc', topdown=False))[-1][-1]:
+                 if str(t[0]).split('.')[0] == s.split('hfc.ogg')[0]:
+                     shutil.copy(files_dir+'/hfc/'+s, files_dir+'/hfc/'+str(c)+'/'+s)     
+                     print t 
+ 
+        try:  
+            simil_audio = [MonoLoader(filename=files_dir+'/hfc/'+str(c)+f)() for f in list(os.walk(files_dir+'/hfc/'+str(c), topdown = False))[-1][-1]]
+            audio0 = scratch_music(choice(simil_audio))
+            audio1 = scratch_music(choice(simil_audio))
+            del simil_audio                                
+            audio_N = min([len(i) for i in [audio0, audio1]])  
+            audio_samples = [i[:audio_N]/i.max() for i in [audio0, audio1]]                                                  
+            simil_x = np.array(audio_samples).sum(axis=0) 
+            del audio_samples
+            simil_x = 0.5*simil_x/simil_x.max()      
+            h, p = librosa.decompose.hpss(librosa.core.stft(simil_x))
+            del simil_x, h
+            p = librosa.istft(p)                                                
+            MonoWriter(filename=files_dir+'/hfc/'+str(c)+'/remix/'+'similarity_mix_hfc.ogg', format = 'ogg', sampleRate = 44100)(p)  
+            del p
+        except Exception, e:
+            print e
+            continue
             
-    files_1 = set(sound_names).intersection(files1)
-    files_2 = set(sound_names).intersection(files2)
-    try:
-        files_3 = set(sound_names).intersection(files3)
-        if files_3:
-            os.mkdir(files_dir+'/hfc/2')
-        for e in files_3:
-            shutil.copy(files_dir+'/hfc/'+(str(e))+'hfc.ogg', files_dir+'/hfc/2/'+(str(e))+'hfc.ogg')
-    except:
-        print ("Creating two directories of clusters") 
-
-    try:
-        files_4 = set(sound_names).intersection(files4)
-        if files_4:
-            os.mkdir(files_dir+'/hfc/3')
-        for e in files_4:
-            shutil.copy(files_dir+'/hfc/'+(str(e))+'hfc.ogg', files_dir+'/hfc/3/'+(str(e))+'hfc.ogg')
-    except:
-        print ("Creating directories of clusters") 
-
-    if files_1:
-        os.mkdir(files_dir+'/hfc/0')
-
-    if files_2:
-        os.mkdir(files_dir+'/hfc/1')
-
-    for e in files_1:
-        shutil.copy(files_dir+'/hfc/'+(str(e))+'hfc.ogg', files_dir+'/hfc/0/'+(str(e))+'hfc.ogg')
-
-    for e in files_2:
-        shutil.copy(files_dir+'/hfc/'+(str(e))+'hfc.ogg', files_dir+'/hfc/1/'+(str(e))+'hfc.ogg')
-
-
 # save inharmonicity cluster files in inharmonicity cluster directory
 def inharmonicity_cluster_files(files_dir, descriptor, euclidean_labels, files):
     """
@@ -556,70 +349,38 @@ def inharmonicity_cluster_files(files_dir, descriptor, euclidean_labels, files):
     :param euclidean_labels: groups of clusters 
     :param files: the .json files (use get_files)
     """
-    first_group = [i for i, x in enumerate(euclidean_labels) if x == 0]
-    second_group = [i for i, x in enumerate(euclidean_labels) if x == 1]
-
+    groups = [[] for i in xrange(len(np.unique(euclidean_labels)))]
     for i, x in enumerate(euclidean_labels):
-        if x == 2:
-            third_group = [i for i, x in enumerate(euclidean_labels) if x ==2]
-            group3 = map(lambda json: files[0][json], third_group)
-            files3 = [i.split('.json')[0] for i in group3]
-        else:
-            print ("Reading groups")
-
-    for i, x in enumerate(euclidean_labels):
-        if x == 3:
-            fourth_group = [i for i, x in enumerate(euclidean_labels) if x ==3]
-            group4 = map(lambda json: files[0][json], fourth_group)
-            files4 = [i.split('.json')[0] for i in group4]
-        else:
-            print ("Reading groups")
-
-    print ("Saving files in clusters directory") 
-
-    group1 = map(lambda json: files[0][json], first_group)
-    group2 = map(lambda json: files[0][json], second_group)
-
-    files1 = [i.split('.json')[0] for i in group1]
-    files2 = [i.split('.json')[0] for i in group2]
-
-    for subdirs, dirs, sounds in os.walk(files_dir+'/inharmonicity'):
-        if subdirs == (files_dir+'/inharmonicity'):
-            for s in sounds:
-                sound_names = [s.split('inharmonicity.ogg')[0] for s in sounds]
-            
-    files_1 = set(sound_names).intersection(files1)
-    files_2 = set(sound_names).intersection(files2)
-    try:
-        files_3 = set(sound_names).intersection(files3)
-        if files_3:
-            os.mkdir(files_dir+'/inharmonicity/2')
-        for e in files_3:
-            shutil.copy(files_dir+'/inharmonicity/'+(str(e))+'inharmonicity.ogg', files_dir+'/inharmonicity/2/'+(str(e))+'inharmonicity.ogg')
-    except:
-        print ("Creating two directories of clusters") 
-
-    try:
-        files_4 = set(sound_names).intersection(files4)
-        if files_4:
-            os.mkdir(files_dir+'/inharmonicity/3')
-        for e in files_4:
-            shutil.copy(files_dir+'/inharmonicity/'+(str(e))+'inharmonicity.ogg', files_dir+'/inharmonicity/3/'+(str(e))+'inharmonicity.ogg')
-    except:
-        print ("Creating directories of clusters") 
-
-    if files_1:
-        os.mkdir(files_dir+'/inharmonicity/0')
-
-    if files_2:
-        os.mkdir(files_dir+'/inharmonicity/1')
-
-    for e in files_1:
-        shutil.copy(files_dir+'/inharmonicity/'+(str(e))+'inharmonicity.ogg', files_dir+'/inharmonicity/0/'+(str(e))+'inharmonicity.ogg')
-
-    for e in files_2:
-        shutil.copy(files_dir+'/inharmonicity/'+(str(e))+'inharmonicity.ogg', files_dir+'/inharmonicity/1/'+(str(e))+'inharmonicity.ogg')
-
+        groups[x].append([files[0][i], x])
+                
+    for c in xrange(len(groups)):
+        if not os.path.exists(files_dir+'/inharmonicity/'+str(c)):
+            os.makedirs(files_dir+'/inharmonicity/'+str(c))
+            os.makedirs(files_dir+'/inharmonicity/'+str(c)+'/remix')   
+        for t in groups[c]:       
+            for s in list(os.walk(files_dir+'/inharmonicity', topdown=False))[-1][-1]:
+                 if str(t[0]).split('.')[0] == s.split('inharmonicity.ogg')[0]:
+                     shutil.copy(files_dir+'/inharmonicity/'+s, files_dir+'/inharmonicity/'+str(c)+'/'+s)     
+                     print t 
+ 
+        try:
+            simil_audio = [MonoLoader(filename=files_dir+'/inharmonicity/'+str(c)+f)() for f in list(os.walk(files_dir+'/inharmonicity/'+str(c), topdown = False))[-1][-1]]
+            audio0 = scratch_music(choice(simil_audio))
+            audio1 = scratch_music(choice(simil_audio)) 
+            del simil_audio                               
+            audio_N = min([len(i) for i in [audio0, audio1]])  
+            audio_samples = [i[:audio_N]/i.max() for i in [audio0, audio1]]                                         
+            simil_x = np.array(audio_samples).sum(axis=0) 
+            del audio_samples
+            simil_x = 0.5*simil_x/simil_x.max()      
+            h, p = librosa.decompose.hpss(librosa.core.stft(simil_x))
+            del simil_x, p
+            h = librosa.istft(h)                                                
+            MonoWriter(filename=files_dir+'/inharmonicity/'+str(c)+'/remix/'+'similarity_mix_inharmonicity.ogg', format = 'ogg', sampleRate = 44100)(h)  
+            del h
+        except Exception, e:
+            print e
+            continue
 
 # save dissonance cluster files in dissonance cluster directory
 def dissonance_cluster_files(files_dir, descriptor, euclidean_labels, files):
@@ -631,71 +392,39 @@ def dissonance_cluster_files(files_dir, descriptor, euclidean_labels, files):
     :param euclidean_labels: groups of clusters 
     :param files: the .json files (use get_files)
     """
-    first_group = [i for i, x in enumerate(euclidean_labels) if x == 0]
-    second_group = [i for i, x in enumerate(euclidean_labels) if x == 1]
-
+    groups = [[] for i in xrange(len(np.unique(euclidean_labels)))]
     for i, x in enumerate(euclidean_labels):
-        if x == 2:
-            third_group = [i for i, x in enumerate(euclidean_labels) if x ==2]
-            group3 = map(lambda json: files[0][json], third_group)
-            files3 = [i.split('.json')[0] for i in group3]
-        else:
-            print ("Reading groups")
-
-    for i, x in enumerate(euclidean_labels):
-        if x == 3:
-            fourth_group = [i for i, x in enumerate(euclidean_labels) if x ==3]
-            group4 = map(lambda json: files[0][json], fourth_group)
-            files4 = [i.split('.json')[0] for i in group4]
-        else:
-            print ("Reading groups")
-
-    print ("Saving files in clusters directory") 
-
-    group1 = map(lambda json: files[0][json], first_group)
-    group2 = map(lambda json: files[0][json], second_group)
-
-    files1 = [i.split('.json')[0] for i in group1]
-    files2 = [i.split('.json')[0] for i in group2]
-
-    for subdirs, dirs, sounds in os.walk(files_dir+'/dissonance'):
-        if subdirs == (files_dir+'/dissonance'):
-            for s in sounds:
-                sound_names = [s.split('dissonance.ogg')[0] for s in sounds]
+        groups[x].append([files[0][i], x])
+                
+    for c in xrange(len(groups)):
+        if not os.path.exists(files_dir+'/dissonance/'+str(c)):
+            os.makedirs(files_dir+'/dissonance/'+str(c))
+            os.makedirs(files_dir+'/dissonance/'+str(c)+'/remix')   
+        for t in groups[c]:       
+            for s in list(os.walk(files_dir+'/dissonance', topdown=False))[-1][-1]:
+                 if str(t[0]).split('.')[0] == s.split('dissonance.ogg')[0]:
+                     shutil.copy(files_dir+'/dissonance/'+s, files_dir+'/dissonance/'+str(c)+'/'+s)     
+                     print t
+ 
+        try: 
+            simil_audio = [MonoLoader(filename=files_dir+'/dissonance/'+str(c)+f)() for f in list(os.walk(files_dir+'/dissonance/'+str(c), topdown = False))[-1][-1]]
+            audio0 = scratch_music(choice(simil_audio))
+            audio1 = scratch_music(choice(simil_audio)) 
+            del simil_audio                               
+            audio_N = min([len(i) for i in [audio0, audio1]])  
+            audio_samples = [i[:audio_N]/i.max() for i in [audio0, audio1]]                                                  
+            simil_x = np.array(audio_samples).sum(axis=0) 
+            del audio_samples            
+            simil_x = 0.5*simil_x/simil_x.max()      
+            h, p = librosa.decompose.hpss(librosa.core.stft(simil_x))
+            del simil_x, p            
+            h = librosa.istft(h)                                                
+            MonoWriter(filename=files_dir+'/dissonance/'+str(c)+'/remix/'+'similarity_mix_dissonance.ogg', format = 'ogg', sampleRate = 44100)(h)  
+            del h
+        except Exception, e:
+            print e
+            continue
             
-    files_1 = set(sound_names).intersection(files1)
-    files_2 = set(sound_names).intersection(files2)
-    try:
-        files_3 = set(sound_names).intersection(files3)
-        if files_3:
-            os.mkdir(files_dir+'/dissonance/2')
-        for e in files_3:
-            shutil.copy(files_dir+'/dissonance/'+(str(e))+'dissonance.ogg', files_dir+'/dissonance/2/'+(str(e))+'dissonance.ogg')
-    except:
-        print ("Creating two directories of clusters") 
-
-    try:
-        files_4 = set(sound_names).intersection(files4)
-        if files_4:
-            os.mkdir(files_dir+'/dissonance/3')
-        for e in files_4:
-            shutil.copy(files_dir+'/dissonance/'+(str(e))+'dissonance.ogg', files_dir+'/dissonance/3/'+(str(e))+'dissonance.ogg')
-    except:
-        print ("Creating directories of clusters") 
-
-    if files_1:
-        os.mkdir(files_dir+'/dissonance/0')
-
-    if files_2:
-        os.mkdir(files_dir+'/dissonance/1')
-
-    for e in files_1:
-        shutil.copy(files_dir+'/dissonance/'+(str(e))+'dissonance.ogg', files_dir+'/dissonance/0/'+(str(e))+'dissonance.ogg')
-
-    for e in files_2:
-        shutil.copy(files_dir+'/dissonance/'+(str(e))+'dissonance.ogg', files_dir+'/dissonance/1/'+(str(e))+'dissonance.ogg')
-
-
 # save attack cluster files in attack cluster directory
 def attack_cluster_files(files_dir, descriptor, euclidean_labels, files):
     """
@@ -706,71 +435,39 @@ def attack_cluster_files(files_dir, descriptor, euclidean_labels, files):
     :param euclidean_labels: groups of clusters 
     :param files: the .json files (use get_files)
     """
-    first_group = [i for i, x in enumerate(euclidean_labels) if x == 0]
-    second_group = [i for i, x in enumerate(euclidean_labels) if x == 1]
-
+    groups = [[] for i in xrange(len(np.unique(euclidean_labels)))]
     for i, x in enumerate(euclidean_labels):
-        if x == 2:
-            third_group = [i for i, x in enumerate(euclidean_labels) if x ==2]
-            group3 = map(lambda json: files[0][json], third_group)
-            files3 = [i.split('.json')[0] for i in group3]
-        else:
-            print ("Reading groups")
-
-    for i, x in enumerate(euclidean_labels):
-        if x == 3:
-            fourth_group = [i for i, x in enumerate(euclidean_labels) if x ==3]
-            group4 = map(lambda json: files[0][json], fourth_group)
-            files4 = [i.split('.json')[0] for i in group4]
-        else:
-            print ("Reading groups")
-
-    print ("Saving files in clusters directory") 
-
-    group1 = map(lambda json: files[0][json], first_group)
-    group2 = map(lambda json: files[0][json], second_group)
-
-    files1 = [i.split('.json')[0] for i in group1]
-    files2 = [i.split('.json')[0] for i in group2]
-
-    for subdirs, dirs, sounds in os.walk(files_dir+'/attack'):
-        if subdirs == (files_dir+'/attack'):
-            for s in sounds:
-                sound_names = [s.split('attack.ogg')[0] for s in sounds]
-            
-    files_1 = set(sound_names).intersection(files1)
-    files_2 = set(sound_names).intersection(files2)
-    try:
-        files_3 = set(sound_names).intersection(files3)
-        if files_3:
-            os.mkdir(files_dir+'/attack/2')
-        for e in files_3:
-            shutil.copy(files_dir+'/attack/'+(str(e))+'attack.ogg', files_dir+'/attack/2/'+(str(e))+'attack.ogg')
-    except:
-        print ("Creating two directories of clusters") 
-
-    try:
-        files_4 = set(sound_names).intersection(files4)
-        if files_4:
-            os.mkdir(files_dir+'/attack/3')
-        for e in files_4:
-            shutil.copy(files_dir+'/attack/'+(str(e))+'attack.ogg', files_dir+'/attack/3/'+(str(e))+'attack.ogg')
-    except:
-        print ("Creating directories of clusters") 
-
-    if files_1:
-        os.mkdir(files_dir+'/attack/0')
-
-    if files_2:
-        os.mkdir(files_dir+'/attack/1')
-
-    for e in files_1:
-        shutil.copy(files_dir+'/attack/'+(str(e))+'attack.ogg', files_dir+'/attack/0/'+(str(e))+'attack.ogg')
-
-    for e in files_2:
-        shutil.copy(files_dir+'/attack/'+(str(e))+'attack.ogg', files_dir+'/attack/1/'+(str(e))+'attack.ogg')
+        groups[x].append([files[0][i], x])
+                
+    for c in xrange(len(groups)):
+        if not os.path.exists(files_dir+'/attack/'+str(c)):
+            os.makedirs(files_dir+'/attack/'+str(c))
+            os.makedirs(files_dir+'/attack/'+str(c)+'/remix')    
+        for t in groups[c]:       
+            for s in list(os.walk(files_dir+'/attack', topdown=False))[-1][-1]:
+                 if str(t[0]).split('.')[0] == s.split('attack.ogg')[0]:
+                     shutil.copy(files_dir+'/attack/'+s, files_dir+'/attack/'+str(c)+'/'+s)     
+                     print t
  
-
+        try:
+            simil_audio = [MonoLoader(filename=files_dir+'/attack/'+str(c)+f)() for f in list(os.walk(files_dir+'/attack/'+str(c), topdown = False))[-1][-1]]
+            audio0 = scratch_music(choice(simil_audio))
+            audio1 = scratch_music(choice(simil_audio)) 
+            del simil_audio                               
+            audio_N = min([len(i) for i in [audio0, audio1]])  
+            audio_samples = [i[:audio_N]/i.max() for i in [audio0, audio1]]                                                  
+            simil_x = np.array(audio_samples).sum(axis=0) 
+            del audio_samples      
+            simil_x = 0.5*simil_x/simil_x.max()      
+            h, p = librosa.decompose.hpss(librosa.core.stft(simil_x))
+            del simil_x, h          
+            p = librosa.istft(p)                                                
+            MonoWriter(filename=files_dir+'/attack/'+str(c)+'/remix/'+'similarity_mix_attack.ogg', format = 'ogg', sampleRate = 44100)(p)  
+            del p
+        except Exception, e:
+            print e
+            continue
+            
 # save duration cluster files in dissonance cluster directory
 def duration_cluster_files(files_dir, descriptor, euclidean_labels, files):
     """
@@ -781,71 +478,40 @@ def duration_cluster_files(files_dir, descriptor, euclidean_labels, files):
     :param euclidean_labels: groups of clusters 
     :param files: the .json files (use get_files)
     """
-    first_group = [i for i, x in enumerate(euclidean_labels) if x == 0]
-    second_group = [i for i, x in enumerate(euclidean_labels) if x == 1]
-
+    groups = [[] for i in xrange(len(np.unique(euclidean_labels)))]
     for i, x in enumerate(euclidean_labels):
-        if x == 2:
-            third_group = [i for i, x in enumerate(euclidean_labels) if x ==2]
-            group3 = map(lambda json: files[0][json], third_group)
-            files3 = [i.split('.json')[0] for i in group3]
-        else:
-            print ("Reading groups")
-
-    for i, x in enumerate(euclidean_labels):
-        if x == 3:
-            fourth_group = [i for i, x in enumerate(euclidean_labels) if x ==3]
-            group4 = map(lambda json: files[0][json], fourth_group)
-            files4 = [i.split('.json')[0] for i in group4]
-        else:
-            print ("Reading groups")
-
-    print ("Saving files in clusters directory") 
-
-    group1 = map(lambda json: files[0][json], first_group)
-    group2 = map(lambda json: files[0][json], second_group)
-
-    files1 = [i.split('.json')[0] for i in group1]
-    files2 = [i.split('.json')[0] for i in group2]
-
-    for subdirs, dirs, sounds in os.walk(files_dir+'/duration'):
-        if subdirs == (files_dir+'/duration'):
-            for s in sounds:
-                sound_names = [s.split('duration.ogg')[0] for s in sounds]
+        groups[x].append([files[0][i], x])
+                
+    for c in xrange(len(groups)):
+        if not os.path.exists(files_dir+'/duration/'+str(c)):
+            os.makedirs(files_dir+'/duration/'+str(c))
+            os.makedirs(files_dir+'/duration/'+str(c)+'/remix')     
+        for t in groups[c]:       
+            for s in list(os.walk(files_dir+'/duration', topdown=False))[-1][-1]:
+                 if str(t[0]).split('.')[0] == s.split('duration.ogg')[0]:
+                     shutil.copy(files_dir+'/duration/'+s, files_dir+'/duration/'+str(c)+'/'+s)     
+                     print t
+ 
+        try:
+            simil_audio = [MonoLoader(filename=files_dir+'/duration/'+str(c)+f)() for f in list(os.walk(files_dir+'/duration/'+str(c), topdown = False))[-1][-1]]
+            audio0 = scratch_music(choice(simil_audio))
+            audio1 = scratch_music(choice(simil_audio))
+            del simil_audio                                
+            audio_N = min([len(i) for i in [audio0, audio1]])  
+            audio_samples = [i[:audio_N]/i.max() for i in [audio0, audio1]] 
+            del audio0, audio1                                                 
+            simil_x = np.array(audio_samples).sum(axis=0) 
+            del audio_samples           
+            simil_x = 0.5*simil_x/simil_x.max()      
+            h, p = librosa.decompose.hpss(librosa.core.stft(simil_x))
+            del simil_x, p           
+            h = librosa.istft(h)                                                
+            MonoWriter(filename=files_dir+'/duration/'+str(c)+'/remix/'+'similarity_mix_duration.ogg', format = 'ogg', sampleRate = 44100)(h)  
+            del h
+        except Exception, e:
+            print e
+            continue
             
-    files_1 = set(sound_names).intersection(files1)
-    files_2 = set(sound_names).intersection(files2)
-    try:
-        files_3 = set(sound_names).intersection(files3)
-        if files_3:
-            os.mkdir(files_dir+'/duration/2')
-        for e in files_3:
-            shutil.copy(files_dir+'/duration/'+(str(e))+'.ogg', files_dir+'/duration/2/'+(str(e))+'duration.ogg')
-    except:
-        print ("Creating two directories of clusters") 
-
-    try:
-        files_4 = set(sound_names).intersection(files4)
-        if files_4:
-            os.mkdir(files_dir+'/duration/3')
-        for e in files_4:
-            shutil.copy(files_dir+'/duration/'+(str(e))+'.ogg', files_dir+'/duration/3/'+(str(e))+'duration.ogg')
-    except:
-        print ("Creating directories of clusters") 
-
-    if files_1:
-        os.mkdir(files_dir+'/duration/0')
-
-    if files_2:
-        os.mkdir(files_dir+'/duration/1')
-
-    for e in files_1:
-        shutil.copy(files_dir+'/duration/'+(str(e))+'.ogg', files_dir+'/duration/0/'+(str(e))+'duration.ogg')
-
-    for e in files_2:
-        shutil.copy(files_dir+'/duration/'+(str(e))+'.ogg', files_dir+'/duration/1/'+(str(e))+'duration.ogg')
-
-
 Usage = "./SoundSimilarity.py [FILES_DIR]"
 if __name__ == '__main__':
   
@@ -1092,5 +758,5 @@ if __name__ == '__main__':
 	print ("Saved clusters of selected descriptors")
 
     except Exception, e:
-        print(e)
-        exit(1) 
+        print logger.exception(e)
+        sys.exit(1) 
