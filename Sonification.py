@@ -1,6 +1,7 @@
 #!/usr/bin/python
 # -*- coding: UTF-8 -*-
 
+from utils.dj import hfc_onsets
 import os
 import sys
 import json
@@ -9,6 +10,8 @@ import scipy
 from essentia import *
 from essentia.standard import *
 import logging
+from smst.models.harmonic import from_audio
+from smst.models.sine import to_audio
 
 logging.basicConfig(level=logging.DEBUG)
 logger = logging.getLogger(__name__)  
@@ -27,13 +30,8 @@ def mir_sonification(inputSoundFile, data):
 
     #++++more helpers++++
     onsets_location = Onsets()
-    detect_by_hfc = OnsetDetection(method = 'hfc')
-    fft = FFT()
 
-    cartesian_to_polar = CartesianToPolar()
     audio_f0 = PitchYinFFT()(spectrum(w_hann(audio)))[0]
-
-    marker = scipy.cos((2*scipy.pi*1000/sampleRate)*scipy.arange(sampleRate*(1.0/float(sampleRate)))) 
 
     descriptors_dir = (tag_dir+'/'+'descriptores') #descriptors directory of tag
 
@@ -128,8 +126,6 @@ def mir_sonification(inputSoundFile, data):
            os.makedirs(valleys_dir)                                
            print "Creando directorio para escucha de contraste espectral basado en valle espectral"                                           
 
-    from smst.models.harmonic import from_audio
-    from smst.models.sine import to_audio
     freq, mag, phase = from_audio(audio, sampleRate, scipy.hanning(1023), 2048, 512, -70, 20, audio_f0, audio_f0*2, 10, abs(float(data['lowlevel.spectral_contrast.mean'])))   
     contrast_enhancement = ((1.3 * mag) - (0.3*float(data['lowlevel.spectral_valleys.mean']))) 
     contrast = to_audio(freq, mag + contrast_enhancement, phase, 1025, 512, sampleRate)  
@@ -144,11 +140,9 @@ def mir_sonification(inputSoundFile, data):
            os.makedirs(hfc_dir)                                
            print "Creando directorio para marcado de contenido de frecuencia alta" 
 
-    ctp_mag, ctp_phase = cartesian_to_polar(fft(w_hann(audio)))                                                
-
-    audio[audio == audio[int(np.array(detect_by_hfc(ctp_mag, ctp_phase)).astype(int))]  ] = audio[audio == audio[int(np.array(detect_by_hfc(ctp_mag, ctp_phase)).astype(int))]  ] + marker  
+    hfcs = hfc_onsets(audio)
     print ("Saving File with hfc bursts") 
-    output = MonoWriter(filename = hfc_dir + '/' + os.path.splitext(input_filename)[0] + 'hfc.ogg', format = 'ogg')(audio) 
+    output = MonoWriter(filename = hfc_dir + '/' + os.path.splitext(input_filename)[0] + 'hfc.ogg', format = 'ogg')(AudioOnsetsMarker(onsets=hfcs, type='beep')(audio)) 
 
     #sound recording with attack marker
 
@@ -163,9 +157,7 @@ def mir_sonification(inputSoundFile, data):
     audio = offset_filter(input_signal)
     audio[audio == audio[(at_s)*sampleRate]] = audio[audio == audio[(at_s)*sampleRate]] + marker  
     print ("Saving File with attack marker") 
-    output = MonoWriter(filename = attack_dir + '/' + os.path.splitext(input_filename)[0] + 'attack.ogg', format = 'ogg')(audio) 
-
-#()    
+    output = MonoWriter(filename = attack_dir + '/' + os.path.splitext(input_filename)[0] + 'attack.ogg', format = 'ogg')(audio)     
 
 Usage = "./Sonification.py [FILES_DIR]"
 if __name__ == '__main__':
@@ -195,3 +187,6 @@ if __name__ == '__main__':
     except Exception, e:
         logger.exception(e)
         exit(1)
+
+
+

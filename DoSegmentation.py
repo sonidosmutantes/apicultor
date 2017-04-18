@@ -2,16 +2,22 @@
 # -*- coding: utf-8 -*-
 
 import sys
-from smst.utils import audio
+from cache import memoize
 import numpy as np
 import essentia
 from essentia.standard import *
+from random import choice
 import os
 
+@memoize
+def do_segmentation(audio_input, audio_input_from_filename = True, audio_input_from_array = False, sec_len = 6, save_file = True):
 
-def do_segmentation(audio_input):
+    lenght = int(sec_len) * 10
 
-    x = MonoLoader(filename = audio_input)()
+    if audio_input_from_filename == True:                                           
+        x = MonoLoader(filename = audio_input)()
+    if (audio_input_from_filename == False) and audio_input_from_array == True:                                           
+        x = audio_input
 
     frames_duration = Duration()
 
@@ -21,15 +27,20 @@ def do_segmentation(audio_input):
  
     segments = [frames_duration(frame) for frame in FrameGenerator(x, frameSize=frame_size, hopSize=hop_size)]
 
+    output = []
     for segment in segments:                                           
         sample = segment*44100 
-        output = x[:sample*60] #extend duration of segment                                            
-        baseName = os.path.splitext(audio_input)[0].split('/')[-1]     
-        outputFilename = 'samples'+'/'+baseName+'_sample'+'.wav'                                                              
-        audio.write_wav(output,44100,outputFilename)
-        print("File generated: %s"%outputFilename)
-	break  
+        output.append(x[:sample*lenght]) #extend duration of segment
 
+    output = choice(output)                                           
+
+    if save_file == True:                                          
+        baseName = os.path.splitext(audio_input)[0].split('/')[-1]                                                                       
+        outputFilename = 'samples'+'/'+baseName+'_sample'+'.wav'                                                       
+        MonoWriter(filename = outputFilename)(output)
+        print("File generated: %s"%outputFilename)
+    if save_file == False:
+        return output
 
 Usage = "./DoSegmentation.py [FILES_DIR]"
 if __name__ == '__main__':
