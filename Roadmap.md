@@ -5,6 +5,7 @@
 * [DONE] Fire events with an external MIDI controller
 * [DONE] Live performance (with mock service)
 
+* Report generation (samples used during a performance). Authors and license
 * Add API extensive testing with well-known expected results
 * Improve the segmentation technique
 * Adjust MIR results
