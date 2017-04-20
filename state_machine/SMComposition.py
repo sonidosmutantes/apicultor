@@ -28,11 +28,27 @@ sc_IP = '127.0.0.1' #Local SC server
 sc_IP = '192.168.56.1' # Remote server is the host of the VM
 osc_client.connect( ( sc_IP, sc_Port ) )
 
-# Pyo Sound Server
+
+### Pyo Sound Server ###
+ 
+### Default
+# s = Server(duplex=0).boot()
+# s = Server().boot()
+
+### JACK ###
+s = Server(audio='jack')
+s.setJackAuto(False, False) #linux bug workaround
+s.boot()
+
+### Portaudio
+# s = Server(audio='portaudio').boot()
+
+s.start() #no s.gui(locals())
+
+###
+
 #TODO: normalize audio output
-s = Server().boot()
-#s = Server(audio='jack').boot()
-s.start()
+
 # sffade = Fader(fadein=0.05, fadeout=1, dur=0, mul=0.5).play()
 
 # Mixer
@@ -169,7 +185,7 @@ if __name__ == '__main__':
         # sys.exit(2)
     
     api_key = config["Freesound.org"][0]["API_KEY"]
-    
+
     #JSON composition file
     json_data = ""
     try:
@@ -182,9 +198,11 @@ if __name__ == '__main__':
         print("JSON composition file error.")
         sys.exit(2)
 
+    print("Starting MIR state machine")
 
     states_dict = dict() # id to name conversion
     states_dur = dict() #states duration
+    start_state = json_data['statesArray'][0]['text'] #TODO: add as property (start: True)
     for st in json_data['statesArray']:
         states_dict[ st['id'] ] = st['text']
         try:
@@ -214,8 +232,9 @@ if __name__ == '__main__':
 
     # Init conditions
     #state = 'idle' #start state
-    state = "A" #start state
-    previous_state = "H" #start state
+    # state = "A" #start state
+    state = start_state
+    previous_state = "H"
 
 
 
@@ -223,7 +242,7 @@ if __name__ == '__main__':
     # events = 10 # or loop with while(1)
     # for i in range(events):
     while(1):
-        print( state ) # TODO: call the right method for the state here
+        print( "State: %s"%state ) # TODO: call the right method for the state here
         #(optional) change sound in the same state or not (add as json config file)
         if state!=previous_state:
             #retrieve new sound
