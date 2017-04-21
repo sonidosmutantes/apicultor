@@ -1,6 +1,9 @@
 # Requirements
 
-Tested under Debian, Ubuntu 15.04 and 16.04 but should work in other operating systems
+Tested under Linux, Mac OS (>10.11) and Windows 10.
+
+Debian, Ubuntu 15.04 and 16.04 (and .10). And Docker images.
+Raspian @ Raspberry Pi
 
 # PIP 
 $ sudo apt-get install python3-pip python-pip
@@ -20,7 +23,18 @@ $ sudo pip2 install flask
 
 $ sudo pip2 install flask-autodoc
 
-## MIR
+# Pyo
+$ sudo apt-get install python-dev libjack-jackd2-dev libportmidi-dev portaudio19-dev liblo-dev libsndfile-dev python-dev python-tk python-imaging-tk python-wxgtk2.8
+
+$ wget http://ajaxsoundstudio.com/downloads/pyo_0.8.5-src.tar.bz2
+
+$ tar -xvf pyo_0.8.5-src.tar.bz2 && cd pyo_0.8.5-src
+
+#enable-jack compilation
+$ sudo python setup.py --use-jack install
+
+
+# MIR
 
 ### Essentia (http://essentia.upf.edu/)
 
