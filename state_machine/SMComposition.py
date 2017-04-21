@@ -10,6 +10,8 @@ import sys
 import json
 from pyo import *
 
+import platform
+
 # from mirdbapi.FreesoundDB import FreesounDB 
 
 DATA_PATH = "data"
@@ -30,18 +32,18 @@ osc_client.connect( ( sc_IP, sc_Port ) )
 
 
 ### Pyo Sound Server ###
- 
-### Default
-# s = Server(duplex=0).boot()
-# s = Server().boot()
 
-### JACK ###
-s = Server(audio='jack')
-s.setJackAuto(False, False) #linux bug workaround
-s.boot()
-
-### Portaudio
-# s = Server(audio='portaudio').boot()
+if platform.system() == "Darwin" or platform.system() == "Windows":
+    ### Default
+    s = Server().boot()
+    # s = Server(duplex=0).boot()
+    # s = Server(audio='portaudio').boot()
+    s = Server().boot()
+else: #Linux
+    ### JACK ###
+    s = Server(audio='jack')
+    s.setJackAuto(False, False) #linux bug workaround
+    s.boot()
 
 s.start() #no s.gui(locals())
 
