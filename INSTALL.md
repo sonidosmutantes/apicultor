@@ -77,7 +77,7 @@ $ sudo apt-get install python-tk
 
 * Essentia (ver instrucciones para compilar aquí: http://essentia.upf.edu/documentation/installing.html)
 
-## State Machine
+## MIR State Machine example
 
 ### pykov (markov processes)
 Note that Pykov depends on numpy and scipy.
@@ -88,17 +88,17 @@ $ sudo pip install git+git://github.com/riccardoscalco/Pykov@master
 
 Note: In Raspberry Py run first $ sudo apt-get install python-numpy python-scipy #pip install scipy no works
 
-### OSC client
+### OSC Client
 $ git clone https://github.com/ptone/pyosc.git
 $ cd pyosc && sudo ./setup.py install
 
 
-## OSC (different libraries)
+# OSC (different libraries)
 
-# OSC Service Example
+## OSC Service Example
 $ sudo pip3 install python-osc
 
-# OSC Client
+## OSC Client
 $ git clone https://github.com/ptone/pyosc.git
 $ cd pyosc && sudo ./setup.py install
 
