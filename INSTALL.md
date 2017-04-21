@@ -1,5 +1,6 @@
 # Requirements
 
+### Operating System
 Tested under Linux, Mac OS (>10.11) and Windows 10.
 
 Debian, Ubuntu 15.04 and 16.04 (and .10). And Docker images.
@@ -100,7 +101,7 @@ Both for Python2 and Python3:
 
 $ sudo pip install git+git://github.com/riccardoscalco/Pykov@master 
 
-Note: In Raspberry Py run first $ sudo apt-get install python-numpy python-scipy #pip install scipy no works
+Note: In Raspberry Pi run first $ sudo apt-get install python-numpy python-scipy #pip install scipy no works
 
 ### OSC Client
 $ git clone https://github.com/ptone/pyosc.git
