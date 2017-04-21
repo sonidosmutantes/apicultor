@@ -79,16 +79,26 @@ $ sudo apt-get install python-tk
 
 ## State Machine
 
-$ sudo pip install git+git://github.com/riccardoscalco/Pykov@master #both Python2 and Python3
+### pykov (markov processes)
+Note that Pykov depends on numpy and scipy.
 
-Note that Pykov depends on numpy and scipy
+Both for Python2 and Python3:
 
-## OSC
+$ sudo pip install git+git://github.com/riccardoscalco/Pykov@master 
+
+Note: In Raspberry Py run first $ sudo apt-get install python-numpy python-scipy #pip install scipy no works
+
+### OSC client
+$ git clone https://github.com/ptone/pyosc.git
+$ cd pyosc && sudo ./setup.py install
+
+
+## OSC (different libraries)
 
 # OSC Service Example
 $ sudo pip3 install python-osc
 
-# State Machine Example
+# OSC Client
 $ git clone https://github.com/ptone/pyosc.git
 $ cd pyosc && sudo ./setup.py install
 
