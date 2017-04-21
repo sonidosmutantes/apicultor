@@ -48,7 +48,7 @@ Interdisciplinary performances based on sounds of the web platform [Redpanal.org
 * Examples in Supercollider, pyo
 * Examples with MIDI and OSC controller. Locale and remote.
 
-# Dependencias
+# Dependencies
 
 Tested under Linux, Mac OS (>10.11) and Windows 10.
 
