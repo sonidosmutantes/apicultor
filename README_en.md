@@ -50,4 +50,9 @@ Interdisciplinary performances based on sounds of the web platform [Redpanal.org
 
 # Dependencias
 
+Tested under Linux, Mac OS (>10.11) and Windows 10.
+
+Debian, Ubuntu 15.04 and 16.04 (and .10). And Docker images.
+Raspian @ Raspberry Pi
+
 See [INSTALL.md](INSTALL.md)
