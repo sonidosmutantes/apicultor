@@ -44,6 +44,7 @@ else: #Linux
     s = Server(audio='jack')
     s.setJackAuto(False, False) #linux bug workaround
     s.boot()
+    s.setJackAutoConnectOutputPorts(['system:playback_1', 'system:playback_2'])
 
 s.start() #no s.gui(locals())
 
