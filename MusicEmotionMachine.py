@@ -1,29 +1,39 @@
 #! /usr/bin/env python
 # -*- coding: utf-8 -*-
 
-from SoundSimilarity import get_files, get_dics, desc_pair
+from utils.dj import *
+from cross_validation import *
+from gradients.descent import SGD
+from constraints.bounds import dsvm_low_a as la
+from constraints.bounds import dsvm_high_a as ha
+from constraints.bounds import es
+from constraints.tempo import same_time
+from constraints.time_freq import *
+from gradients.subproblem import *
+from utils.data import get_files, get_dics, desc_pair, read_file
 import time
 from colorama import Fore
-from collections import Counter
+from collections import Counter, defaultdict
 from itertools import combinations
 import numpy as np                                                      
 import matplotlib.pyplot as plt                                   
 import os, sys                                                           
 from essentia.standard import *
 from smst.utils.audio import write_wav    
-from sklearn import svm, preprocessing
-from sklearn.decomposition.pca import PCA
+from sklearn import preprocessing
+from sklearn.preprocessing import LabelBinarizer as lab_bin
+from sklearn.preprocessing import LabelEncoder as le
+from sklearn.decomposition.pca import PCA as pca
 from sklearn.cluster import KMeans
+from random import *
 from sklearn.utils.extmath import safe_sparse_dot as ssd
-import librosa
-from librosa import *                                       
+import librosa                                   
 import shutil
 from smst.models import stft 
-from python_toolbox import caching
 import logging
 
 logging.basicConfig(level=logging.DEBUG)
-logger = logging.getLogger(__name__)                               
+logger = logging.getLogger(__name__)
 
 #emotion classification
 class descriptors_and_keys():
@@ -31,13 +41,12 @@ class descriptors_and_keys():
     get all descriptions given descriptor keys
     :param files_dir: data tag dir if not performing multitag classification. data dir if performing multitag classification
     :param multitag: if True, will classify all downloaded files and remix when performing emotional state transition 
-    """                    
+    """                   
     def __init__(self, files_dir,  multitag):
         self.multitag = None
         self._files_dir = files_dir
         if multitag == None or multitag == False:                                                
-            self._files = get_files(files_dir)                                    
-            self._dics = get_dics(files_dir)                                      
+            raise IndexError("Need lots of data for emotion classification")                                    
         elif multitag == True:                                              
             self._files = np.hstack([get_files(tag) for tag in files_dir])        
             self._dics = np.hstack([get_dics(tag) for tag in files_dir])          
@@ -56,7 +65,7 @@ class descriptors_and_keys():
         self._dics = list(self._dics)
         duplicate = [] 
         self._duplicate_index = []
-        for i in range(len(self._files)):                             
+        for i in xrange(len(self._files)):                             
             if self._files[i].endswith('(1).json') is True:
                 self._duplicate_index.append(i)
         for i in self._files:                             
@@ -81,7 +90,7 @@ class descriptors_and_keys():
         self._files_features = desc_pair(self._files,self._dics).files_features
         self._keys = [3,9,0,2,1,7,4,10,5,8,11,12]  
         self._features = []
-        for i in range(len(self._keys)):
+        for i in xrange(len(self._keys)):
             self._features.append(np.float64(zip(*self._files_features)[self._keys[i]]))    
         self._features = np.array(self._features).T
 
@@ -90,11 +99,11 @@ def feature_scaling(f):
     scale features
     :param features: combinations of features                                                                               
     :returns:                                                                                                         
-      - fscaled: scaled features
+      - scaled features with mean and standard deviation
     """    
-    from sklearn.preprocessing import StandardScaler as stdscale 
-    fscaled = stdscale().fit(f).transform(f)
-    return fscaled
+    mu = np.mean(f)
+    sigma = np.std(f)
+    return (f - mu) / sigma
 
 def KMeans_clusters(fscaled):
     """
@@ -103,7 +112,7 @@ def KMeans_clusters(fscaled):
     :returns:                                                                                                         
       - labels: classes         
     """
-    labels = (KMeans(init = PCA(n_components = 2).fit(fscaled).components_, n_clusters=2, n_init=1, precompute_distances = True).fit(fscaled).labels_)
+    labels = (KMeans(init = pca(n_components = 4).fit(fscaled).components_, n_clusters=4, n_init=1, precompute_distances = True).fit(fscaled).labels_)
     return labels
 
 class deep_support_vector_machines(object):
@@ -113,10 +122,10 @@ class deep_support_vector_machines(object):
     :param labels: classes                                                                                            
     """ 
     def __init__(self, kernel):
-        self.kernel1 = kernel1
-        self.kernel2 = kernel2
+        self.kernel1 = None
+        self.kernel2 = None
     @classmethod
-    @caching.cache(max_size=100)
+    @memoize
     def polynomial_kernel(self, x, y, gamma):
 	"""
 	Custom polynomial kernel function, similarities of vectors over polynomials
@@ -138,14 +147,19 @@ class deep_support_vector_machines(object):
         pk **= degree
         return pk
     @classmethod
-    @caching.cache(max_size=100)
-    def linear_kernel_matrix(self, x, y):   
-        return np.dot(x,y)
+    @memoize
+    def linear_kernel_matrix(self, x, y): 
+	"""
+	Custom inner product. The returned matrix is a Linear Kernel Gram Matrix
+	:param x: your dataset
+	:param y: another dataset (sth like transposed(x))
+	"""       
+        return ssd(x,y, dense_output = True)
     @classmethod
-    @caching.cache(max_size=100)
+    @memoize
     def sigmoid_kernel(self, x, y, gamma):
 	"""
-	Custom sigmoid kernel function, similarities of vectors over polynomials
+	Custom sigmoid kernel function, similarities of vectors in a sigmoid kernel matrix
 	:param x: array of input vectors
 	:param y: array of input vectors
 	:param gamma: gamma
@@ -153,7 +167,6 @@ class deep_support_vector_machines(object):
 	  - sk: inner product
 	"""
         c = 1
-        degree = 2
 
         sk = ssd(x, y.T, dense_output = True)
 
@@ -164,181 +177,339 @@ class deep_support_vector_machines(object):
         np.tanh(np.array(sk, dtype='float64'), np.array(sk, dtype = 'float64'))
         return np.array(sk, dtype = 'float64')
     @classmethod
-    @caching.cache(max_size=100)
+    @memoize
     def rbf_kernel(self, x, y, gamma):
 	"""
-	Custom sigmoid kernel function, similarities of vectors over polynomials
+	Custom sigmoid kernel function, similarities of vectors using a radial basis function kernel
 	:param x: array of input vectors
 	:param y: array of input vectors
-	:param sigma: array of input vectors
+	:param gamma: reach factor
 	:returns:
-	  - rbfk: inner product
-	"""    
-        from sklearn.metrics.pairwise import euclidean_distances  
-        rbfk = euclidean_distances(x, y, squared=True)  
-        rbfk *= -gamma 
-        np.exp(rbfk, rbfk)  
-        return rbfk
+	  - rbfk: radial basis of the kernel's inner product
+	"""     
+        mat1 = np.mat(x) #convert to readable matrices
+        mat2 = np.mat(y)                                                                                                
+        trnorms1 = np.mat([(v * v.T)[0, 0] for v in mat1]).T #norm matrices
+        trnorms2 = np.mat([(v * v.T)[0, 0] for v in mat2]).T                                                                                
+        k1 = trnorms1 * np.mat(np.ones((mat2.shape[0], 1), dtype=np.float64)).T #dot products of y and y transposed and x and x transposed   
+        k2 = np.mat(np.ones((mat1.shape[0], 1), dtype=np.float64)) * trnorms2.T          
+                   
+        rbfk = k1 + k2 #sum products together
+        rbfk -= 2 * np.mat(mat1 * mat2.T) #dot product of x and y transposed                                         
+        rbfk *= - 1./(2 * np.power(gamma, 2)) #radial basis
+        np.exp(rbfk,rbfk)
+        return np.array(rbfk)
+
     def fit_model(self, features,labels, kernel1, kernel2, C, reg_param, gamma):
+	"""
+	Fit your data for classification. Attributes such as alpha, the bias, the weight, and the support vectors can be accessed after training.
+	:param features: your features dataset
+	:param labels: your labels dataset
+	:param kernel1: the kernel used for predictive task
+	:param kernel2: the kernel used to solve the min-max problem
+	:param C: cost, also called penalty parameter
+	:param reg_param: tolerance, used for convergence
+	:param gamma: determines a reach 
+	*What you can have access to after computing
+	  - w: the weight coefficient
+	  - a: resolutions to min-max problems
+	  - dual_coefficients: stacked alphas of the support vectors appearing in all of the problems of its class
+	  - svs: find out which index of your features is a support vector
+	  - nvs: number of support vectors in each class
+	  - ns: where your support vectors are from your input dataset
+	  - bias: a helper
+	"""    
         self.kernel1 = kernel1
         self.kernel2 = kernel2
         self.gamma = gamma
+        self.C = C
 
-        x = np.ones(shape = (len(features),3)) 
-        x[:,(0,1)] = features[:,(0,1)]  
+        features = np.ascontiguousarray(features)
 
-        if np.all(labels[labels  > 0]) == False:                                      
+        multiclass = False
+
+        if not 0 in labels:                                      
+            raise IndexError("Targets must start from 0")
+
+        self.targets = labels
+
+        self.n_class = len(np.bincount(self.targets))
+
+        if self.n_class == 1:                                      
             raise Exception("There has to be two or more targets")
 
-        lab = labels * 2 - 1
+        if reg_param == 0:                                      
+            raise ValueError("There's no such 0 tolerance")
 
-        if self.kernel2 == "linear":                                      
-            kernel = self.linear_kernel_matrix
-            matrix = self.linear_kernel_matrix(x, x.T)
-        if self.kernel2 == "poly":
-            kernel = self.polynomial_kernel
-            matrix = self.polynomial_kernel(x, x, gamma)
-        if self.kernel2 == "rbf":                                      
-            kernel = self.rbf_kernel
-            matrix = self.rbf_kernel(x, x, gamma)
-        if self.kernel2 == "sigmoid":
-            kernel = self.sigmoid_kernel
-            matrix = self.sigmoid_kernel(x, x, gamma)
-        if self.kernel2 == None:              
-            print ("Apply a kernel")
+        if self.n_class > 2:                                      
+            multiclass = True
+        if not self.n_class > 2:                                      
+            raise Exception("Two labels classification for music is not allowed here")
 
-        Q = np.zeros((len(labels), len(labels)))
-        for i in xrange(len(labels)):
-            for j in xrange(i, len(labels)):
-                Qvalue = lab[i] * lab[j]
-                if kernel == self.linear_kernel_matrix:        
-                    Qvalue *= kernel(features[i,:], features[j,:])     
-                else:                    
-                    Qvalue *= kernel(features[i,:], features[j,:], gamma)
-                Q[i,j] = Q[j,i] = Qvalue
+        if multiclass == True:
+            self.instances = list(combinations(xrange(self.n_class), 2))
+            self.classes = np.unique(self.targets)
+            self.classifications = len(self.instances)
+            self.classesm = defaultdict(list) 
+            self.trained_features = defaultdict(list) 
+            self.indices_features = defaultdict(list) 
+            self.a = defaultdict(list)
+            self.svs = defaultdict(list)
+            self.ns = defaultdict(list)
+            self.nvs = defaultdict(list)
+            self.dual_coefficients = [[] for i in xrange(self.n_class - 1)]
 
-        class_weight = float(len(features))/(2 * np.bincount(labels))
+        for c in xrange(self.classifications):   
 
-        sample_weight = class_weight[labels]
+            self.classesm[c] = np.concatenate((self.targets[self.targets==self.instances[c][0]],self.targets[self.targets==self.instances[c][1]]))
+            self.indices_features[c] = np.concatenate((np.where(self.targets==self.instances[c][0]),np.where(self.targets==self.instances[c][1])), axis = 1)[0]
+            self.trained_features[c] = np.ascontiguousarray(np.concatenate((features[self.targets==self.instances[c][0]],features[self.targets==self.instances[c][1]])))
 
-        self.a = np.zeros(features.shape[0])
-        max_iterations = len(features)
-        iterations = 0
-        diff = 1. + reg_param
-        while diff > reg_param:
-            data_i = range(len(features))
-            for k in range(len(features)):
-                a0 = 4./(1. + iterations + k) + self.a.copy()
-                random_i = int(random.uniform(0,len(data_i)))
-                self.a[random_i] = self.a[random_i] + (1/np.diag(matrix))[random_i] * (1-x[random_i,2]*sum(self.a*x[:,2]*matrix[:,random_i]))
-                if self.a[random_i] < 0:                                       
-                    self.a[random_i] = 0
-                self.a[random_i] = min(self.a[random_i], C * sample_weight[i] * class_weight[labels[random_i]])
-                diff = sum((self.a-a0)*(self.a-a0))
-                del data_i[random_i]
+            self.classesm[c] = lab_bin(0,1).fit_transform(self.classesm[c]).T[0]
+
+            n_f = len(self.trained_features[c])
+            n_f0 = len(self.classesm[c][self.classesm[c]==0])
+                                                                     
+            lab = self.classesm[c] * 2 - 1
+                                                                   
+            if self.kernel2 == "linear":                                                                      
+                kernel = self.linear_kernel_matrix
+                self.Q = kernel(self.trained_features[c], self.trained_features[c].T) * lab            
+            if self.kernel2 == "poly":                                
+                kernel = self.polynomial_kernel
+                self.Q = kernel(self.trained_features[c], self.trained_features[c], self.gamma) * lab        
+            if self.kernel2 == "rbf":                                                                      
+                kernel = self.rbf_kernel
+                self.Q = kernel(self.trained_features[c], self.trained_features[c], self.gamma) * lab              
+            if self.kernel2 == "sigmoid":                             
+                kernel = self.sigmoid_kernel 
+                self.Q = kernel(self.trained_features[c], self.trained_features[c], self.gamma) * lab          
+            if self.kernel2 == None:                                  
+                print ("Apply a kernel")
+                                                                      
+            class_weight = float(n_f)/(2 * np.bincount(self.classesm[c]))
+
+            a = np.zeros(n_f)
+
+            iterations = 0                                            
+            diff = 1. + reg_param 
+            for i in xrange(n_f/2):
+                a0 = a.copy()
+                p1 = []
+                p2 = []                               
+                for k in xrange(n_f):
+                    zero = int(uniform(k, n_f0-1))
+                    one = int(uniform(n_f0, n_f))                        
+                    if (not zero in p1) and (not one in p2):                                             
+                        p1.append(zero)                                        
+                        p2.append(one)
+                    if (not zero >= k):                                             
+                        break
+                for j in xrange(len(p1)): 
+                    g1 = g(lab[p1[j]], a0[p1[j]], self.Q[p1[j],p1[j]])
+                    g2 = g(lab[p2[j]], a0[p2[j]], self.Q[p2[j],p2[j]])
+                    w0 = es(a, lab, self.trained_features[c]) 
+                    direction_grad = self.gamma * ((w0 * g2) + ((1 - w0) * g1))
+
+                    if (direction_grad * (g1 + g2) <= 0.):        
+                        break
+
+                    a[p1[j]] = a0[p1[j]] + direction_grad
+                    a[p2[j]] = a0[p2[j]] + direction_grad
+
+                a = la(a)
+                a = ha(a, class_weight[self.classesm[c]], self.C)
+                diff = Q_a(a, self.Q) - Q_a(a0, self.Q)
                 iterations += 1
-                if diff < reg_param:                                       
+                if (diff < reg_param):
+                    print str().join(("Gradient Ascent Converged after ", str(iterations), " iterations"))
                     break
 
-        print ("Iterated " + str(iterations) +  " times for gradient ascent")
+            #alphas are automatically signed and those with no incidence in the hyperplane are 0 complex or -0 complex, so alphas != 0 are taken 
+            a = SGD(a, lab, self.Q * lab, reg_param)
+                              
+            self.ns[c].append([])
+            self.ns[c].append([])
 
-        self.w = np.zeros(features.shape[1])
-        iterations = 0  
-        delta = 1. + reg_param                   
-        while delta > reg_param:
-            data_i = range(len(features))
-            for i in range(len(features)):
-                delta = 4./(1. + iterations + i) + 0. 
-                random_i = int(random.uniform(0,len(data_i)))             
-                gradient = np.dot(Q[random_i,:], self.a) - 1.0                                                                         
-                adelta = self.a[random_i] - min(max(self.a[random_i] - gradient/Q[random_i,random_i], 0.0), C * sample_weight[i] * class_weight[labels[random_i]])
-                self.w += adelta * features[random_i,:]  
-                delta += abs(adelta)
-                self.a[random_i] -= adelta
-                del data_i[random_i]
-                iterations += 1
-                if delta < reg_param:                                       
-                    break
+            for dc in xrange(len(a)):
+                if a[dc] != 0.0:
+                    if a[dc] > 0.0:
+                        self.ns[c][1].append(self.indices_features[c][dc])
+                    else:
+                        self.ns[c][0].append(self.indices_features[c][dc])
+                else:
+                    pass
 
-        print ("Iterated " + str(iterations) +  " times for gradient descent")
+            self.svs[c] = self.trained_features[c][a != 0.0, :]  
+                                                                      
+            self.a[c] = a[a != 0.0]
 
-        if np.sum(self.w) == 0:
-            raise Exception("Invalid value for weight, it should be higher than zero") 
+        a = defaultdict(list)
+        for i, (j,m) in enumerate(self.instances):
+            a[j].append(self.a[i][self.a[i] < 0])
+            a[m].append(self.a[i][self.a[i] > 0])
 
+        ns = defaultdict(list)
+        for i, (j,m) in enumerate(self.instances):
+            ns[j].append(self.ns[i][0])
+            ns[m].append(self.ns[i][1])
 
-        if np.sum(self.w) == np.nan:
-            raise Exception("Invalid value for weight, it should be higher than zero and not nan") 
+        nsv = [np.hstack(ns.values()[j][i] for i in range(len(ns.values()[j]))) for j in range(len(ns.values()))]
 
+        unqs = np.array([np.unique(nsv[i], return_index = True, return_counts = True) for i in range(len(nsv))])
 
-        print ("Weight coefficient = "), self.w
+        uniques = [list(unqs[:,0][i]) for i in range(len(unqs[:,0]))]
 
-        self.svs = features[self.a > 0.0, :]
+        counts = [list(unqs[:,2][i]) for i in range(len(unqs[:,0]))]
 
-        self.ns = np.sort(list(set(np.where(self.a > 0.0)[0])))
+        svs_ = [list(np.array(counts[i]) == self.n_class - 1) for i in range(len(counts))]
 
-        self.a = (self.a * lab)[self.a > 0.0]
+        self.ns = [uniques[i][j] for i in range(len(uniques)) for j in range(len(uniques[i])) if counts[i][j] == (self.n_class - 1)]
 
-        self.nvs = [0,0]
-        for i in np.sign(self.a):                            
-            if i == -1:
-                self.nvs[0] += 1
-            if i == 1:
-                self.nvs[1] += 1
+        for i in xrange(len(a)):           
+            for j in xrange(len(a[i])):
+                for m in xrange(len(a[i][j])):
+                    if ns[i][j][m] in self.ns:
+                        self.dual_coefficients[j].append(a[i][j][m])
 
-        print ("Number of Support Vectors is " + str(self.nvs[0]) + " for negative classes and " + str(self.nvs[1]) + " for positive classes")
+        self.dual_coefficients = np.array(self.dual_coefficients)
 
-        self.bias = self.partial_predictions(self.svs[0,:])[0]
-        if self.a[0] > 0:                           
-            self.bias *= -1
+        self.nvs = [len(np.array(uniques[i])[np.array(svs_[i])]) for i in range(len(uniques))]
 
-        print ("Bias value = "), self.bias
+        self.svs = features[self.ns] #update support vectors
 
-        return self.w, self.a, self.bias 
-            
-    def partial_predictions(self, features):
-        if (len(features.shape)  < 2):
-            features = features.reshape((1,-1))
-        classes = np.zeros(len(features))
-        for i in xrange(len(features)):
-            for j in xrange(len(self.svs)):
-                if self.kernel1 == "sigmoid":                           
-                    classes[i] += self.a[j] * self.sigmoid_kernel(self.svs[j,:],features[i,:], self.gamma)                                      
-                if self.kernel1 == "poly":                              
-                    classes[i] += self.a[j] * self.polynomial_kernel(self.svs[j,:],features[i,:], self.gamma) 
-                if self.kernel1 == "rbf":   
-                    classes[i] += self.a[j] * self.rbf_kernel(self.svs[j,:],features[i,:], self.gamma)                                           
-                if self.kernel1 == "linear":   
-                    k_fun = self.kernel1     
-                    classes[i] += self.a[j] * self.linear_kernel_matrix(self.svs[j,:],features[i,:])
-        return classes
+        self.sv_locs = np.cumsum(np.hstack([[0], self.nvs]))
+
+        self.w = [] #update weights given common support vectors, the other values helped making sure it wasn't restarting
+
+        for class1 in xrange(self.n_class):
+            # SVs for class1:
+            sv1 = self.svs[self.sv_locs[class1]:self.sv_locs[class1 + 1], :]
+            for class2 in xrange(class1 + 1, self.n_class):
+                # SVs for class1:
+                sv2 = self.svs[self.sv_locs[class2]:self.sv_locs[class2 + 1], :]
+                # dual coef for class1 SVs:
+                alpha1 = self.dual_coefficients[class2 - 1, self.sv_locs[class1]:self.sv_locs[class1 + 1]]
+                # dual coef for class2 SVs:
+                alpha2 = self.dual_coefficients[class1, self.sv_locs[class2]:self.sv_locs[class2 + 1]]
+                # build weight for class1 vs class2
+                self.w.append(ssd(alpha1, sv1)
+                            + ssd(alpha2, sv2))
+
+        if self.kernel1 == "poly":
+            kernel1 = self.polynomial_kernel
+        if self.kernel1 == "sigmoid":
+            kernel1 = self.sigmoid_kernel
+        if self.kernel1 == "rbf":
+            kernel1 = self.rbf_kernel 
+        if self.kernel1 == "linear":
+            kernel1 = self.linear_kernel_matrix
+
+        self.bias = []
+        for class1 in xrange(self.n_class):
+            sv1 = self.svs[self.sv_locs[class1]:self.sv_locs[class1 + 1], :]
+            for class2 in xrange(class1 + 1, self.n_class):
+                sv2 = self.svs[self.sv_locs[class2]:self.sv_locs[class2 + 1], :]
+                if kernel1 == self.linear_kernel_matrix:
+                    self.bias.append(-((kernel1(sv1, self.w[class1].T).max() + kernel1(sv2, self.w[class2].T).min())/2))
+                else:
+                    self.bias.append(-((kernel1(sv1, self.w[class1], self.gamma).max() + kernel1(sv2, self.w[class2], self.gamma).min())/2))
+        return self 
 
     def decision_function(self, features):
-        if self.kernel1 == "linear":
-            k = self.linear_kernel_matrix(self.svs, features.T)
+	"""
+	Compute the distances from the separating hyperplane
+	:param features: your features dataset
+	:returns:
+	  - decision function with added bias
+	""" 
+
+        if len(np.float64(features).shape) != len(self.svs.shape):
+            features = np.ascontiguousarray(np.resize(features, (len(features), self.svs.shape[1])))
+        else:
+            features = np.ascontiguousarray(features)
+
         if self.kernel1 == "poly":
-            k = self.polynomial_kernel(self.svs, features, self.gamma)
+            kernel = self.polynomial_kernel
         if self.kernel1 == "sigmoid":
-            k = self.sigmoid_kernel(self.svs, features, self.gamma)
+            kernel = self.sigmoid_kernel
         if self.kernel1 == "rbf":
-            k = self.rbf_kernel(self.svs, features, self.gamma)
-        start = [sum(self.nvs[:i]) for i in range(len(self.nvs))]
-        end = [start[i] + self.nvs[i] for i in range(len(self.nvs))]
-        a = np.array([list(self.a)])
-        c = [ sum(a[ i ][p] * k[p] for p in range(start[j], end[j])) +
-              sum(a[j-1][p] * k[p] for p in range(start[i], end[i]))
-                for i in range(len(self.nvs)) for j in range(i+1,len(self.nvs))]
+            kernel = self.rbf_kernel 
+        if self.kernel1 == "linear":
+            kernel = self.linear_kernel_matrix
+                                               
+        if self.kernel1 == "linear":           
+            self.k = kernel(self.svs, features.T)
+        else:           
+            self.k = kernel(self.svs, features, self.gamma)     
 
-        return [sum(x) for x in zip(c, [self.bias])]
+        start = self.sv_locs[:self.n_class]
+        end = self.sv_locs[1:self.n_class+1]
+        c = [ sum(self.dual_coefficients[ i ][p] * self.k[p] for p in xrange(start[j], end[j])) +
+              sum(self.dual_coefficients[j-1][p] * self.k[p] for p in xrange(start[i], end[i]))
+                for i in xrange(self.n_class) for j in xrange(i+1,self.n_class)]
 
-    def predictions(self, features):                   
-        classes = self.decision_function(features)[0]  > 0 
-        lab = []                   
-        for c in classes:
-            if c == True:
-                lab.append(1)
-            else:
-                lab.append(0) 
-        return lab
+        dec = np.array([sum(x) for x in zip(c, self.bias)]).T
+
+        #one vs rest based on scikit-learn
+
+        predictions = dec < 0 #biased? predictions again
+
+        confidences = dec * -1 #variables don't really matter this time
+
+        votes = np.zeros((len(features), self.n_class))                      
+        sum_of_confidences = np.zeros((len(features), self.n_class))                                         
+        K = 0                                         
+        for i in xrange(self.n_class):
+            for j in xrange(i + 1,self.n_class):
+                sum_of_confidences[:,i] -= confidences[:,K]
+                sum_of_confidences[:,j] += confidences[:,K]
+                votes[predictions[:,K] == 0, i] += 1
+                votes[predictions[:,K] == 1, j] += 1
+                K += 1
+
+        #some bounds to decide how certain is the function
+        max_confi = sum_of_confidences.max()
+        min_confi = sum_of_confidences.min()
+
+        if max_confi == min_confi:            
+            return votes  
+
+        eps = np.finfo(sum_of_confidences.dtype).eps
+        max_abs_confi = max(abs(max_confi), abs(min_confi)) #maximum absolute confidence to set up a max scaling value
+        scale = (0.5 - eps) / max_abs_confi #scale everything off and break ties in voting, no decision is being switched
+        #scale
+        return votes + sum_of_confidences * scale
+
+    def predictions(self, features, targts): 
+	"""
+	Prediction output
+	:param features: your features dataset
+	:param targts: your targets dataset
+	:returns:
+	  - __these_predicted: predicted targets
+	"""        
+
+        self.decision = self.decision_function(features)
+        
+        self.__these_predicted = np.copy(targts)
+
+        votes = np.zeros((len(features), self.n_class))
+
+        for i in self.classes:
+            for j in xrange(i + 1, len(self.classes)):
+                votes[:,i][self.decision[:,i] > 0] += 1
+                votes[:,j][self.decision[:,j] < 0] += 1 
+
+        for  v in xrange(votes.shape[0]):
+             where_max_votes = np.where(votes[v] == votes[v].max())   
+                                          
+             if len(list(where_max_votes)[0]) > 1: #if there's a tie it won't be broken in prediction and the feature has its past target
+                    pass
+             else:                       
+                    self.__these_predicted[v] = list(where_max_votes)[0] #assign the most voted class to a feature
+
+        return self.__these_predicted
 
 #classify all the features using different kernels (different products) 
 class svm_layers(deep_support_vector_machines):
@@ -358,62 +529,58 @@ class svm_layers(deep_support_vector_machines):
 	  - labels_to_file: potential classes
 	"""
         #classes are predicted even if we only use the decision functions as part of the output data to get a better scope of classifiers
-        from sklearn.metrics import accuracy_score
-        fxs = []
+        self.fxs = []
+        self.targets_outputs = []
+        self.scores = []
         sample_weight = float(len(features)) / (len(np.array(list(set(labels)))) * np.bincount(labels))
-        for i in range(0,4):
+        Cs = [1./0.01, 1./0.04, 1./0.06, 1./0.08, 1./0.1, 1./0.2,  1./0.33, 1./0.4]
+        reg_params = [0.01, 0.04, 0.06, 0.08, 0.1, 0.2,  0.33, 0.4]
+        self.kernel_configs = [['rbf', 'sigmoid'], ['rbf', 'poly'], ['rbf', 'linear'], ['linear', 'rbf'], ['sigmoid', 'rbf'], ['linear', 'sigmoid']]
+        for i in xrange(len(self.kernel_configs)):
             print ("Calculating values for prediction")
-            if i == 0:
-                classes = labels
-                self.fit_model(features[labels==0], labels[labels==0], "rbf", "sigmoid", 100, 0.1, 0.01)
-                print ("Predicting")
-                fx = self.decision_function(features)[0]
-                classes[labels==0] = self.predictions(features[labels==0])
-            if i == 1:
-                classes = labels
-                self.fit_model(features[labels==1], labels[labels==1], "linear", "poly", 20, 0.1, 0.035111917342151272)
-                print ("Predicting")
-                fx = self.decision_function(features)[0]
-                classes[labels==1] = self.predictions(features[labels==1])
-            if i == 2:
-                self.fit_model(features, labels, "poly", "linear", 20, 0.10000000000000001, 0.035111917342151272)
-                print ("Predicting")
-                fx = self.decision_function(features)[0]
-                classes = self.predictions(features)
-            if i == 3:
-                classes = labels
-                self.fit_model(features, labels, "rbf", "poly", 100.0, 0.01, 9.9999999999999995e-07)
-                print ("Predicting")
-                fx = self.decision_function(features)[0]
-                classes = self.predictions(features)
-            print ("Predicted"), classes
-            lw = np.ones(len(labels))
-            for idx, m in enumerate(np.bincount(labels)):            
-                lw[labels == idx] *= (m/float(labels.shape[0]))
-            print accuracy_score(labels, classes, sample_weight = lw)
-            fxs.append(fx) 
-        return np.array(fxs).T                
-    def sum_of_S(self, S):
+            best_estimator = GridSearch(self, features, labels, Cs, reg_params, [self.kernel_configs[i]])
+            print ("Best estimators are: ") + str(best_estimator['C'][0]) + " for C and " + str(best_estimator['reg_param'][0]) + " for regularization parameter"
+            self.fit_model(features, labels, self.kernel_configs[i][0], self.kernel_configs[i][1], best_estimator['C'][0][0], best_estimator['reg_param'][0][0], 1./features.shape[1])
+            print ("Predicting")
+            pred_c = self.predictions(features, labels)
+            print ("Predicted"), pred_c
+            err = score(labels, pred_c)
+            self.scores.append(err)
+            if err < 0.5: #benefit of deep learning, we can minimize and bypass all error
+                self.fxs.append(self.decision)
+                self.targets_outputs.append(pred_c)
+  
+        return self
+
+    def scaled_sum_fx(self):
 	"""
-	Sums the vector outputs of Deep Support Vector Machine layers
-	:param S: arrays of vector outputs
-	:returns:
-	  - sum of outputs for the main layer
-	"""            
-        return np.sum(S,axis=0)
-    def best_labels(self, labels_to_file):
+	Sum all distances along the first axis
 	"""
-	Get the best labels for regression
-	:param labels_to_file: the classes given to the outputs of the layers
-	:returns:
-	  - labl: the best labels to apply regression to the sum of outputs of the layers
+        return feature_scaling(np.array(self.fxs).sum(axis=0)) 
+
+    def best_labels(self):
 	"""
-        count_labels = [Counter(list(i)).most_common() for i in labels_to_file]
-        labl = []
-        for i in count_labels:
-            labl.append(i[0][0])
-        labl = np.array(labl).T
-        return labl
+	Get the labels with highest output in the input layers instances
+	"""
+        self.targets_outputs = np.int32([Counter(np.int32(self.targets_outputs)[:,i]).most_common()[0][0] for i in range(np.array(self.targets_outputs).shape[1])])
+
+        return self.targets_outputs 
+
+def best_kernels_output(best_estimator, kernel_configs):
+    """
+    From a list of best configurations, get the highest configuration (to find out which kernels you should use)                                                           
+    :param best_estimator: a cross-validation output of best estimators of various multi-kernel analysis    
+    :param kernel_configs: your kernels selections that you used for cross-validation                                                                                        
+    :returns:                                                                                                         
+      - C: best C 
+      - reg_param: best reg_param 
+      - kernel_conf: best configuration of kernels to use         
+    """  
+    max_score = np.array(best_estimator['score'][0]).argmax()    
+    C = best_estimator['C'][max_score]    
+    reg_param = best_estimator['reg_param'][max_score]       
+    kernel_conf = kernel_configs[max_score]    
+    return C, reg_param, kernel_conf 
 
 #classify fx of the input layers
 class main_svm(deep_support_vector_machines):
@@ -425,36 +592,13 @@ class main_svm(deep_support_vector_machines):
       - negative_emotion_files: files with negative emotional value (emotional meaning according to the whole performance)
       - positive_emotion_files: files with positive emotional value (emotional meaning according to the whole performance) 
     """
-    def __init__(self, S, lab):
+    def __init__(self, S, lab, C, reg_param, gamma, kernels_config):
         super(deep_support_vector_machines, self).__init__()
         self._S = S
-        self._w, self._a, self._bias = self.fit_model(self._S, lab, "poly", "linear", 10, 0.01, 0.5)
-        self._labels = self.predictions(self._S)
+        self.fit_model(self._S, lab, kernels_config[0], kernels_config[1], C, reg_param, gamma)
+        self._labels = self.predictions(self._S, lab)
         print self._labels
-        self._a = -self._w[0] / self._w[1] 
-        self._weighted_labels = np.ones(lab.shape[0])
-        from sklearn.metrics import accuracy_score
-        for idx, m in enumerate(np.bincount(lab)):            
-                self._weighted_labels[lab == idx] *= (m/float(lab.shape[0]))
-        print accuracy_score(lab, self._labels, sample_weight = self._weighted_labels)                                         
-        #calculate the parallels of separation 
-        self._v = self._S * self._w + self._bias                                    
-        self._yy = -self._w[0] * self._S - self._bias + self._v / self._w[1]                      
-    def plot_emotion_classification(self):
-	"""
-	3D plotting of the classfication
-	"""
-            #3D plotting                                 
-        from mpl_toolkits.mplot3d import Axes3D 
-               
-        fig = plt.figure()                                                                                                                    
-        ax = Axes3D(fig)                                                    
-        ax.plot3D(self._S, self._yy, 'k-')                                                       
-        ax.scatter3D(self._S[:, 0], self._S[:, 1], c=self._labels, cmap=plt.cm.Paired)
-       
-        print (Fore.WHITE + "El grupo negativo '0' esta coloreado en azul, el grupo positivo '1' esta coloreado en rojo") 
-                                                                      
-        plt.show() 
+        print score(lab, self._labels)
                                                     
     def neg_and_pos(self, files):
 	"""
@@ -464,11 +608,24 @@ class main_svm(deep_support_vector_machines):
 	  - negative_emotion_files: files with negative emotional value (emotional meaning according to the whole performance)
 	  - positive_emotion_files: files with positive emotional value (emotional meaning according to the whole performance) 
 	"""
-        negative_emotion_group = map(lambda json: files[json], [i for i, x in enumerate(self._labels) if x ==0])
-        negative_emotion_files = [i.split('.json')[0] for i in negative_emotion_group]
-        positive_emotion_group = map(lambda json: files[json], [i for i, x in enumerate(self._labels) if x ==1]) 
-        positive_emotion_files = [i.split('.json')[0] for i in positive_emotion_group]
-        return negative_emotion_files, positive_emotion_files
+        for n in xrange(self.n_class):
+            for i, x in enumerate(self._labels):
+                if x == n:
+                    yield files[i], x
+                    
+    def save_decisions(self):
+	"""
+	Save the decision_function result in a text file so you can use it in applications
+	"""
+        with open('utils/data.txt', 'w') as filename:
+            np.savetxt(filename, self.decision) 
+
+    def save_classes(self, files):
+	"""
+	Save the decision_function result in a text file so you can use it in applications
+	"""
+        with open('utils/files_classes.txt', 'w') as filename:
+            np.savetxt(filename, list(self.neg_and_pos(files)), fmt = "%s")                  
 
 #create emotions directory in data dir if multitag classification has been performed
 def emotions_data_dir():
@@ -484,27 +641,25 @@ def emotions_data_dir():
         os.makedirs(files_dir+'/emotions/angry')
     if not os.path.exists(files_dir+'/emotions/relaxed'):
         os.makedirs(files_dir+'/emotions/relaxed')
-    if not os.path.exists(files_dir+'/emotions/not happy'):
-        os.makedirs(files_dir+'/emotions/not happy')
-    if not os.path.exists(files_dir+'/emotions/not sad'):
-        os.makedirs(files_dir+'/emotions/not sad')
-    if not os.path.exists(files_dir+'/emotions/not angry'):
-        os.makedirs(files_dir+'/emotions/not angry')
-    if not os.path.exists(files_dir+'/emotions/not relaxed'):
-        os.makedirs(files_dir+'/emotions/not relaxed')
+    if not os.path.exists(files_dir+'/emotions/remixes/happy'):
+        os.makedirs(files_dir+'/emotions/remixes/happy')
+    if not os.path.exists(files_dir+'/emotions/remixes/sad'):
+        os.makedirs(files_dir+'/emotions/remixes/sad')
+    if not os.path.exists(files_dir+'/emotions/remixes/angry'):
+        os.makedirs(files_dir+'/emotions/remixes/angry')
+    if not os.path.exists(files_dir+'/emotions/remixes/relaxed'):
+        os.makedirs(files_dir+'/emotions/remixes/relaxed')
+    if not os.path.exists(files_dir+'/emotions/remixes/not happy'):
+        os.makedirs(files_dir+'/emotions/remixes/not happy')
+    if not os.path.exists(files_dir+'/emotions/remixes/not sad'):
+        os.makedirs(files_dir+'/emotions/remixes/not sad')
+    if not os.path.exists(files_dir+'/emotions/remixes/not angry'):
+        os.makedirs(files_dir+'/emotions/remixes/not angry')
+    if not os.path.exists(files_dir+'/emotions/remixes/not relaxed'):
+        os.makedirs(files_dir+'/emotions/remixes/not relaxed')
 
 #look for all downloaded audio
 tags_dirs = lambda files_dir: [os.path.join(files_dir,dirs) for dirs in next(os.walk(os.path.abspath(files_dir)))[1]]
-
-#classify all downloaded audio in tags
-def multitag_emotion_classifier(tags_dirs):
-    """                                                                                     
-    emotion classification of all data                                
-                                                                                            
-    :param tags_dirs = paths of tags in data                                                                              
-    """           
-    neg_and_pos = deep_support_vector_machine(tags_dirs, multitag = True)   
-    return neg_and_pos
 
 #emotions dictionary directory (to use with RedPanal API)
 def multitag_emotions_dictionary_dir():
@@ -513,585 +668,38 @@ def multitag_emotions_dictionary_dir():
     """           
     os.makedirs('data/emotions_dictionary')
 
-# save files in tag directory according to emotion using hpss
-def bpm_emotions_remix(files_dir, negative_emotion_files, positive_emotion_files):
-    """                                                                                     
-    remix files according to emotion class                                
-                                                                                            
-    :param negative_emotion_files: files with negative value                                    
-    :param positive_emotion_files: files with positive value                                                                                   
-    :param files_dir: data tag dir                                           
-    """                                                                                         
-
-    if positive_emotion_files:
-        print (repr(positive_emotion_files)+"emotion is happy")
-
-    if negative_emotion_files:
-        print (repr(negative_emotion_files)+"emotion is sad")
-                                                  
-    for location in os.walk(files_dir):
-             sound_names = [s.split('.')[0] for s in location[2]]   
-             break                                                    
-                 
-    files_1 = set(sound_names).intersection(negative_emotion_files)
-    files_2 = set(sound_names).intersection(positive_emotion_files)
-                                                           
-    if files_1:                                               
-        os.mkdir(files_dir+'/tempo/sad')                                    
-                                      
-    if files_2:                                               
-        os.mkdir(files_dir+'/tempo/happy')                                                                       
-                                        
-    for e in files_1:
-        shutil.copy(files_dir+'/tempo/'+(str(e))+'tempo.ogg', files_dir+'/tempo/sad/'+(str(e))+'tempo.ogg')
-                                                                                         
-    for e in files_2:
-        shutil.copy(files_dir+'/tempo/'+(str(e))+'tempo.ogg', files_dir+'/tempo/happy/'+(str(e))+'tempo.ogg')
-
-
-    happiness_dir = files_dir+'/tempo/happy' 
-    for subdirs, dirs, sounds in os.walk(happiness_dir):  
-    	happy_audio = [MonoLoader(filename=happiness_dir+'/'+happy_f)() for happy_f in sounds]
-    happy_N = min([len(i) for i in happy_audio])  
-    happy_samples = [i[:happy_N]/i.max() for i in happy_audio]  
-    happy_x = np.array(happy_samples).sum(axis=0) 
-    happy_X = 0.5*happy_x/happy_x.max()
-    happy_Harmonic, happy_Percussive = decompose.hpss(librosa.core.stft(happy_X))
-    happy_harmonic = istft(happy_Harmonic) 
-    MonoWriter(filename=files_dir+'/tempo/happy/'+'happy_mix_bpm.ogg', format = 'ogg', sampleRate = 44100)(happy_harmonic)  
-
-    sadness_dir = files_dir+'/tempo/sad'
-    for subdirs, dirs, sad_sounds in os.walk(sadness_dir):
-    	sad_audio = [MonoLoader(filename=sadness_dir+'/'+sad_f)() for sad_f in sad_sounds]
-    sad_N = min([len(i) for i in sad_audio])  
-    sad_samples = [i[:sad_N]/i.max() for i in sad_audio]  
-    sad_x = np.array(sad_samples).sum(axis=0) 
-    sad_X = 0.5*sad_x/sad_x.max()
-    sad_Harmonic, sad_Percussive = decompose.hpss(librosa.core.stft(sad_X))
-    sad_harmonic = istft(sad_Harmonic)  
-    MonoWriter(filename=files_dir+'/tempo/sad/'+'sad_mix_bpm.ogg', format = 'ogg', sampleRate = 44100)(sad_harmonic) 
-
-def attack_emotions_remix(files_dir, negative_emotion_files, positive_emotion_files):
-    """                                                                                     
-    remix files according to emotion class                                
-                                                                                            
-    :param negative_emotion_files: files with negative value                                    
-    :param positive_emotion_files: files with positive value                                                                                   
-    :param files_dir: data tag dir                                           
-    """                                                                                         
-
-    if positive_emotion_files:
-        print (repr(positive_emotion_files)+"emotion is angry")
-
-    if negative_emotion_files:
-        print (repr(negative_emotion_files)+"emotion is relaxed")
-                                                  
-    for location in os.walk(files_dir):
-             sound_names = [s.split('.')[0] for s in location[2]]   
-             break                                                    
-                 
-    files_1 = set(sound_names).intersection(positive_emotion_files)
-    files_2 = set(sound_names).intersection(negative_emotion_files)
-                                                           
-    if files_1:                                               
-        os.mkdir(files_dir+'/attack/angry')                                    
-                                      
-    if files_2:                                               
-        os.mkdir(files_dir+'/attack/relaxed')                                                                       
-                                        
-    for e in files_1:
-        shutil.copy(files_dir+'/attack/'+(str(e))+'attack.ogg', files_dir+'/attack/angry/'+(str(e))+'attack.ogg')
-                                                                                         
-    for e in files_2:
-        shutil.copy(files_dir+'/attack/'+(str(e))+'attack.ogg', files_dir+'/attack/relaxed/'+(str(e))+'attack.ogg')
-
-
-    anger_dir = files_dir+'/attack/angry' 
-    for subdirs, dirs, sounds in os.walk(anger_dir):  
-    	angry_audio = [MonoLoader(filename=anger_dir+'/'+angry_f)() for angry_f in sounds]
-    angry_N = min([len(i) for i in angry_audio])  
-    angry_samples = [i[:angry_N]/i.max() for i in angry_audio]  
-    angry_x = np.array(angry_samples).sum(axis=0) 
-    angry_X = 0.5*angry_x/angry_x.max()
-    angry_Harmonic, angry_Percussive = decompose.hpss(librosa.core.stft(angry_X))
-    angry_harmonic = istft(angry_Harmonic) 
-    MonoWriter(filename=files_dir+'/attack/angry/angry_mix_attack.ogg', format = 'ogg', sampleRate = 44100)(angry_harmonic)
-
-    tenderness_dir = files_dir+'/attack/relaxed'
-    for subdirs, dirs, tender_sounds in os.walk(tenderness_dir):
-    	tender_audio = [MonoLoader(filename=tenderness_dir+'/'+tender_f)() for tender_f in tender_sounds]
-    tender_N = min([len(i) for i in tender_audio])  
-    tender_samples = [i[:tender_N]/i.max() for i in tender_audio]  
-    tender_x = np.array(tender_samples).sum(axis=0) 
-    tender_X = 0.5*tender_x/tender_x.max()
-    tender_Harmonic, tender_Percussive = decompose.hpss(librosa.core.stft(tender_X))
-    tender_harmonic = istft(tender_Harmonic)  
-    MonoWriter(filename=files_dir+'/attack/relaxed/relaxed_mix_attack.ogg', format = 'ogg', sampleRate = 44100)(tender_harmonic) 
-
-def dissonance_emotions_remix(files_dir, negative_emotion_files, positive_emotion_files):
-    """                                                                                     
-    remix files according to emotion class                                
-                                                                                            
-    :param negative_emotion_files: files with negative value                                    
-    :param positive_emotion_files: files with positive value                                                                                   
-    :param files_dir: data tag dir                                           
-    """                                                                                         
-
-    if positive_emotion_files:
-        print (repr(positive_emotion_files)+"emotion is angry")
-
-    if negative_emotion_files:
-        print (repr(negative_emotion_files)+"emotion is relaxed")
-                                                  
-    for location in os.walk(files_dir):
-             sound_names = [s.split('.')[0] for s in location[2]]   
-             break                                                    
-                 
-    files_1 = set(sound_names).intersection(positive_emotion_files)
-    files_2 = set(sound_names).intersection(negative_emotion_files)
-                                                           
-    if files_1:                                               
-        os.mkdir(files_dir+'/dissonance/angry')                                    
-                                      
-    if files_2:                                               
-        os.mkdir(files_dir+'/dissonance/relaxed')                                                                       
-                                        
-    for e in files_1:
-        shutil.copy(files_dir+'/dissonance/'+(str(e))+'dissonance.ogg', files_dir+'/dissonance/angry/'+(str(e))+'dissonance.ogg')
-                                                                                         
-    for e in files_2:
-        shutil.copy(files_dir+'/dissonance/'+(str(e))+'dissonance.ogg', files_dir+'/dissonance/relaxed/'+(str(e))+'dissonance.ogg')
-
-
-    fear_dir = files_dir+'/dissonance/angry' 
-    for subdirs, dirs, sounds in os.walk(fear_dir):  
-    	fear_audio = [MonoLoader(filename=fear_dir+'/'+fear_f)() for fear_f in sounds]
-    fear_N = min([len(i) for i in fear_audio])  
-    fear_samples = [i[:fear_N]/i.max() for i in fear_audio]  
-    fear_x = np.array(fear_samples).sum(axis=0) 
-    fear_X = 0.5*fear_x/fear_x.max()
-    fear_Harmonic, fear_Percussive = decompose.hpss(librosa.core.stft(fear_X))
-    fear_harmonic = istft(fear_Harmonic) 
-    MonoWriter(filename=files_dir+'/dissonance/angry/angry_mix_dissonance.ogg', format = 'ogg', sampleRate = 44100)(fear_harmonic)
-  
-
-    happiness_dir = files_dir+'/dissonance/relaxed'
-    for subdirs, dirs, happy_sounds in os.walk(happiness_dir):
-    	happy_audio = [MonoLoader(filename=happiness_dir+'/'+happy_f)() for happy_f in happy_sounds]
-    happy_N = min([len(i) for i in happy_audio])  
-    happy_samples = [i[:happy_N]/i.max() for i in happy_audio]  
-    happy_x = np.array(happy_samples).sum(axis=0) 
-    happy_X = 0.5*happy_x/happy_x.max()
-    happy_Harmonic, happy_Percussive = decompose.hpss(librosa.core.stft(happy_X))
-    happy_harmonic = istft(happy_Harmonic)  
-    MonoWriter(filename=files_dir+'/dissonance/relaxed/relaxed_mix_dissonance.ogg', format = 'ogg', sampleRate = 44100)(happy_harmonic) 
-
-def mfcc_emotions_remix(files_dir, negative_emotion_files, positive_emotion_files):
-    """                                                                                     
-    remix files according to emotion class                                
-                                                                                            
-    :param negative_emotion_files: files with negative value                                    
-    :param positive_emotion_files: files with positive value                                                                                   
-    :param files_dir: data tag dir                                           
-    """                                                                                         
-
-    if positive_emotion_files:
-        print (repr(positive_emotion_files)+"emotion is angry")
-
-    if negative_emotion_files:
-        print (repr(negative_emotion_files)+"emotion is relaxed")
-                                                  
-    for location in os.walk(files_dir):
-             sound_names = [s.split('.')[0] for s in location[2]]   
-             break                                                    
-                 
-    files_1 = set(sound_names).intersection(positive_emotion_files)
-    files_2 = set(sound_names).intersection(negative_emotion_files)
-                                                           
-    if files_1:                                               
-        os.mkdir(files_dir+'/mfcc/angry')                                    
-                                      
-    if files_2:                                               
-        os.mkdir(files_dir+'/mfcc/relaxed')                                                                       
-                                        
-    for e in files_1:
-        shutil.copy(files_dir+'/mfcc/'+(str(e))+'mfcc.ogg', files_dir+'/mfcc/angry/'+(str(e))+'mfcc.ogg')
-                                                                                         
-    for e in files_2:
-        shutil.copy(files_dir+'/mfcc/'+(str(e))+'mfcc.ogg', files_dir+'/mfcc/relaxed/'+(str(e))+'mfcc.ogg')
-
-
-    fear_dir = files_dir+'/mfcc/angry' 
-    for subdirs, dirs, sounds in os.walk(fear_dir):  
-    	fear_audio = [MonoLoader(filename=fear_dir+'/'+fear_f)() for fear_f in sounds]
-    fear_N = min([len(i) for i in fear_audio])  
-    fear_samples = [i[:fear_N]/i.max() for i in fear_audio]  
-    fear_x = np.array(fear_samples).sum(axis=0) 
-    fear_X = 0.5*fear_x/fear_x.max()
-    fear_Harmonic, fear_Percussive = decompose.hpss(librosa.core.stft(fear_X))
-    fear_harmonic = istft(fear_Harmonic) 
-    MonoWriter(filename=files_dir+'/mfcc/angry/angry_mix_mfcc.ogg', format = 'ogg', sampleRate = 44100)(fear_harmonic)
-  
-
-    happiness_dir = files_dir+'/mfcc/relaxed'
-    for subdirs, dirs, happy_sounds in os.walk(happiness_dir):
-    	happy_audio = [MonoLoader(filename=happiness_dir+'/'+happy_f)() for happy_f in happy_sounds]
-    happy_N = min([len(i) for i in happy_audio])  
-    happy_samples = [i[:happy_N]/i.max() for i in happy_audio]  
-    happy_x = np.array(happy_samples).sum(axis=0) 
-    happy_X = 0.5*happy_x/happy_x.max()
-    happy_Harmonic, happy_Percussive = decompose.hpss(librosa.core.stft(happy_X))
-    happy_harmonic = istft(happy_Harmonic)  
-    MonoWriter(filename=files_dir+'/mfcc/relaxed/relaxed_mix_mfcc.ogg', format = 'ogg', sampleRate = 44100)(happy_harmonic) 
- 
-
-def centroid_emotions_remix(files_dir, negative_emotion_files, positive_emotion_files):
-    """                                                                                     
-    remix files according to emotion class                                
-                                                                                            
-    :param negative_emotion_files: files with negative value                                    
-    :param positive_emotion_files: files with positive value                                                                                   
-    :param files_dir: data tag dir                                          
-    """                                                                                         
-
-    if positive_emotion_files:
-        print (repr(positive_emotion_files)+"emotion is angry")
-
-    if negative_emotion_files:
-        print (repr(negative_emotion_files)+"emotion is relaxed")
-                                                  
-    for location in os.walk(files_dir):
-             sound_names = [s.split('.')[0] for s in location[2]]   
-             break                                                    
-                 
-    files_1 = set(sound_names).intersection(positive_emotion_files)
-    files_2 = set(sound_names).intersection(negative_emotion_files)
-                                                           
-    if files_1:                                               
-        os.mkdir(files_dir+'/centroid/angry')                                    
-                                      
-    if files_2:                                               
-        os.mkdir(files_dir+'/centroid/relaxed')                                                                       
-                                        
-    for e in files_1:
-        shutil.copy(files_dir+'/centroid/'+(str(e))+'centroid.ogg', files_dir+'/centroid/angry/'+(str(e))+'mfcc.ogg')
-                                                                                         
-    for e in files_2:
-        shutil.copy(files_dir+'/centroid/'+(str(e))+'centroid.ogg', files_dir+'/centroid/relaxed/'+(str(e))+'mfcc.ogg')
-
-
-    fear_dir = files_dir+'/centroid/angry' 
-    for subdirs, dirs, sounds in os.walk(fear_dir):  
-    	fear_audio = [MonoLoader(filename=fear_dir+'/'+fear_f)() for fear_f in sounds]
-    fear_N = min([len(i) for i in fear_audio])  
-    fear_samples = [i[:fear_N]/i.max() for i in fear_audio]  
-    fear_x = np.array(fear_samples).sum(axis=0) 
-    fear_X = 0.5*fear_x/fear_x.max()
-    fear_Harmonic, fear_Percussive = decompose.hpss(librosa.core.stft(fear_X))
-    fear_harmonic = istft(fear_Harmonic) 
-    MonoWriter(filename=files_dir+'/centroid/angry/angry_mix_centroid.ogg', format = 'ogg', sampleRate = 44100)(fear_harmonic)
-  
-
-    happiness_dir = files_dir+'/centroid/relaxed'
-    for subdirs, dirs, happy_sounds in os.walk(happiness_dir):
-    	happy_audio = [MonoLoader(filename=happiness_dir+'/'+happy_f)() for happy_f in happy_sounds]
-    happy_N = min([len(i) for i in happy_audio])  
-    happy_samples = [i[:happy_N]/i.max() for i in happy_audio]  
-    happy_x = np.array(happy_samples).sum(axis=0) 
-    happy_X = 0.5*happy_x/happy_x.max()
-    happy_Harmonic, happy_Percussive = decompose.hpss(librosa.core.stft(happy_X))
-    happy_harmonic = istft(happy_Harmonic)  
-    MonoWriter(filename=files_dir+'/centroid/relaxed/relaxed_mix_centroid.ogg', format = 'ogg', sampleRate = 44100)(happy_harmonic) 
-
-def hfc_emotions_remix(files_dir, negative_emotion_files, positive_emotion_files):
-    """                                                                                     
-    remix files according to emotion class                                
-                                                                                            
-    :param negative_emotion_files: files with negative value                                    
-    :param positive_emotion_files: files with positive value                                                                                   
-    :param files_dir: data tag dir                                           
-    """                                                                                         
-
-    if positive_emotion_files:
-        print (repr(positive_emotion_files)+"emotion is not sad")
-
-    if negative_emotion_files:
-        print (repr(negative_emotion_files)+"emotion is sad")
-                                                  
-    for location in os.walk(files_dir):
-             sound_names = [s.split('.')[0] for s in location[2]]   
-             break                                                    
-                 
-    files_1 = set(sound_names).intersection(positive_emotion_files)
-    files_2 = set(sound_names).intersection(negative_emotion_files)
-                                                           
-    if files_1:                                               
-        os.mkdir(files_dir+'/hfc/not sad')                                    
-                                      
-    if files_2:                                               
-        os.mkdir(files_dir+'/hfc/sad')                                                                       
-                                        
-    for e in files_1:
-        shutil.copy(files_dir+'/hfc/'+(str(e))+'hfc.ogg', files_dir+'/hfc/not sad/'+(str(e))+'hfc.ogg')
-                                                                                         
-    for e in files_2:
-        shutil.copy(files_dir+'/hfc/'+(str(e))+'hfc.ogg', files_dir+'/hfc/sad/'+(str(e))+'hfc.ogg')
-
-
-    sad_dir = files_dir+'/hfc/sad' 
-    for subdirs, dirs, sounds in os.walk(sad_dir):  
-    	sad_audio = [MonoLoader(filename=sad_dir+'/'+sad_f)() for sad_f in sounds]
-    sad_N = min([len(i) for i in sad_audio])  
-    sad_samples = [i[:sad_N]/i.max() for i in sad_audio]  
-    sad_x = np.array(sad_samples).sum(axis=0) 
-    sad_X = 0.5*sad_x/sad_x.max()
-    sad_Harmonic, sad_Percussive = decompose.hpss(librosa.core.stft(sad_X))
-    sad_percussive = istft(sad_Percussive) 
-    MonoWriter(filename=files_dir+'/hfc/sad/sad_mix_hfc.ogg', format = 'ogg', sampleRate = 44100)(sad_percussive)
-  
-
-    not_sad_dir = files_dir+'/hfc/not sad'
-    for subdirs, dirs, not_sad_sounds in os.walk(not_sad_dir):
-    	not_sad_audio = [MonoLoader(filename=not_sad_dir+'/'+not_sad_f)() for not_sad_f in not_sad_sounds]
-    not_sad_N = min([len(i) for i in not_sad_audio])  
-    not_sad_samples = [i[:not_sad_N]/i.max() for i in not_sad_audio]  
-    not_sad_x = np.array(not_sad_samples).sum(axis=0) 
-    not_sad_X = 0.5*not_sad_x/not_sad_x.max()
-    not_sad_Harmonic, not_sad_Percussive = decompose.hpss(librosa.core.stft(not_sad_X))
-    not_sad_percussive = istft(not_sad_Percussive)  
-    MonoWriter(filename=files_dir+'/hfc/not sad/not_sad_mix_hfc.ogg', format = 'ogg', sampleRate = 44100)(not_sad_percussive) 
-
-def loudness_emotions_remix(files_dir, negative_emotion_files, positive_emotion_files):
-    """                                                                                     
-    remix files according to emotion class                                
-                                                                                            
-    :param negative_emotion_files: files with negative value                                    
-    :param positive_emotion_files: files with positive value                                                                                   
-    :param files_dir: data tag dir                                           
-    """                                                                                         
-
-    if positive_emotion_files:
-        print (repr(positive_emotion_files)+"emotion is angry")
-
-    if negative_emotion_files:
-        print (repr(negative_emotion_files)+"emotion is not happy")
-                                                  
-    for location in os.walk(files_dir):
-             sound_names = [s.split('.')[0] for s in location[2]]   
-             break                                                    
-                 
-    files_1 = set(sound_names).intersection(positive_emotion_files)
-    files_2 = set(sound_names).intersection(negative_emotion_files)
-                                                           
-    if files_1:                                               
-        os.mkdir(files_dir+'/loudness/angry')                                    
-                                      
-    if files_2:                                               
-        os.mkdir(files_dir+'/loudness/not happy')                                                                       
-                                        
-    for e in files_1:
-        shutil.copy(files_dir+'/loudness/'+(str(e))+'loudness.ogg', files_dir+'/loudness/angry/'+(str(e))+'loudness.ogg')
-                                                                                         
-    for e in files_2:
-        shutil.copy(files_dir+'/loudness/'+(str(e))+'loudness.ogg', files_dir+'/loudness/not happy/'+(str(e))+'loudness.ogg')
-
-
-    sad_dir = files_dir+'/loudness/not happy' 
-    for subdirs, dirs, sounds in os.walk(sad_dir):  
-    	sad_audio = [MonoLoader(filename=sad_dir+'/'+sad_f)() for sad_f in sounds]
-    sad_N = min([len(i) for i in sad_audio])  
-    sad_samples = [i[:sad_N]/i.max() for i in sad_audio]  
-    sad_x = np.array(sad_samples).sum(axis=0) 
-    sad_X = 0.5*sad_x/sad_x.max()
-    sad_Harmonic, sad_Percussive = decompose.hpss(librosa.core.stft(sad_X))
-    sad_harmonic = istft(sad_Harmonic) 
-    MonoWriter(filename=files_dir+'/loudness/not happy/not_happy_mix_loudness.ogg', format = 'ogg', sampleRate = 44100)(sad_harmonic)
-  
-
-    angry_dir = files_dir+'/loudness/angry'
-    for subdirs, dirs, angry_sounds in os.walk(angry_dir):
-    	angry_audio = [MonoLoader(filename=angry_dir+'/'+angry_f)() for angry_f in angry_sounds]
-    angry_N = min([len(i) for i in angry_audio])  
-    angry_samples = [i[:angry_N]/i.max() for i in angry_audio]  
-    angry_x = np.array(angry_samples).sum(axis=0) 
-    angry_X = 0.5*angry_x/angry_x.max()
-    angry_Harmonic, angry_Percussive = decompose.hpss(librosa.core.stft(angry_X))
-    angry_harmonic = istft(angry_Harmonic)  
-    MonoWriter(filename=files_dir+'/loudness/angry/angry_mix_loudness.ogg', format = 'ogg', sampleRate = 44100)(angry_harmonic) 
-
-def inharmonicity_emotions_remix(files_dir, negative_emotion_files, positive_emotion_files):
-    """                                                                                     
-    remix files according to emotion class                                
-                                                                                            
-    :param negative_emotion_files: files with negative value                                    
-    :param positive_emotion_files: files with positive value                                                                                   
-    :param files_dir: data tag dir                                           
-    """                                                                                         
-
-    if positive_emotion_files:
-        print (repr(positive_emotion_files)+"emotion is not relaxed")
-
-    if negative_emotion_files:
-        print (repr(negative_emotion_files)+"emotion is not angry")
-                                                  
-    for location in os.walk(files_dir):
-             sound_names = [s.split('.')[0] for s in location[2]]   
-             break                                                    
-                 
-    files_1 = set(sound_names).intersection(positive_emotion_files)
-    files_2 = set(sound_names).intersection(negative_emotion_files)
-                                                           
-    if files_1:                                               
-        os.mkdir(files_dir+'/inharmonicity/not relaxed')                                    
-                                      
-    if files_2:                                               
-        os.mkdir(files_dir+'/inharmonicity/not angry')                                                                       
-                                        
-    for e in files_1:
-        shutil.copy(files_dir+'/inharmonicity/'+(str(e))+'inharmonicity.ogg', files_dir+'/inharmonicity/not relaxed/'+(str(e))+'inharmonicity.ogg')
-                                                                                         
-    for e in files_2:
-        shutil.copy(files_dir+'/inharmonicity/'+(str(e))+'inharmonicity.ogg', files_dir+'/inharmonicity/not angry/'+(str(e))+'inharmonicity.ogg')
-
-
-    sad_dir = files_dir+'/inharmonicity/not relaxed' 
-    for subdirs, dirs, sounds in os.walk(sad_dir):  
-    	sad_audio = [MonoLoader(filename=sad_dir+'/'+sad_f)() for sad_f in sounds]
-    sad_N = min([len(i) for i in sad_audio])  
-    sad_samples = [i[:sad_N]/i.max() for i in sad_audio]  
-    sad_x = np.array(sad_samples).sum(axis=0) 
-    sad_X = 0.5*sad_x/sad_x.max()
-    sad_Harmonic, sad_Percussive = decompose.hpss(librosa.core.stft(sad_X))
-    sad_harmonic = istft(sad_Harmonic) 
-    MonoWriter(filename=files_dir+'/inharmonicity/not relaxed/not_relaxed_mix_inharmonicity.ogg', format = 'ogg', sampleRate = 44100)(sad_harmonic)
-  
-
-    not_angry_dir = files_dir+'/inharmonicity/not angry'
-    for subdirs, dirs, not_angry_sounds in os.walk(not_angry_dir):
-    	not_angry_audio = [MonoLoader(filename=not_angry_dir+'/'+not_angry_f)() for not_angry_f in not_angry_sounds]
-    not_angry_N = min([len(i) for i in not_angry_audio])  
-    not_angry_samples = [i[:not_angry_N]/i.max() for i in not_angry_audio]  
-    not_angry_x = np.array(not_angry_samples).sum(axis=0) 
-    not_angry_X = 0.5*not_angry_x/not_angry_x.max()
-    not_angry_Harmonic, angry_Percussive = decompose.hpss(librosa.core.stft(not_angry_X))
-    not_angry_harmonic = istft(not_angry_Harmonic)  
-    MonoWriter(filename=files_dir+'/inharmonicity/not angry/not_angry_mix_inharmonicity.ogg', format = 'ogg', sampleRate = 44100)(not_angry_harmonic)
-
-def contrast_emotions_remix(files_dir, negative_emotion_files, positive_emotion_files):
-    """                                                                                     
-    remix files according to emotion class                                
-                                                                                            
-    :param negative_emotion_files: files with negative value                                    
-    :param positive_emotion_files: files with positive value                                                                                   
-    :param files_dir: data tag directory                                           
-    """                                                                                         
-
-    if positive_emotion_files:
-        print (repr(positive_emotion_files)+"emotion is not relaxed")
-
-    if negative_emotion_files:
-        print (repr(negative_emotion_files)+"emotion is not angry")
-                                                  
-    for location in os.walk(files_dir):
-             sound_names = [s.split('.')[0] for s in location[2]]   
-             break                                                    
-                 
-    files_1 = set(sound_names).intersection(positive_emotion_files)
-    files_2 = set(sound_names).intersection(negative_emotion_files)
-                                                           
-    if files_1:                                               
-        os.mkdir(files_dir+'/valleys/not relaxed')                                    
-                                      
-    if files_2:                                               
-        os.mkdir(files_dir+'/valleys/not angry')                                                                       
-                                        
-    for e in files_1:
-        shutil.copy(files_dir+'/valleys/'+(str(e))+'contrast.ogg', files_dir+'/valleys/not relaxed/'+(str(e))+'contrast.ogg')
-                                                                                         
-    for e in files_2:
-        shutil.copy(files_dir+'/valleys/'+(str(e))+'contrast.ogg', files_dir+'/valleys/not angry/'+(str(e))+'contrast.ogg')
-
-
-    sad_dir = files_dir+'/valleys/not relaxed' 
-    for subdirs, dirs, sounds in os.walk(sad_dir):  
-    	sad_audio = [MonoLoader(filename=sad_dir+'/'+sad_f)() for sad_f in sounds]
-    sad_N = min([len(i) for i in sad_audio])  
-    sad_samples = [i[:sad_N]/i.max() for i in sad_audio]  
-    sad_x = np.array(sad_samples).sum(axis=0) 
-    sad_X = 0.5*sad_x/sad_x.max()
-    sad_Harmonic, sad_Percussive = decompose.hpss(librosa.core.stft(sad_X))
-    sad_harmonic = istft(sad_Harmonic) 
-    MonoWriter(filename=files_dir+'/valleys/not relaxed/not_relaxed_mix_contrast.ogg', format = 'ogg', sampleRate = 44100)(sad_harmonic)
-  
-
-    not_angry_dir = files_dir+'/valleys/not angry'
-    for subdirs, dirs, not_angry_sounds in os.walk(not_angry_dir):
-    	not_angry_audio = [MonoLoader(filename=not_angry_dir+'/'+not_angry_f)() for not_angry_f in not_angry_sounds]
-    not_angry_N = min([len(i) for i in not_angry_audio])  
-    not_angry_samples = [i[:not_angry_N]/i.max() for i in not_angry_audio]  
-    not_angry_x = np.array(not_angry_samples).sum(axis=0) 
-    not_angry_X = 0.5*not_angry_x/not_angry_x.max()
-    not_angry_Harmonic, angry_Percussive = decompose.hpss(librosa.core.stft(not_angry_X))
-    not_angry_harmonic = istft(not_angry_Harmonic)  
-    MonoWriter(filename=files_dir+'/valleys/not angry/not_angry_mix_contrast.ogg', format = 'ogg', sampleRate = 44100)(not_angry_harmonic) 
-
 #locate all files in data emotions dir
-def multitag_emotions_dir(tags_dirs, negative_emotion_files, positive_emotion_files, neg_arous_dir, pos_arous_dir):
+def multitag_emotions_dir(tags_dirs, files_dir, generator):
     """                                                                                     
-    remix all files according to multitag emotions classes                                
+    locate all files in folders according to multitag emotions classes                                
 
     :param tags_dirs: directories of tags in data                                                                                            
-    :param negative_emotion_files: files with multitag negative value
-    :param positive_emotion_files: files with multitag positive value
-    :param neg_arous_dir: directory where sounds with negative arousal value will be placed
-    :param pos_arous_dir: directory where sounds with positive arousal value will be placed
-                                                                                                                                                                         
+    :param files_dir: main directory where to save files
+    :param generator: generator containing the files (use neg_and_pos)                                                                                                               
     """                                                                                         
     files_format = ['.mp3', '.ogg', '.undefined', '.wav', '.mid', '.wma', '.amr']
+    
+    emotions_folder = ["/emotions/angry/", "/emotions/sad", "/emotions/relaxed", "/emotions/happy"]
+    
+    emotions = ["anger", "sadness", "relaxation", "happiness"]                                                                 
 
-    if positive_emotion_files:
-        print (repr(positive_emotion_files)+"By arousal, emotion is happy and angry, not sad and not relaxed")
-
-    if negative_emotion_files:
-        print (repr(negative_emotion_files)+"By arousal, emotion is sad and relaxed, not happy and not angry")
-
-    sounds = []
-                                                  
-    for tag in tags_dirs:
-            for types in next(os.walk(tag)):
-               for t in types:
-                   if os.path.splitext(t)[1] in files_format:
-                       sounds.append(t)
-
-    sound_names = []
-
-    for s in sounds:
-         sound_names.append(s.split('.')[0])                                                  
-                 
-    files_1 = set(sound_names).intersection(negative_emotion_files)
-    files_2 = set(sound_names).intersection(positive_emotion_files) 
-
-    if not os.path.exists(neg_arous_dir):
-        os.makedirs(neg_arous_dir)
-    if not os.path.exists(pos_arous_dir):
-        os.makedirs(pos_arous_dir)                                                                     
-                                        
-    for tag in tags_dirs:
-                 for types in next(os.walk(tag)):
-                    for t in types:
-                        if os.path.splitext(t)[0] in files_1:
-                            if t in types:
-                                shutil.copy(os.path.join(tag, t), os.path.join(neg_arous_dir,t))
-                        if os.path.splitext(t)[0] in files_2:
-                            if t in types:
-                                shutil.copy(os.path.join(tag, t), os.path.join(pos_arous_dir,t)) 
+    for t, c in list(generator):
+        for tag in tags_dirs:
+             for f in (list(os.walk(tag, topdown = False)))[-1][-1]:
+                 if t.split('.')[0] == f.split('.')[0]:
+                     if not f in list(os.walk(str().join((files_dir,emotions_folder[c])), topdown=False))[-1][-1]:
+                         shutil.copy(os.path.join(tag, f), os.path.join(files_dir+emotions_folder[c], f))     
+                         print str().join((str(f),' evokes ',emotions[c]))
 
 from transitions import Machine
 import random
 import subprocess
 
-neg_arous_dir = 'data/emotions/negative_arousal'   #directory where all data with negative arousal value will be placed                    
-pos_arous_dir = 'data/emotions/positive_arousal'   #directory where all data with positive arousal value will be placed
+#sub-directories examples, you can change the location according to where you might have specified another sounds location
+not_happy_dir = ['data/emotions/sad', 'data/emotions/angry', 'data/emotions/relaxed']
+not_sad_dir = ['data/emotions/happy', 'data/emotions/angry', 'data/emotions/relaxed']
+not_angry_dir = ['data/emotions/happy', 'data/emotions/sad', 'data/emotions/relaxed']
+not_relaxed_dir = ['data/emotions/happy', 'data/emotions/sad', 'data/emotions/angry']
 
 #Johnny, Music Emotional State Machine
 class MusicEmotionStateMachine(object):
@@ -1099,123 +707,248 @@ class MusicEmotionStateMachine(object):
             def __init__(self, name):
                 self.name = name
                 self.machine = Machine(model=self, states=MusicEmotionStateMachine.states, initial='angry')
-            def sad_music_remix(self, neg_arous_dir, harmonic = None):
-                    for subdirs, dirs, sounds in os.walk(neg_arous_dir):                            
-                             x = MonoLoader(filename=neg_arous_dir+'/'+random.choice(sounds[:-1]))() 
-                             y = MonoLoader(filename=neg_arous_dir+'/'+random.choice(sounds[:]))() 
-                    negative_arousal_audio = np.array((x,y))                        
-                    negative_arousal_N = min([len(i) for i in negative_arousal_audio])                                            
-                    negative_arousal_samples = [i[:negative_arousal_N]/i.max() for i in negative_arousal_audio]  
-                    negative_arousal_x = np.array(negative_arousal_samples).sum(axis=0)                     
-                    negative_arousal_X = 0.5*negative_arousal_x/negative_arousal_x.max()
-                    negative_arousal_Harmonic, negative_arousal_Percussive = decompose.hpss(librosa.core.stft(negative_arousal_X))
-                    if harmonic is True:
-                    	return negative_arousal_Harmonic
-                    if harmonic is False or harmonic is None:
-                    	sad_percussive = istft(negative_arousal_Percussive)
-                    	remix_filename = 'data/emotions/sad/'+str(time.strftime("%Y%m%d-%H:%M:%S"))+'multitag_remix.ogg'
-                    	MonoWriter(filename=remix_filename, format = 'ogg', sampleRate = 44100)(sad_percussive)
-                    	subprocess.call(["ffplay", "-nodisp", "-autoexit", remix_filename])
-            def happy_music_remix(self, pos_arous_dir, harmonic = None):
-                for subdirs, dirs, sounds in os.walk(pos_arous_dir):  
-                    x = MonoLoader(filename=pos_arous_dir+'/'+random.choice(sounds[:-1]))()
-                    y = MonoLoader(filename=pos_arous_dir+'/'+random.choice(sounds[:]))()
-                positive_arousal_audio = np.array((x,y))
-                positive_arousal_N = min([len(i) for i in positive_arousal_audio])  
-                positive_arousal_samples = [i[:positive_arousal_N]/i.max() for i in positive_arousal_audio]  
-                positive_arousal_x = np.array(positive_arousal_samples).sum(axis=0) 
-                positive_arousal_X = 0.5*positive_arousal_x/positive_arousal_x.max()
-                positive_arousal_Harmonic, positive_arousal_Percussive = decompose.hpss(librosa.core.stft(positive_arousal_X))
+            def source_separation(self, x):   
+                if not Duration()(x) > 10:
+                    stftx = librosa.stft(x)
+                    real = stftx.real
+                    imag = stftx.imag
+                    ssp = find_sparse_source_points(real, imag) #find sparsity in the signal
+                    cos_dist = cosine_distance(ssp) #cosine distance from sparse data
+                    sources = find_number_of_sources(cos_dist) #find possible number of sources
+                    if (sources == 0) or (sources == 1):  #this means x is an instrumental track and doesn't have more than one source        
+                        print "There's only one visible source"   
+                        return x 
+                    else:
+                        print "Separating sources"              
+                        xs = NMF(stftx, sources)
+                        return xs[0] #take the bass part #TODO: correct NMF to return noiseless reconstruction
+                else: 
+                    stftx = librosa.stft(x[:441000]) #take 10 seconds of signal data to find sources
+                    print "It can take some time to find any source in this signal"           
+                    real = stftx.real
+                    imag = stftx.imag
+                    ssp = find_sparse_source_points(real, imag) #find sparsity in the signal
+                    cos_dist = cosine_distance(ssp) #cosine distance from sparse data
+                    sources = find_number_of_sources(cos_dist) #find possible number of sources
+                    if (sources == 0) or (sources == 1):  #this means x is an instrumental track and doesn't have more than one source 
+                        print "There's only one visible source"        
+                        return x    
+                    else:  
+                        print "Separating sources"          
+                        xs = NMF(librosa.stft(x), sources)
+                        return xs[0] #take the bass part #TODO: correct NMF to return noiseless reconstruction
+            def sad_music_remix(self, neg_arous_dir, files, decisions, harmonic = None):
+                for subdirs, dirs, sounds in os.walk(neg_arous_dir):   
+                    fx = random.choice(sounds[::-1])                    
+                    fy = random.choice(sounds[:])                      
+                x = MonoLoader(filename = neg_arous_dir + '/' + fx)()  
+                y = MonoLoader(filename = neg_arous_dir + '/' + fy)()  
+                fx = fx.split('.')[0]                                  
+                fy = fy.split('.')[0]                                  
+                fx = np.where(files == fx)[0][0]                       
+                fy = np.where(files == fy)[0][0]                       
+                if harmonic is False or None:                          
+                    dec_x = get_coordinate(fx, 1, decisions)                                                        
+                    dec_y = get_coordinate(fy, 1, decisions)
+                else:
+                    dec_x = get_coordinate(fx, 2, decisions)
+                    dec_y = get_coordinate(fy, 2, decisions)
+                x = self.source_separation(x)   
+                x = scratch_music(x, dec_x)
+                x = x[np.nonzero(x)]                            
+                y = scratch_music(y, dec_y)
+                y = y[np.nonzero(y)]                            
+                x, y = same_time(x,y)                                                                       
+                negative_arousal_samples = [i/i.max() for i in (x,y)]                                                                       
+                negative_arousal_x = np.array(negative_arousal_samples).sum(axis=0)                                                           
+                negative_arousal_x = 0.5*negative_arousal_x/negative_arousal_x.max()                                                              
+                if harmonic is True:                                   
+                    return librosa.decompose.hpss(librosa.stft(negative_arousal_x), margin = (1.0, 5.0))[0]                 
+                if harmonic is False or harmonic is None:
+                    onsets = hfc_onsets(np.float32(negative_arousal_x))
+                    interv = seconds_to_indices(onsets)
+                    steps = overlapped_intervals(interv)
+                    output = librosa.effects.remix(negative_arousal_x, steps[::-1], align_zeros = False)
+                    output = librosa.effects.pitch_shift(output, sr = 44100, n_steps = 3)
+                    remix_filename = 'data/emotions/remixes/sad/'+str(time.strftime("%Y%m%d-%H:%M:%S"))+'multitag_remix.ogg' 
+                    MonoWriter(filename=remix_filename, format = 'ogg', sampleRate = 44100)(np.float32(output))
+                    subprocess.call(["ffplay", "-nodisp", "-autoexit", remix_filename]) 
+            def happy_music_remix(self, pos_arous_dir, files, decisions, harmonic = None):
+                for subdirs, dirs, sounds in os.walk(pos_arous_dir):   
+                    fx = random.choice(sounds[::-1])                    
+                    fy = random.choice(sounds[:])                      
+                x = MonoLoader(filename = pos_arous_dir + '/' + fx)()  
+                y = MonoLoader(filename = pos_arous_dir + '/' + fy)()  
+                fx = fx.split('.')[0]                                  
+                fy = fy.split('.')[0]                                  
+                fx = np.where(files == fx)[0][0]                       
+                fy = np.where(files == fy)[0][0]                       
+                if harmonic is False or None:                          
+                    dec_x = get_coordinate(fx, 3, decisions)                                                        
+                    dec_y = get_coordinate(fy, 3, decisions)
+                else:
+                    dec_x = get_coordinate(fx, 0, decisions)
+                    dec_y = get_coordinate(fy, 0, decisions)
+                x = self.source_separation(x) 
+                x = scratch_music(x, dec_x)                            
+                y = scratch_music(y, dec_y)
+                x = x[np.nonzero(x)]                           
+                y = y[np.nonzero(y)]
+                x, y = same_time(x,y)  
+                positive_arousal_samples = [i/i.max() for i in (x,y)]  
+                positive_arousal_x = np.float32(positive_arousal_samples).sum(axis=0) 
+                positive_arousal_x = 0.5*positive_arousal_x/positive_arousal_x.max()
 		if harmonic is True:
-			return positive_arousal_Harmonic
+                    return librosa.decompose.hpss(librosa.stft(positive_arousal_x), margin = (1.0, 5.0))[0]  
 		if harmonic is False or harmonic is None:
-		        happy_percussive = istft(positive_arousal_Percussive)
-		        remix_filename = 'data/emotions/happy/'+str(time.strftime("%Y%m%d-%H:%M:%S"))+'multitag_remix.ogg'
-		        MonoWriter(filename=remix_filename, format = 'ogg', sampleRate = 44100)(happy_percussive)
-		        subprocess.call(["ffplay", "-nodisp", "-autoexit", remix_filename])
-            def relaxed_music_remix(self, neg_arous_dir):
-                neg_arousal_h = MusicEmotionStateMachine('remix').sad_music_remix(neg_arous_dir, harmonic = True)
-                relaxed_harmonic = istft(neg_arousal_h)
-                remix_filename = 'data/emotions/relaxed/'+str(time.strftime("%Y%m%d-%H:%M:%S"))+'multitag_remix.ogg'
-                MonoWriter(filename=remix_filename, format = 'ogg', sampleRate = 44100)(relaxed_harmonic)
+                    interv = RhythmExtractor2013()(positive_arousal_x)[1] * 44100
+                    steps = overlapped_intervals(interv)
+                    output = librosa.effects.remix(positive_arousal_x, steps, align_zeros = False)
+                    output = librosa.effects.pitch_shift(output, sr = 44100, n_steps = 4)
+                    remix_filename = 'data/emotions/remixes/happy/'+str(time.strftime("%Y%m%d-%H:%M:%S"))+'multitag_remix.ogg'
+                    MonoWriter(filename=remix_filename, format = 'ogg', sampleRate = 44100)(np.float32(output))
+                    subprocess.call(["ffplay", "-nodisp", "-autoexit", remix_filename])
+            def relaxed_music_remix(self, neg_arous_dir, files, decisions):
+                neg_arousal_h = self.sad_music_remix(neg_arous_dir, files, decisions, harmonic = True)
+                relaxed_harmonic = librosa.istft(neg_arousal_h)
+                onsets = hfc_onsets(np.float32(relaxed_harmonic))
+                interv = seconds_to_indices(onsets)
+                steps = overlapped_intervals(interv)
+                output = librosa.effects.remix(relaxed_harmonic, steps[::-1], align_zeros = True)
+                output = librosa.effects.pitch_shift(output, sr = 44100, n_steps = 4)
+                remix_filename = 'data/emotions/remixes/relaxed/'+str(time.strftime("%Y%m%d-%H:%M:%S"))+'multitag_remix.ogg'
+                MonoWriter(filename=remix_filename, format = 'ogg', sampleRate = 44100)(output)
                 subprocess.call(["ffplay", "-nodisp", "-autoexit", remix_filename])
-            def angry_music_remix(self, pos_arous_dir):
-                pos_arousal_h = MusicEmotionStateMachine('remix').happy_music_remix(pos_arous_dir, harmonic = True)
-                angry_harmonic = istft(pos_arousal_h)
-                remix_filename = 'data/emotions/angry/'+str(time.strftime("%Y%m%d-%H:%M:%S"))+'multitag_remix.ogg'
-                MonoWriter(filename=remix_filename, format = 'ogg', sampleRate = 44100)(angry_harmonic)
+            def angry_music_remix(self, pos_arous_dir, files, decisions):
+                pos_arousal_h = self.happy_music_remix(pos_arous_dir, files, decisions, harmonic = True)
+                angry_harmonic = librosa.istft(pos_arousal_h)
+                interv = RhythmExtractor2013()(angry_harmonic)[1] * 44100
+                steps = overlapped_intervals(interv)
+                output = librosa.effects.remix(angry_harmonic, steps, align_zeros = True)
+                output = librosa.effects.pitch_shift(output, sr = 44100, n_steps = 3)
+                remix_filename = 'data/emotions/remixes/angry/'+str(time.strftime("%Y%m%d-%H:%M:%S"))+'multitag_remix.ogg'
+                MonoWriter(filename=remix_filename, format = 'ogg', sampleRate = 44100)(np.float32(output))
                 subprocess.call(["ffplay", "-nodisp", "-autoexit", remix_filename])
-            def not_happy_music_remix(self, neg_arous_dir):
-                for subdirs, dirs, sounds in os.walk(neg_arous_dir):  
-                    	x = MonoLoader(filename=neg_arous_dir+'/'+random.choice(sounds[:-1]))()
-                    	y = MonoLoader(filename=neg_arous_dir+'/'+random.choice(sounds[:]))()
-                x_tempo = beat.beat_track(x)[0] 
-                y_tempo = beat.beat_track(y)[0] 
-                if x_tempo < y_tempo:
-                    y = effects.time_stretch(y, x_tempo/y_tempo)
-                    if y.size < x.size:                                   
-                        y = np.resize(y, x.size)
-                    else:                                   
-                        x = np.resize(x, y.size)
-                else:
-                    pass
-                if x_tempo > y_tempo:
-                    x = effects.time_stretch(x, y_tempo/x_tempo)
-                    if x.size < y.size:                                           
-                        x = np.resize(x, y.size)
-                    else:                                   
-                        y = np.resize(y, x.size)
+            def not_happy_music_remix(self, neg_arous_dir, files, decisions):
+                sounds = []
+                for i in range(len(neg_arous_dir)):
+                    for subdirs, dirs, s in os.walk(neg_arous_dir[i]):                                  
+                        sounds.append(subdirs + '/' + random.choice(s))
+                fx = random.choice(sounds[::-1])
+                fy = random.choice(sounds[:])                    
+                x = MonoLoader(filename = fx)()  
+                y = MonoLoader(filename = fy)()  
+                fx = fx.split('/')[1].split('.')[0]                                  
+                fy = fy.split('/')[1].split('.')[0]                                  
+                fx = np.where(files == fx)[0]                     
+                fy = np.where(files == fy)[0]                     
+                dec_x = get_coordinate(fx, choice(range(3)), decisions)               
+                dec_y = get_coordinate(fy, choice(range(3)), decisions)
+                x = self.source_separation(x) 
+                x = scratch_music(x, dec_x)                            
+                y = scratch_music(y, dec_y)
+                x = x[np.nonzero(x)]                           
+                y = y[np.nonzero(y)]
+                x, y = same_time(x, y)
                 not_happy_x = np.sum((x,y),axis=0) 
-                not_happy_X = 0.5*not_happy_x/not_happy_x.max()
-                remix_filename = 'data/emotions/not happy/'+str(time.strftime("%Y%m%d-%H:%M:%S"))+'multitag_remix.ogg'
-                MonoWriter(filename=remix_filename, sampleRate = 44100)(not_happy_X)
+                not_happy_x = 0.5*not_happy_x/not_happy_x.max()
+                onsets = hfc_onsets(np.float32(not_happy_x))
+                interv = seconds_to_indices(onsets)
+                steps = overlapped_intervals(interv)
+                output = librosa.effects.remix(not_happy_x, steps[::-1], align_zeros = True)
+                output = librosa.effects.pitch_shift(output, sr = 44100, n_steps = 3)
+                remix_filename = 'data/emotions/remixes/not happy/'+str(time.strftime("%Y%m%d-%H:%M:%S"))+'multitag_remix.ogg'
+                MonoWriter(filename=remix_filename, sampleRate = 44100, format = 'ogg')(np.float32(output))
                 subprocess.call(["ffplay", "-nodisp", "-autoexit", remix_filename])
-            def not_sad_music_remix(self, pos_arous_dir):
-                for subdirs, dirs, sounds in os.walk(pos_arous_dir):  
-                    	x = MonoLoader(filename=pos_arous_dir+'/'+random.choice(sounds[:-1]))()
-                    	y = MonoLoader(filename=pos_arous_dir+'/'+random.choice(sounds[:]))()
-                x_tempo = beat.beat_track(x)[0] 
-                y_tempo = beat.beat_track(y)[0] 
-                if x_tempo < y_tempo:
-                    x = effects.time_stretch(x, y_tempo/x_tempo)
-                    if y.size < x.size:                                   
-                        y = np.resize(y, x.size)
-                    else:                                   
-                        x = np.resize(x, y.size)
-                else:
-                    pass
-                if x_tempo > y_tempo:
-                    y = effects.time_stretch(y, x_tempo/y_tempo)
-                    if x.size < y.size:                                           
-                        x = np.resize(x, y.size)
-                    else:                                   
-                        y = np.resize(y, x.size)
+            def not_sad_music_remix(self, pos_arous_dir, files, decisions):
+                sounds = []
+                for i in range(len(pos_arous_dir)):
+                    for subdirs, dirs, s in os.walk(pos_arous_dir[i]):                                  
+                        sounds.append(subdirs + '/' + random.choice(s))
+                fx = random.choice(sounds[::-1])
+                fy = random.choice(sounds[:])                    
+                x = MonoLoader(filename = fx)()  
+                y = MonoLoader(filename = fy)()  
+                fx = fx.split('/')[1].split('.')[0]                                  
+                fy = fy.split('/')[1].split('.')[0]                                  
+                fx = np.where(files == fx)[0]                    
+                fy = np.where(files == fy)[0]                    
+                dec_x = get_coordinate(fx, choice([0,2,3]), decisions)               
+                dec_y = get_coordinate(fy, choice([0,2,3]), decisions)
+                x = self.source_separation(x) 
+                x = scratch_music(x, dec_x)                            
+                y = scratch_music(y, dec_y)
+                x = x[np.nonzero(x)]                           
+                y = y[np.nonzero(y)]
+                x, y = same_time(x,y)
                 not_sad_x = np.sum((x,y),axis=0) 
-                not_sad_X = 0.5*not_sad_x/not_sad_x.max()
-                remix_filename = 'data/emotions/not sad/'+str(time.strftime("%Y%m%d-%H:%M:%S"))+'multitag_remix.ogg'
-                MonoWriter(filename=remix_filename, sampleRate = 44100)(not_sad_X)
+                not_sad_x = np.float32(0.5*not_sad_x/not_sad_x.max())
+                interv = RhythmExtractor2013()(not_sad_x)[1] * 44100
+                steps = overlapped_intervals(interv)
+                output = librosa.effects.remix(not_sad_x, steps[::-1], align_zeros = True)
+                output = librosa.effects.pitch_shift(output, sr = 44100, n_steps = 4)
+                remix_filename = 'data/emotions/remixes/not sad/'+str(time.strftime("%Y%m%d-%H:%M:%S"))+'multitag_remix.ogg'
+                MonoWriter(filename= remix_filename, sampleRate = 44100, format = 'ogg')(np.float32(output))
                 subprocess.call(["ffplay", "-nodisp", "-autoexit", remix_filename])
-            def not_angry_music_remix(self, neg_arous_dir):
-                for subdirs, dirs, sounds in os.walk(neg_arous_dir):  
-                    	x = MonoLoader(filename=neg_arous_dir+'/'+random.choice(sounds[:-1]))()
-                    	y = MonoLoader(filename=neg_arous_dir+'/'+random.choice(sounds[:]))()
-                x_tempo = beat.beat_track(x)[0] 
-                y_tempo = beat.beat_track(y)[0] 
+            def not_angry_music_remix(self, neg_arous_dir, files, decisions):
+                sounds = []
+                for i in range(len(neg_arous_dir)):
+                    for subdirs, dirs, s in os.walk(neg_arous_dir[i]):                                  
+                        sounds.append(subdirs + '/' + random.choice(s))
+                fx = random.choice(sounds[::-1])
+                fy = random.choice(sounds[:])                    
+                x = MonoLoader(filename = fx)()  
+                y = MonoLoader(filename = fy)()  
+                fx = fx.split('/')[1].split('.')[0]                                  
+                fy = fy.split('/')[1].split('.')[0]                                  
+                fx = np.where(files == fx)[0]                      
+                fy = np.where(files == fy)[0]                      
+                dec_x = get_coordinate(fx, choice(range(1,3)), decisions)               
+                dec_y = get_coordinate(fy, choice(range(1,3)), decisions)
+                x = self.source_separation(x) 
+                x = scratch_music(x, dec_x)                            
+                y = scratch_music(y, dec_y)
+                x = x[np.nonzero(x)]                           
+                y = y[np.nonzero(y)]
+                x, y = same_time(x,y)
                 morph = stft.morph(x1 = x,x2 = y,fs = 44100,w1=np.hanning(1025),N1=2048,w2=np.hanning(1025),N2=2048,H1=512,smoothf=0.1,balancef=0.7)
-                remix_filename = 'data/emotions/not angry/'+str(time.strftime("%Y%m%d-%H:%M:%S"))+'multitag_remix.ogg'
-                write_wav(morph,44100, remix_filename) 
+                onsets = hfc_onsets(np.float32(morph))
+                interv = seconds_to_indices(onsets)
+                steps = overlapped_intervals(interv)
+                output = librosa.effects.remix(morph, steps[::-1], align_zeros = False)
+                output = librosa.effects.pitch_shift(output, sr = 44100, n_steps = 4)
+                remix_filename = 'data/emotions/remixes/not angry/'+str(time.strftime("%Y%m%d-%H:%M:%S"))+'multitag_remix.ogg'
+                MonoWriter(filename = remix_filename, sampleRate = 44100, format = 'ogg')(np.float32(output))
                 subprocess.call(["ffplay", "-nodisp", "-autoexit", remix_filename])
-            def not_relaxed_music_remix(self, pos_arous_dir):
-                for subdirs, dirs, sounds in os.walk(pos_arous_dir):  
-                    	x = MonoLoader(filename=pos_arous_dir+'/'+random.choice(sounds[:-1]))()
-                    	y = MonoLoader(filename=pos_arous_dir+'/'+random.choice(sounds[:]))()
-                x_tempo = beat.beat_track(x)[0] 
-                y_tempo = beat.beat_track(y)[0] 
+            def not_relaxed_music_remix(self, pos_arous_dir, files, decisions):
+                sounds = []
+                for i in range(len(pos_arous_dir)):
+                    for subdirs, dirs, s in os.walk(pos_arous_dir[i]):                                  
+                        sounds.append(subdirs + '/' + random.choice(s))
+                fx = random.choice(sounds[::-1])
+                fy = random.choice(sounds[:])                    
+                x = MonoLoader(filename = fx)()  
+                y = MonoLoader(filename = fy)()  
+                fx = fx.split('/')[1].split('.')[0]                                  
+                fy = fy.split('/')[1].split('.')[0]                                  
+                fx = np.where(files == fx)[0]                     
+                fy = np.where(files == fy)[0]                      
+                dec_x = get_coordinate(fx, choice([0,1,3]), decisions)               
+                dec_y = get_coordinate(fy, choice([0,1,3]), decisions)
+                x = self.source_separation(x) 
+                x = scratch_music(x, dec_x)                            
+                y = scratch_music(y, dec_y)
+                x = x[np.nonzero(x)]                           
+                y = y[np.nonzero(y)]
+                x, y = same_time(x,y)
                 morph = stft.morph(x1 = x,x2 = y,fs = 44100,w1=np.hanning(1025),N1=2048,w2=np.hanning(1025),N2=2048,H1=512,smoothf=0.01,balancef=0.7)
-                remix_filename = 'data/emotions/not relaxed/'+str(time.strftime("%Y%m%d-%H:%M:%S"))+'multitag_remix.ogg'
-                write_wav(morph,44100, remix_filename) 
+                interv = RhythmExtractor2013()(np.float32(morph))[1] * 44100
+                steps = overlapped_intervals(interv)
+                output = librosa.effects.remix(morph, steps[::-1], align_zeros = False)
+                output = librosa.effects.pitch_shift(output, sr = 44100, n_steps = 3)
+                remix_filename = 'data/emotions/remixes/not relaxed/'+str(time.strftime("%Y%m%d-%H:%M:%S"))+'multitag_remix.ogg'
+                MonoWriter(filename = remix_filename, sampleRate = 44100, format = 'ogg')(np.float32(output)) 
                 subprocess.call(["ffplay", "-nodisp", "-autoexit", remix_filename])
-
 
 Usage = "./MusicEmotionMachine.py [FILES_DIR] [MULTITAG CLASSIFICATION False/True/None]"
 if __name__ == '__main__':
@@ -1236,69 +969,56 @@ if __name__ == '__main__':
             files = descriptors_and_keys(tags_dirs, True)._files
             features = descriptors_and_keys(tags_dirs, True)._features
             fscaled = feature_scaling(features)
+            del features
             labels = KMeans_clusters(fscaled)
-            fx = svm_layers().layer_computation(fscaled, labels)
-            sum_of_distances = np.sum(fx, axis=1)
-            labl = np.sign(sum_of_distances)
-            labl[labl==-1]=0
-            print labl
-            fx = np.vstack((sum_of_distances, np.ones(len(sum_of_distances)))).T #add ones to the distances as features
-            msvm = main_svm(fx,np.int32(labl))
-            msvm.plot_emotion_classification()
-            neg_and_pos = msvm.neg_and_pos(files)
+            input_layers = svm_layers()
+            input_layers.layer_computation(fscaled, labels)
+
+            fx = input_layers.scaled_sum_fx()
+
+            labl = input_layers.best_labels()
+
+            Cs = [1./0.33, 1./0.4, 1./0.6, 1./0.8] #it should work well with less parameter searching
+            reg_params = [0.33, 0.4, 0.6, 0.8] 
+            kernel_configs = [['linear', 'poly']] #Also can use rbf with linear if you've got difficult to handle data, or try your parameters  
+            best_estimators = GridSearch(svm_layers(), fx, labl, Cs, reg_params, kernel_configs)
+            C, reg_param, kernels_config = best_kernels_output(best_estimators, kernel_configs)
+            msvm = main_svm(fx, labl, C[0], reg_param[0], 1./fx.shape[1], kernels_config)
+            msvm.save_decisions()  
+            msvm.save_classes(files)          
             emotions_data_dir()
-            multitag_emotions_dir(tags_dirs, neg_and_pos[0], neg_and_pos[1], neg_arous_dir, pos_arous_dir)
-        if sys.argv[2] in ('None'):
-            files = descriptors_and_keys(files_dir, None)._files
-            features = descriptors_and_keys(files_dir, None)._features
-            fscaled = feature_scaling(features_combinations(features)._random_pairs)
-            labels = KMeans_clusters(fscaled)
-            labels_to_file = svm_layers().layer_computation(fscaled, labels, "poly")
-            S = svm_layers().sum_of_S(fscaled)
-            labl = svm_layers().best_labels(labels_to_file)
-            print labl
-            main_svm(fx,lab).plot_emotion_classification()
-            neg_and_pos = main_svm(fx,lab).neg_and_pos(files)
-            bpm_emotions_remix(files_dir, neg_and_pos[0], neg_and_pos[1])
-            attack_emotions_remix(files_dir, neg_and_pos[0], neg_and_pos[1])
-            dissonance_emotions_remix(files_dir, neg_and_pos[0], neg_and_pos[1])
-            mfcc_emotions_remix(files_dir, neg_and_pos[0], neg_and_pos[1])
-            centroid_emotions_remix(files_dir, neg_and_pos[0], neg_and_pos[1])
-            hfc_emotions_remix(files_dir, neg_and_pos[0], neg_and_pos[1])
-            loudness_emotions_remix(files_dir, neg_and_pos[0], neg_and_pos[1])
-            inharmonicity_emotions_remix(files_dir, neg_and_pos[0], neg_and_pos[1])
-            contrast_emotions_remix(files_dir, neg_and_pos[0], neg_and_pos[1])
-        if sys.argv[2] in ('False'): 
-		me = MusicEmotionStateMachine("Johnny") #calling Johnny                        
-		me.machine.add_ordered_transitions()    #Johnny is very sensitive                  
-		                                                          
-		while(1):                                                 
-		    me.next_state()                                       
-		    if me.state == random.choice(me.states):              
-		        if me.state == 'happy':                           
-		            print me.state                                
-		            me.happy_music_remix(pos_arous_dir)
-		        if me.state == 'sad':                  
-		            print me.state                     
-		            me.sad_music_remix(neg_arous_dir)  
-		        if me.state == 'angry':                
-		            print me.state                     
-		            me.angry_music_remix(pos_arous_dir)
-		        if me.state == 'relaxed':              
-		            print me.state                     
-		            me.relaxed_music_remix(neg_arous_dir)
-		        if me.state == 'not happy':              
-		            print me.state                     
-		            me.not_happy_music_remix(neg_arous_dir)
-		        if me.state == 'not sad':              
-		            print me.state                     
-		            me.not_sad_music_remix(pos_arous_dir)
-		        if me.state == 'not angry':              
-		            print me.state                     
-		            me.not_angry_music_remix(neg_arous_dir)
-		        if me.state == 'not relaxed':              
-		            print me.state                     
-		            me.not_relaxed_music_remix(pos_arous_dir)
+            multitag_emotions_dir(tags_dirs, files_dir, msvm.neg_and_pos(files))
+        if (sys.argv[2] in ('None')) or (sys.argv[2] in ('False')):     
+            files, labels, decisions = read_file('utils/files_classes.txt')                
+            me = MusicEmotionStateMachine("Johnny") #calling Johnny                           
+            me.machine.add_ordered_transitions()    #Johnny is very sensitive                 
+            while(1):                                                   
+                me.next_state()                                         
+                if me.state == random.choice(me.states):                
+                    if me.state == 'happy':                             
+                        print me.state                                  
+                        me.happy_music_remix('data/emotions/happy', files, decisions, harmonic = None)                       
+                    if me.state == 'sad':                       
+                        print me.state                                  
+                        me.sad_music_remix('data/emotions/sad', files, decisions, harmonic = None)
+                    if me.state == 'angry':                             
+                        print me.state                                  
+                        me.angry_music_remix('data/emotions/angry', files, decisions)
+                    if me.state == 'relaxed':                           
+                        print me.state                                  
+                        me.relaxed_music_remix('data/emotions/relaxed', files, decisions)
+                    if me.state == 'not happy':                         
+                        print me.state                                  
+                        me.not_happy_music_remix(not_happy_dir, files, decisions)  
+                    if me.state == 'not sad':                           
+                        print me.state                                  
+                        me.not_sad_music_remix(not_sad_dir, files, decisions)      
+                    if me.state == 'not angry':                         
+                        print me.state                                  
+                        me.not_angry_music_remix(not_angry_dir, files, decisions)  
+                    if me.state == 'not relaxed':                       
+                        print me.state                                  
+                        me.not_relaxed_music_remix(not_relaxed_dir, files, decisions)                      
                                                        
     except Exception, e:                     
         logger.exception(e)

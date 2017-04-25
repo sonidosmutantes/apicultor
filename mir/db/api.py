@@ -1,6 +1,6 @@
 
 
-class IMirDbApi:
+class MirDbApi:
     """
         MIR Database API Access Interface
     """
@@ -11,7 +11,7 @@ class IMirDbApi:
         """
         raise Exception("This is an interface with no implementation")
     def search_by_content(self, content=""):
-        raise Exception("This is an interface with no implementation")
+        raise Exception("This is an nterface with no implementation")
     
     #TODO: add as a parameter and callback function processing in other methods
     def json_to_id_list(self, json_content):

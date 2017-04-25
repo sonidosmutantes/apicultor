@@ -10,6 +10,8 @@ import sys
 import json
 from pyo import *
 
+import platform
+
 # from mirdbapi.FreesoundDB import FreesounDB 
 
 DATA_PATH = "data"
@@ -28,20 +30,62 @@ sc_IP = '127.0.0.1' #Local SC server
 sc_IP = '192.168.56.1' # Remote server is the host of the VM
 osc_client.connect( ( sc_IP, sc_Port ) )
 
-# Pyo Sound Server
+
+### Pyo Sound Server ###
+
+if platform.system() == "Darwin" or platform.system() == "Windows":
+    ### Default
+    s = Server().boot()
+    # s = Server(duplex=0).boot()
+    # s = Server(audio='portaudio').boot()
+    s = Server().boot()
+else: #Linux
+    ### JACK ###
+    s = Server(audio='jack')
+    s.setJackAuto(False, False) #linux bug workaround
+    s.boot()
+    s.setJackAutoConnectOutputPorts(['system:playback_1', 'system:playback_2'])
+
+s.start() #no s.gui(locals())
+
+###
+
 #TODO: normalize audio output
-s = Server().boot()
-#s = Server(audio='jack').boot()
-s.start()
+
 # sffade = Fader(fadein=0.05, fadeout=1, dur=0, mul=0.5).play()
 
 # Mixer
 # 3 outputs mixer, 1 second of amplitude fade time
 #mm = Mixer(outs=3, chnls=2, time=1)
 
+dry_val = 1 
+wet_val = 0.4
+# dry_val = 0.7
+# dry_val = 0.3
 a = Sine(freq=10, mul=0.3) #start signal
-c = Clip(a, mul=2)
-d = c.mix(2).out()
+c = Clip(a, mul=1)
+#d = c.mix(2).out() #full dry output
+d = c.mix(2).out() #dry output
+
+# Reverb
+# b1 = Allpass(d, delay=[.0204,.02011], feedback=0.35) # wet output
+# b2 = Allpass(b1, delay=[.06653,.06641], feedback=0.41)
+# b3 = Allpass(b2, delay=[.035007,.03504], feedback=0.5)
+# b4 = Allpass(b3, delay=[.023021 ,.022987], feedback=0.65)
+# c1 = Tone(b1, 5000, mul=0.2).out()
+# c2 = Tone(b2, 3000, mul=0.2).out()
+# c3 = Tone(b3, 1500, mul=0.2).out()
+# c4 = Tone(b4, 500, mul=0.2).out()
+
+#Another reverb
+comb1 = Delay(d, delay=[0.0297,0.0277], feedback=0.65)
+comb2 = Delay(d, delay=[0.0371,0.0393], feedback=0.51)
+comb3 = Delay(d, delay=[0.0411,0.0409], feedback=0.5)
+comb4 = Delay(d, delay=[0.0137,0.0155], feedback=0.73)
+combsum = d + comb1 + comb2 + comb3 + comb4
+all1 = Allpass(combsum, delay=[.005,.00507], feedback=0.75)
+all2 = Allpass(all1, delay=[.0117,.0123], feedback=0.61)
+lowp = Tone(all2, freq=3500, mul=wet_val).out()
 
 # Loads the sound file in RAM. Beginning and ending points
 # can be controlled with "start" and "stop" arguments.
@@ -88,9 +132,9 @@ def external_synth(new_file):
     time.sleep(duration)
 #external_synth()
 
-def pyo_synth(new_file):
+def pyo_synth(new_file, dry_value):
     #Phase Vocoder
-    sfplay = SfPlayer(new_file, loop=True, mul=0.7)
+    sfplay = SfPlayer(new_file, loop=True, mul=dry_value)
     pva = PVAnal(sfplay, size=1024, overlaps=4, wintype=2)
     pvs = PVAddSynth(pva, pitch=1., num=500, first=10, inc=10).mix(2)#.out() 
     # pvs = PVAddSynth(pva, pitch=notes['pitch'], num=500, first=10, inc=10, mul=p).mix(2).out()
@@ -144,7 +188,7 @@ if __name__ == '__main__':
         # sys.exit(2)
     
     api_key = config["Freesound.org"][0]["API_KEY"]
-    
+
     #JSON composition file
     json_data = ""
     try:
@@ -157,9 +201,11 @@ if __name__ == '__main__':
         print("JSON composition file error.")
         sys.exit(2)
 
+    print("Starting MIR state machine")
 
     states_dict = dict() # id to name conversion
     states_dur = dict() #states duration
+    start_state = json_data['statesArray'][0]['text'] #TODO: add as property (start: True)
     for st in json_data['statesArray']:
         states_dict[ st['id'] ] = st['text']
         try:
@@ -189,8 +235,9 @@ if __name__ == '__main__':
 
     # Init conditions
     #state = 'idle' #start state
-    state = "A" #start state
-    previous_state = "H" #start state
+    # state = "A" #start state
+    state = start_state
+    previous_state = "H"
 
 
 
@@ -198,7 +245,7 @@ if __name__ == '__main__':
     # events = 10 # or loop with while(1)
     # for i in range(events):
     while(1):
-        print( state ) # TODO: call the right method for the state here
+        print( "State: %s"%state ) # TODO: call the right method for the state here
         #(optional) change sound in the same state or not (add as json config file)
         if state!=previous_state:
             #retrieve new sound
@@ -215,7 +262,7 @@ if __name__ == '__main__':
             # Hardcoded sound for each MIR state
             # file_chosen = snd_dict[state]
 
-            pyo_synth(file_chosen)
+            pyo_synth(file_chosen, dry_val)
             # granular_synth(file_chosen)
             # external_synth(file_chosen)
 
