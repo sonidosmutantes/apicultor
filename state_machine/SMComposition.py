@@ -11,6 +11,8 @@ import json
 from pyo import *
 
 import platform
+#from __future__ import print_function
+
 
 # from mirdbapi.FreesoundDB import FreesounDB 
 
@@ -41,8 +43,9 @@ if platform.system() == "Darwin" or platform.system() == "Windows":
     s = Server().boot()
 else: #Linux
     ### JACK ###
+    # or export PYO_SERVER_AUDIO=jack (~/.bashrc)
     s = Server(audio='jack')
-    s.setJackAuto(False, False) #linux bug workaround
+    s.setJackAuto(False, False) #some linux bug workaround
     s.boot()
     s.setJackAutoConnectOutputPorts(['system:playback_1', 'system:playback_2'])
 
