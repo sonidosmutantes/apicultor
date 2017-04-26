@@ -69,11 +69,13 @@ s.start() #no s.gui(locals())
 #mm = Mixer(outs=3, chnls=2, time=1)
 
 dry_val = 1 
-wet_val = 0.4
+wet_val = 0.5 #check which reverb algorithm is using
 # dry_val = 0.7
 # dry_val = 0.3
 a = Sine(freq=10, mul=0.3) #start signal
-c = Clip(a, mul=1)
+
+VOL_ADJUST = 6
+c = Clip(a, mul=VOL_ADJUST)
 #d = c.mix(2).out() #full dry output
 out = c.mix(2).out() #dry output
 
