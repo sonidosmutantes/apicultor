@@ -68,10 +68,10 @@ wet_val = 0.4
 a = Sine(freq=10, mul=0.3) #start signal
 c = Clip(a, mul=1)
 #d = c.mix(2).out() #full dry output
-d = c.mix(2).out() #dry output
+out = c.mix(2).out() #dry output
 
 # Reverb
-# b1 = Allpass(d, delay=[.0204,.02011], feedback=0.35) # wet output
+# b1 = Allpass(out, delay=[.0204,.02011], feedback=0.35) # wet output
 # b2 = Allpass(b1, delay=[.06653,.06641], feedback=0.41)
 # b3 = Allpass(b2, delay=[.035007,.03504], feedback=0.5)
 # b4 = Allpass(b3, delay=[.023021 ,.022987], feedback=0.65)
@@ -81,14 +81,20 @@ d = c.mix(2).out() #dry output
 # c4 = Tone(b4, 500, mul=0.2).out()
 
 #Another reverb
-comb1 = Delay(d, delay=[0.0297,0.0277], feedback=0.65)
-comb2 = Delay(d, delay=[0.0371,0.0393], feedback=0.51)
-comb3 = Delay(d, delay=[0.0411,0.0409], feedback=0.5)
-comb4 = Delay(d, delay=[0.0137,0.0155], feedback=0.73)
-combsum = d + comb1 + comb2 + comb3 + comb4
-all1 = Allpass(combsum, delay=[.005,.00507], feedback=0.75)
-all2 = Allpass(all1, delay=[.0117,.0123], feedback=0.61)
-lowp = Tone(all2, freq=3500, mul=wet_val).out()
+# comb1 = Delay(out, delay=[0.0297,0.0277], feedback=0.65)
+# comb2 = Delay(out, delay=[0.0371,0.0393], feedback=0.51)
+# comb3 = Delay(out, delay=[0.0411,0.0409], feedback=0.5)
+# comb4 = Delay(out, delay=[0.0137,0.0155], feedback=0.73)
+# combsum = out + comb1 + comb2 + comb3 + comb4
+# all1 = Allpass(combsum, delay=[.005,.00507], feedback=0.75)
+# all2 = Allpass(all1, delay=[.0117,.0123], feedback=0.61)
+# lowp = Tone(all2, freq=3500, mul=wet_val).out()
+
+pan = SPan(out, pan=[.25, .4, .6, .75]).mix(2)
+#8 delay lines FDN (Feedback Delay Network) reverb, with feedback matrix based upon physical modeling scattering junction of 8 lossless waveguides of equal characteristic impedance.
+rev = WGVerb(pan, feedback=.65, cutoff=3500, bal=.2)
+
+gt = Gate(rev, thresh=-24, risetime=0.005, falltime=0.01, lookahead=5, mul=.4).out()
 
 # Loads the sound file in RAM. Beginning and ending points
 # can be controlled with "start" and "stop" arguments.
@@ -260,7 +266,7 @@ if __name__ == '__main__':
                     audioFiles.append(file)
                     # print file
             file_chosen = audioFiles[ random.randint(0,len(audioFiles)-1) ]
-            print file_chosen
+            print(file_chosen)
 
             # Hardcoded sound for each MIR state
             # file_chosen = snd_dict[state]

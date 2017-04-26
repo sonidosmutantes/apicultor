@@ -97,7 +97,8 @@ $ cd pyosc && sudo ./setup.py install
 $ sudo apt-get install supercollider supercollider-ide
 $ sudo apt-get install scide 
 
-## Pre-processing
+## Pre-processing scripts (saves realtime processing)
 
 $ sudo apt-get install ffmpeg
 
+$ pip install ffmpeg-normalize
