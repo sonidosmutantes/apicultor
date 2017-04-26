@@ -7,6 +7,7 @@ import random
 import urllib2
 import OSC
 import sys
+import os.path
 import json
 from pyo import *
 
@@ -51,9 +52,15 @@ else: #Linux
 
 s.start() #no s.gui(locals())
 
-###
+"""
+    ETL of the sound database
+    =========================
 
-#TODO: normalize audio output
+    Audio normalization performed offline to save realtime resources (raspberry pi implementation)
+    see ../helper scripts
+
+    TODO: remove "silence" sounds from db (actually checking the file length)
+"""
 
 # sffade = Fader(fadein=0.05, fadeout=1, dur=0, mul=0.5).play()
 
@@ -90,15 +97,20 @@ out = c.mix(2).out() #dry output
 # all2 = Allpass(all1, delay=[.0117,.0123], feedback=0.61)
 # lowp = Tone(all2, freq=3500, mul=wet_val).out()
 
+#buggy? segmentation fault
+"""
+    8 delay lines FDN (Feedback Delay Network) reverb, with feedback matrix based upon physical modeling scattering junction of 8 lossless waveguides of equal characteristic impedance.
+"""
 pan = SPan(out, pan=[.25, .4, .6, .75]).mix(2)
-#8 delay lines FDN (Feedback Delay Network) reverb, with feedback matrix based upon physical modeling scattering junction of 8 lossless waveguides of equal characteristic impedance.
 rev = WGVerb(pan, feedback=.65, cutoff=3500, bal=.2)
+# rev.out()
+gt = Gate(rev, thresh=-24, risetime=0.005, falltime=0.01, lookahead=5, mul=.4)
+gt.out() 
 
-gt = Gate(rev, thresh=-24, risetime=0.005, falltime=0.01, lookahead=5, mul=.4).out()
 
 # Loads the sound file in RAM. Beginning and ending points
 # can be controlled with "start" and "stop" arguments.
-#t = SndTable(path)
+# t = SndTable(path)
 
     # #FIXME: test purposes
     # #hardcoded sound files
@@ -265,15 +277,18 @@ if __name__ == '__main__':
                 if len(file)>0: #avoid null paths
                     audioFiles.append(file)
                     # print file
-            file_chosen = audioFiles[ random.randint(0,len(audioFiles)-1) ]
-            print(file_chosen)
 
-            # Hardcoded sound for each MIR state
-            # file_chosen = snd_dict[state]
-
-            pyo_synth(file_chosen, dry_val)
-            # granular_synth(file_chosen)
-            # external_synth(file_chosen)
+            for i in range(len(audioFiles)): #WARNING: file is chosen randomly
+                file_chosen = audioFiles[ random.randint(0,len(audioFiles)-1) ]
+                print( os.path.getsize(file_chosen) )
+                if os.path.exists( file_chosen ) and os.path.getsize(file_chosen)>1000: #FIXME: prior remove 'silence' sounds from DB (ETL)
+                    print(file_chosen)
+                    pyo_synth(file_chosen, dry_val)
+                    break
+                    # Hardcoded sound for each MIR state
+                    # file_chosen = snd_dict[state]
+                    # granular_synth(file_chosen)
+                    # external_synth(file_chosen)
 
 
         time_bt_states = states_dur[ state ]
