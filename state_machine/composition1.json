@@ -1,4 +1,3 @@
-
 { 
   "statesArray": [
     { "id": 0, "text": "A",
@@ -6,11 +5,20 @@
        "LFC_min": 0.1,
        "LFC_max": 0.5
         },
-    { "id": 1, "text": "B", "duration": 12.5 },
-    { "id": 2, "text": "C", "mir": [{
-        "duration": 10.2,
-        "harmonic_content": "0.8 TO 1",
-        "tags": "hang"}]
+    { "id": 1, "text": "B",
+      "mir": [{
+        "content": "bass",
+        "sfx.duration": "* TO 5",
+        "lowlevel.spectral_complexity.mean": "5"
+        }]
+    },
+    { "id": 2, "text": "C",
+      "mir": [{
+        "tags": "hang",
+        "content": "hang",
+        "sfx.duration": "* TO 3",
+        "sfx.inharmonicity.mean": "0.1"
+        }]
     },
     { "id": 3, "text": "D", "duration": 23.4 },
     { "id": 4, "text": "E", "duration": 15.2 },

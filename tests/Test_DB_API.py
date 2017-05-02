@@ -7,7 +7,7 @@ import json
 
 # from mir.db.api import MirDbApi
 # from mir.db import FreesoundDB
-from mir.db.FreesoundDB import FreesoundAPI
+from mir.db.FreesoundDB import FreesoundDB
 
 class Test_Freesound_API(unittest.TestCase):
     
@@ -21,7 +21,7 @@ class Test_Freesound_API(unittest.TestCase):
             print("No json config file or error.")
             sys.exit(2)
 
-        self.api = FreesoundAPI()
+        self.api = FreesoundDB()
         self.api.set_api_key( config["Freesound.org"][0]["API_KEY"] )
     #set_up()
 
@@ -35,7 +35,7 @@ class Test_Freesound_API(unittest.TestCase):
 
     def test_mir_search(self):
         state = ""
-        sound_list = self.api.search_by_mir(state)
+        # sound_list = self.api.search_by_mir(state)
 
 if __name__ == '__main__':
        #unittest.main()

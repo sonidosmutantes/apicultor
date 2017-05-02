@@ -4,6 +4,8 @@ import json
 import sys
 import urllib2
 import subprocess
+import random
+import os
 
 # TODO: Add to Freesound API implementation
 # import oauth2
@@ -26,7 +28,7 @@ import freesound, sys,os
 
     Note that POST resources are not supported. Downloading full quality sounds requires Oauth2 authentication (see http://freesound.org/docs/api/authentication.html). Oauth2 authentication is supported, but you are expected to implement the workflow.
 """ 
-class FreesoundAPI(MirDbApi):
+class FreesoundDB(MirDbApi):
     __api_key = ""
 
     def set_api_key(self, api_key):
@@ -44,6 +46,15 @@ class FreesoundAPI(MirDbApi):
         return sound
     #()
 
+    def search_by_content(self, content=""):
+        client = freesound.FreesoundClient()
+        client.set_token(self.__api_key,"token")
+        
+        results = client.text_search(query=content,fields="id,name,previews")
+        for sound in results:
+            print(sound.name) 
+    #()
+
     def download_by_content(self, content=""):
         client = freesound.FreesoundClient()
         client.set_token(self.__api_key,"token")
@@ -54,27 +65,67 @@ class FreesoundAPI(MirDbApi):
             print(sound.name) 
     #()
 
+    def download_by_id(self, id):
+        client = freesound.FreesoundClient()
+        client.set_token(self.__api_key,"token")
+        
+        sound = client.get_sound(id,fields="id,name,previews")
+        sound.retrieve_preview(".",sound.name)
+        print(sound.name + " - ID: "+str(sound.id)) 
+    #()
+
+    def get_one_by_mir(self, mir_state):
+        sounds_list = self.search_by_mir(mir_state)
+        sound = sounds_list[ random.randint(0,len(sounds_list)-1) ]
+        print("File chosen: "+sound.name+ " - ID: "+ str(sound.id) )
+        self.download_by_id(sound.id)
+        # convert to wav
+        subprocess.call("ffmpeg -i \"%s\" \"%s.wav\" -y"%(sound.name,os.path.splitext(sound.name)[0]), shell=True)
+        return os.path.splitext(sound.name)[0]+".wav", sound.username, sound.id
+
     def search_by_mir(self, mir_state):
         client = freesound.FreesoundClient()
         client.set_token(self.__api_key,"token")
 
-        # desc_filter = ""
-        # desc_target = ""
-        # if "lowlevel.pitch.var" in mir_state:
-        desc_filter = "lowlevel.pitch.var:[* TO 20]" 
-        desc_target = "lowlevel.pitch_salience.mean:1.0 lowlevel.pitch.mean:440"
+        desc_filter = ""
+        desc_target = ""
+        for desc,value in mir_state.iteritems():
+            if "TO" in str(value):
+                print("Filter by: "+desc)
+                desc_filter = desc+":["+value+"]"
+            elif desc=="tags" or desc=="content":
+                print("Tags/content not yet supported")
+            else:
+                print("Target: "+desc)
+                desc_target += desc+":"+str(value) + " "
+        
+        print("Filter: "+desc_filter)
+        print("Target: "+desc_target)
+        # desc_filter = "lowlevel.pitch.var:[* TO 20]" 
+        # desc_target = "lowlevel.pitch_salience.mean:1.0 lowlevel.pitch.mean:440"
 
         results_pager = client.content_based_search(
             descriptors_filter=desc_filter,
-            target=desc_target
+            target=desc_target,
+            fields="id,name,username"
         )
 
         print("Num results:", results_pager.count)
+        new_list = list()
         for sound in results_pager:
             print("\t-", sound.name, "by", sound.username)
+            new_list.append(sound)
         print()
 
-        return results_pager
+        return new_list 
+        # return results_pager
+    #()
+
+    def get_simillar_sound(self, sound):
+        results_pager = sound.get_similar()
+        for similar_sound in results_pager:
+            print("\t-", similar_sound.name, "by", similar_sound.username)
+        print()
     #()
 
 #class
@@ -184,14 +235,20 @@ if __name__ == '__main__':
         print("No json config file or error.")
         sys.exit(2)
 
-    api = FreesoundAPI()
+    api = FreesoundDB()
     api.set_api_key( config["Freesound.org"][0]["API_KEY"] )
 
     # api.search_by_id(31362)
     # api.search_by_content("dubstep")
-    mir_state = composition["statesArray"][2]["mir"]
+    mir_state = composition["statesArray"][2]["mir"][0]
     print(mir_state)
-    api.search_by_mir(mir_state)
+    sounds_list = api.search_by_mir(mir_state)
+
+    sound = sounds_list[ random.randint(0,len(sounds_list)-1) ]
+    print("File chosen: "+sound.name+ " - ID: "+ str(sound.id) )
+    api.download_by_id(sound.id)
+    # result = client.text_search(query=sound.name,fields="id,name,previews")
+    # result.retrieve_preview(".",sound.name+".mp3")
 
     #####################################
     # Extended implementation tests. TODO

@@ -11,17 +11,15 @@ import os.path
 import json
 from pyo import *
 
+from mir.db.FreesoundDB import FreesoundDB
+from mir.db.RedPanalDB import RedPanalDB
+
 import platform
 #from __future__ import print_function
 
 
-# from mirdbapi.FreesoundDB import FreesounDB 
-
 DATA_PATH = "data"
 SAMPLES_PATH = "samples"
-
-# RedPanal API
-URL_BASE = "http://127.0.0.1:5000" #TODO: get from a config file
 
 # OSC Server
 osc_client = OSC.OSCClient()
@@ -201,6 +199,13 @@ if __name__ == '__main__':
         print("\nBad amount of input arguments\n\t", Usage, "\n")
         sys.exit(1)
 
+    logfile = "apicultor.log"
+    try:
+        log = open(logfile, "a") #append? or overwrite ('w')
+    except:
+        print("Log file error")
+        sys.exit(4)
+    
     # JSON config file
     config = ""
     try:
@@ -210,7 +215,18 @@ if __name__ == '__main__':
         print("No json config file or error.")
         # sys.exit(2)
     
-    api_key = config["Freesound.org"][0]["API_KEY"]
+    api_type = config["api"]
+    if api_type=="redpanal":
+        db_url = config["RedPanal.org"][0]["url"]
+        api = RedPanalDB(db_url)
+    elif api_type=="freesound":
+        freesound_api_key = config["Freesound.org"][0]["API_KEY"]
+        api = FreesoundDB()
+        api.set_api_key(freesound_api_key)
+    else:
+        print("Bad api key config")
+        sys.exit(2)
+    print("Using "+api_type+" API")
 
     #JSON composition file
     json_data = ""
@@ -225,14 +241,20 @@ if __name__ == '__main__':
         sys.exit(2)
 
     print("Starting MIR state machine")
+    log.write("Starting MIR state machine: "+json_comp_file+"\n")
 
     states_dict = dict() # id to name conversion
     states_dur = dict() #states duration
+    states_mirdef = dict() #mir state definition
     start_state = json_data['statesArray'][0]['text'] #TODO: add as property (start: True)
     for st in json_data['statesArray']:
-        states_dict[ st['id'] ] = st['text']
+        states_dict[ st['id'] ] = st['text'] # 'text' is the name of the state
         try:
-            states_dur[ st['text'] ] = st['duration']
+            states_mirdef[ st['text'] ] = st['mir'][0]
+        except:
+            states_mirdef[ st['text'] ] = {"sfx.duration": "* TO 3", "sfx.inharmonicity.mean": "0.1" } #default value
+        try:
+            states_dur[ st['text'] ] = st['duration'] #default value
         except:
             states_dur[ st['text'] ] = 1. # default duration
 
@@ -272,25 +294,29 @@ if __name__ == '__main__':
         #(optional) change sound in the same state or not (add as json config file)
         if state!=previous_state:
             #retrieve new sound
-            call = '/list/samples' #gets only wav files because SuperCollider
-            response = urllib2.urlopen(URL_BASE + call).read()
-            audioFiles = list()
-            for file in response.split('\n'):
-                if len(file)>0: #avoid null paths
-                    audioFiles.append(file)
-                    # print file
 
-            for i in range(len(audioFiles)): #WARNING: file is chosen randomly
-                file_chosen = audioFiles[ random.randint(0,len(audioFiles)-1) ]
-                print( os.path.getsize(file_chosen) )
-                if os.path.exists( file_chosen ) and os.path.getsize(file_chosen)>1000: #FIXME: prior remove 'silence' sounds from DB (ETL)
-                    print(file_chosen)
-                    pyo_synth(file_chosen, dry_val)
-                    break
-                    # Hardcoded sound for each MIR state
-                    # file_chosen = snd_dict[state]
-                    # granular_synth(file_chosen)
-                    # external_synth(file_chosen)
+            # call = '/list/samples' #gets only wav files because SuperCollider
+            # response = urllib2.urlopen(URL_BASE + call).read()
+            # audioFiles = list()
+            # for file in response.split('\n'):
+            #     if len(file)>0: #avoid null paths
+            #         audioFiles.append(file)
+            #         # print file
+
+
+            mir_state = states_mirdef[ state ]
+            print("MIR State: "+str(mir_state))
+            file_chosen, autor, sound_id  = api.get_one_by_mir(mir_state)
+            log.write(file_chosen+" by "+ autor + " - id: "+str(sound_id)+"\n")
+            print( os.path.getsize(file_chosen) )
+            if os.path.exists( file_chosen ) and os.path.getsize(file_chosen)>1000: #FIXME: prior remove 'silence' sounds from DB (ETL)
+                print(file_chosen)
+                pyo_synth(file_chosen, dry_val)
+
+                # Hardcoded sound for each MIR state
+                # file_chosen = snd_dict[state]
+                # granular_synth(file_chosen)
+                # external_synth(file_chosen)
 
 
         time_bt_states = states_dur[ state ]
@@ -313,3 +339,5 @@ if __name__ == '__main__':
         #next state
         previous_state = state
         state = T.succ(state).choose() #new state
+
+        log.close()

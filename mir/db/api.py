@@ -17,9 +17,12 @@ class MirDbApi:
     def download_by_content(self, content=""):
         raise Exception("This is an nterface with no implementation")
     
-    def search_by_mir(self, descriptors_filter, target):
+    def search_by_mir(self, mir_state):
         raise Exception("This is an nterface with no implementation")
 
+    def get_simillar_sound(self, sound):
+        raise Exception("This is an nterface with no implementation")
+    
     #TODO: add as a parameter and callback function processing in other methods
     def json_to_id_list(self, json_content):
         """
