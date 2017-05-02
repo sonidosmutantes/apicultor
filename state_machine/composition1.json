@@ -7,10 +7,10 @@
        "LFC_max": 0.5
         },
     { "id": 1, "text": "B", "duration": 12.5 },
-    { "id": 2, "text": "C",
+    { "id": 2, "text": "C", "mir": [{
         "duration": 10.2,
         "harmonic_content": "0.8 TO 1",
-        "tags": "hang"
+        "tags": "hang"}]
     },
     { "id": 3, "text": "D", "duration": 23.4 },
     { "id": 4, "text": "E", "duration": 15.2 },

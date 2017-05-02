@@ -77,6 +77,13 @@ $ sudo apt-get install python-tk
 
 * Essentia (ver instrucciones para compilar aquí: http://essentia.upf.edu/documentation/installing.html)
 
+#### Freesound API module
+```
+$ git clone https://github.com/MTG/freesound-python
+$ cd freesound-python
+$ sudo python setup.py install
+```
+
 ## State Machine
 ```
 $ sudo pip install git+git://github.com/riccardoscalco/Pykov@master #both Python2 and Python3

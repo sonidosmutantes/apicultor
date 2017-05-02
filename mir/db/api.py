@@ -10,9 +10,16 @@ class MirDbApi:
             Returns a json
         """
         raise Exception("This is an interface with no implementation")
+
     def search_by_content(self, content=""):
         raise Exception("This is an nterface with no implementation")
     
+    def download_by_content(self, content=""):
+        raise Exception("This is an nterface with no implementation")
+    
+    def search_by_mir(self, descriptors_filter, target):
+        raise Exception("This is an nterface with no implementation")
+
     #TODO: add as a parameter and callback function processing in other methods
     def json_to_id_list(self, json_content):
         """
