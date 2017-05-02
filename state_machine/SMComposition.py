@@ -340,4 +340,7 @@ if __name__ == '__main__':
         previous_state = state
         state = T.succ(state).choose() #new state
 
-        log.close()
+        # if state==end_state: break
+
+    log.close()
+    #end
