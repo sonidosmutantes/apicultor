@@ -10,6 +10,7 @@ import sys
 import os.path
 import json
 from pyo import *
+import signal
 
 from mir.db.FreesoundDB import FreesoundDB
 from mir.db.RedPanalDB import RedPanalDB
@@ -31,6 +32,15 @@ sc_IP = '127.0.0.1' #Local SC server
 sc_IP = '192.168.56.1' # Remote server is the host of the VM
 osc_client.connect( ( sc_IP, sc_Port ) )
 
+
+### Signal handler (ctrl+c)
+def signal_handler(signal, frame):
+    global log
+    print('Ctrl+C')
+    log.close()
+    sys.exit(0)
+
+signal.signal(signal.SIGINT, signal_handler)
 
 ### Pyo Sound Server ###
 
@@ -198,13 +208,13 @@ if __name__ == '__main__':
     if len(sys.argv) < 2:
         print("\nBad amount of input arguments\n\t", Usage, "\n")
         sys.exit(1)
-
+    
     logfile = "apicultor.log"
     try:
         log = open(logfile, "a") #append? or overwrite ('w')
     except:
         print("Log file error")
-        sys.exit(4)
+        sys.exit(2)
     
     # JSON config file
     config = ""
@@ -213,7 +223,7 @@ if __name__ == '__main__':
     except Exception, e:
         print(e)
         print("No json config file or error.")
-        # sys.exit(2)
+        sys.exit(3)
     
     api_type = config["api"]
     if api_type=="redpanal":
@@ -225,7 +235,7 @@ if __name__ == '__main__':
         api.set_api_key(freesound_api_key)
     else:
         print("Bad api key config")
-        sys.exit(2)
+        sys.exit(4)
     print("Using "+api_type+" API")
 
     #JSON composition file
@@ -241,7 +251,7 @@ if __name__ == '__main__':
         sys.exit(2)
 
     print("Starting MIR state machine")
-    log.write("Starting MIR state machine: "+json_comp_file+"\n")
+    log.write("Starting MIR state machine: "+json_comp_file+"\n") #WARNING: bad realtime practice (writing file) TODO: add to a memory buffer and write before exit
 
     states_dict = dict() # id to name conversion
     states_dur = dict() #states duration
@@ -307,10 +317,11 @@ if __name__ == '__main__':
             mir_state = states_mirdef[ state ]
             print("MIR State: "+str(mir_state))
             file_chosen, autor, sound_id  = api.get_one_by_mir(mir_state)
-            log.write(file_chosen+" by "+ autor + " - id: "+str(sound_id)+"\n")
+
             print( os.path.getsize(file_chosen) )
             if os.path.exists( file_chosen ) and os.path.getsize(file_chosen)>1000: #FIXME: prior remove 'silence' sounds from DB (ETL)
                 print(file_chosen)
+                log.write(file_chosen+" by "+ autor + " - id: "+str(sound_id)+"\n") #WARNING: bad realtime practice (writing file) TODO: add to a memory buffer and write before exit. FIXME
                 pyo_synth(file_chosen, dry_val)
 
                 # Hardcoded sound for each MIR state

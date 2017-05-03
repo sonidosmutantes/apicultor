@@ -4,6 +4,7 @@ samples/*
 *.wav
 *.mp3
 *.ogg
+*.aif
 *.swp
 *.log
 *.json
