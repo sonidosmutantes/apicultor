@@ -1,10 +1,10 @@
 data/*
 samples/*
 *.pyc
-*.wav
+*.wav*
 *.mp3
 *.ogg
-*.aif
+*.aif*
 *.swp
 *.log
 *.json
