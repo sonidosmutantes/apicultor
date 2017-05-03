@@ -17,21 +17,14 @@ Interdisciplinary performances based on sounds of the web platform [Redpanal.org
 
 [http://redpanal.org/a/banda-de-mutantes-cierre-taller/](http://redpanal.org/a/banda-de-mutantes-cierre-taller/)
 
-## La Noche de los Museos La Casa del Bicentenario 29/10/2016
-[http://redpanal.org/a/performance-casa-tomada/](http://redpanal.org/a/performance-casa-tomada/)
-
-[https://www.youtube.com/watch?v=eKcvkgtJIEo](https://www.youtube.com/watch?v=eKcvkgtJIEo)
-
-3D visuals (Blender + game engine)
-
-**Article**: [http://blog.enjambrelab.com.ar/enjambrebit-y-la-banda-de-mutantes/](http://blog.enjambrelab.com.ar/enjambrebit-y-la-banda-de-mutantes/)
-
-[https://www.facebook.com/SonidosMutantes](https://www.facebook.com/SonidosMutantes)
-
 ## Proofs of concept (old demos):
 
-* Demo máquina de estados + MIR data + OSC + API + Tests: [http://www.youtube.com/watch?v=pMBl_4y6UmE](http://www.youtube.com/watch?v=pMBl_4y6UmE)
-* Integración con controlador MIDI + Supercollider + ApicultorWebService: [https://www.youtube.com/watch?v=X0M_gTOZnNQ](https://www.youtube.com/watch?v=X0M_gTOZnNQ)
+* Música generativa con máquina de estados MIR y sonidos libres de Freesound.org: http://redpanal.org/a/preview/
+* Perfomances
+  * La Noche de los Museos La Casa del Bicentenario 29/10/2016: [http://redpanal.org/a/performance-casa-tomada/](http://redpanal.org/a/performance-casa-tomada/)
+  * [https://www.youtube.com/watch?v=eKcvkgtJIEo](https://www.youtube.com/watch?v=eKcvkgtJIEo)
+  * 3D visuals (Blender + game engine): **Article**: [http://blog.enjambrelab.com.ar/enjambrebit-y-la-banda-de-mutantes/](http://blog.enjambrelab.com.ar/enjambrebit-y-la-banda-de-mutantes/)
+* MIDI controller + Supercollider + APICultor WebService + sounds from RedPanal.org: [https://www.youtube.com/watch?v=X0M_gTOZnNQ](https://www.youtube.com/watch?v=X0M_gTOZnNQ)
 
 ## Components
 
