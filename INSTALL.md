@@ -107,6 +107,12 @@ Note: In Raspberry Pi run first $ sudo apt-get install python-numpy python-scipy
 $ git clone https://github.com/ptone/pyosc.git
 $ cd pyosc && sudo ./setup.py install
 
+#### Freesound API module
+```
+$ git clone https://github.com/MTG/freesound-python
+$ cd freesound-python
+$ sudo python setup.py install
+```
 
 # OSC (different libraries)
 
@@ -122,7 +128,8 @@ $ cd pyosc && sudo ./setup.py install
 $ sudo apt-get install supercollider supercollider-ide
 $ sudo apt-get install scide 
 
-## Pre-processing
+## Pre-processing scripts (saves realtime processing)
 
 $ sudo apt-get install ffmpeg
 
+$ pip install ffmpeg-normalize
