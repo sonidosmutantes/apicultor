@@ -17,13 +17,14 @@ Extrae miel de [RedPanal](http://redpanal.org)  con técnicas de Music Informati
 ## Sonidos Mutantes
 *Sonidos Mutantes, propone performances basadas en el uso artístico de bases de datos preexistentes, las mismas construidas por audios o músicas libres, por ejemplo aquellas de la plataforma colaborativa de RedPanal.org, la cuál es de acceso público vía internet. Estos sonidos, analizados y procesados en tiempo real se combinan en una improvisación colectiva con músicos en vivo bajo consignas preestablecidas, dando lugar a composiciones que mutan a lo largo del tiempo y en función de los propios músicos y de la comunidad toda. Ya que el público podrá participar de la performance subiendo audios y haciendo búsquedas o comentarios en la plataforma web de RedPanal.*
 
-### Pruebas de concepto (demos viejas):
+### Pruebas de concepto:
 
-* Música generativa con máquina de estados MIR y sonidos libres de Freesound.org: http://redpanal.org/a/preview/
+* Música generativa con máquina de estados MIR y sonidos libres de Freesound.org: 
+  * "[Feature Thinking](https://soundcloud.com/hern-n-ordiales/feature-thinking)" (con sonidos libres Creative Commons de Freesound.org)
 
 * Integración con controlador MIDI + Supercollider + ApicultorWebService: [https://www.youtube.com/watch?v=X0M_gTOZnNQ](https://www.youtube.com/watch?v=X0M_gTOZnNQ)
 
-* Performances utilizando estas herramientas:
+* Performances en vivo utilizando estas herramientas:
   * Cierre de Taller de Experimentación Sonora: [http://redpanal.org/a/banda-de-mutantes-cierre-taller/](http://redpanal.org/a/banda-de-mutantes-cierre-taller/)
   * La Noche de los Museos La Casa del Bicentenario 29/10/2016
 [http://redpanal.org/a/performance-casa-tomada/](http://redpanal.org/a/performance-casa-tomada/)
