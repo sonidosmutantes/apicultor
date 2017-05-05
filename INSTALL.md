@@ -2,6 +2,8 @@
 
 Tested under Debian, Ubuntu 15.04 and 16.04 but should work in other operating systems
 
+And [Docker](docker.md).
+
 # PIP 
 $ sudo apt-get install python3-pip python-pip
 
