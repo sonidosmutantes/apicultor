@@ -65,4 +65,6 @@ To remix we use (from Deep Learning results) classification data to make emotive
 ### About the Music Emotion Machine's Deep Learning:
 
 Since we aim to classify all the sounds in RedPanal based on emotions, our task is to review activations in many runs using layers of support vector machine (this is known as Multi-Layer SVMs or Deep SVMs). By the time we only find four emotions in music. As the MIR information is important for all the other tasks, we do our best to respect the data we have, this allows us to review everything the best possible way. This is why we use Cross Validation and other tools to get the best information.
+
 ## Docker
+See [docker](docker.md) and [Dockerfile](Dockerfile.md).

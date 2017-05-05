@@ -137,7 +137,7 @@ En los remixes utilizamos, ademas de la data acerca de las correspondientes clas
 Con la intención de obtener la mejor clasificación posible de los sonidos basándose en las emociones que son capaces de transmitirnos, la tarea profunda consiste en este caso particular de reveer las activaciones con capas de máquinas de soporte vectorial para dar con la clasificación correcta. Por el momento solamente se utilizan cuatro clases de emociones para la clasificación. Como la información del MIR es importante, el aprendizaje se hace respetando lo mejor posible las descripciones, lo que permite reveer las clasificaciones hechas hasta dar con las correctas. Es por esto que contamos con nuestros modulos de validación cruzada y con nuestras utilidades matemáticas para clasificar los sonidos sin perder información.
 ## Docker
 
-Ver tutorial sobre [docker](docker.md).
+Ver tutorial sobre [docker](docker.md) y [Dockerfile](Dockerfile).
 
 ## Build (TODO)
 
