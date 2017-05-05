@@ -12,6 +12,10 @@ import json
 from pyo import *
 import signal
 
+#TODO: addi/use formal loggin
+# import logging
+# import logging.handlers
+
 from mir.db.FreesoundDB import FreesoundDB
 from mir.db.RedPanalDB import RedPanalDB
 
