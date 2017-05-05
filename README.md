@@ -134,6 +134,12 @@ Con la intención de obtener la mejor clasificación posible de los sonidos bas�
 
 Ver tutorial sobre [docker](docker.md) y [Dockerfile](Dockerfile).
 
+Servicio (API) escuchando en puerto 5000:
+```
+$ docker build -t apicultor_v0.9 .
+$ docker run -p 5000:5000 --name apicultor  -it --net="host"  apicultor_v0.9
+```
+
 ## Build (TODO)
 
 

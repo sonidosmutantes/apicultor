@@ -1,4 +1,12 @@
-# Docker build (ETA 30min)
+# Dockerfile (camino rápido)
+
+Servicio (API) escuchando en puerto 5000:
+```
+$ docker build -t apicultor_v0.9 .
+$ docker run -p 5000:5000 --name apicultor  -it --net="host"  apicultor_v0.9
+```
+
+# Docker build. Paso a paso (ETA 30min)
 
 Tutorial para "dockerizar" apiCultor by [azimut].
 
@@ -85,7 +93,7 @@ cd /opt/apicultor
 ./MockRedPanalAPI_service.py
 ```
 
-## Notas sobre mantenimiento y TODOs
+## Notas sobre mantenimiento y TODOs (by [azimut])
 * Se usa [ubuntu-slim] porque se prefiere una imágen simple como base.
 * No se usa un `Dockerfile` principalmente porque `essentia`(600MB) y `apicultor`(130MB) son un tanto pesados para bajar y encima tener que poner en una imagen de Docker. Si algún día `docker build` soporta volumenes o alguna de las otras opciones es usable, habría que usar un `Dockerfile`.
  * Ver opción de descargar el master .zip y usar un `Dockerfile`.
