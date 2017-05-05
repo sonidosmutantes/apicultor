@@ -1,12 +1,46 @@
+# docker build -t apicultor_v0.9 .
+# REPOSITORY    SIZE
+# apicultor     881.2 MB
+# docker run -p 5000:5000 --name apicultor  -it --net="host"  apicultor_v0.9
+
 FROM gcr.io/google_containers/ubuntu-slim:0.6
 
-ENV http_proxy http://172.17.0.2:3128
-ENV https_proxy http://172.17.0.2:3128
+ENV PORT 5000
 
-# RUN  echo 'Acquire::http { Proxy "http://localhost:3142"; };' >> /etc/apt/apt.conf.d/01proxy
-# RUN apt-get update && apt-get install -y vim git
-# # docker build -t my_ubuntu .
+WORKDIR /srv
 
-RUN apt-get update && apt-get install -y build-essential libyaml-dev libfftw3-dev libavcodec-dev libavformat-dev libavutil-dev libavresample-dev python-dev libsamplerate0-dev libtag1-dev python-numpy-dev python-numpy python-yaml
+# TODO: Solve py2 vs py3 in apicultor
+RUN apt-get update && apt-get install -y \
+    python \
+    python3 \
+    python-pip \
+    python3-pip \
+    git
 
-RUN mkdir -p projects && git clone https://github.com/sonidosmutantes/apicultor $HOME/git/apicultor
+RUN git clone https://github.com/sonidosmutantes/apicultor
+
+RUN apt-get install -y \
+    build-essential \
+    libyaml-dev \
+    libfftw3-dev \
+	libavcodec-dev \
+	libavformat-dev \
+	libavutil-dev \
+	libavresample-dev \
+	python-dev \
+	libsamplerate0-dev \
+	libtag1-dev \
+	python-numpy-dev \
+	python-numpy \
+	python-yaml \
+	git \
+	curl
+
+RUN pip2 install --upgrade pip
+RUN pip2 install flask flask-autodoc
+
+# (optional) ssh server
+RUN apt-get install -y openssh-server
+
+EXPOSE 5000
+ENTRYPOINT cd apicultor && python MockRedPanalAPI_service.py

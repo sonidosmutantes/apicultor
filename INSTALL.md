@@ -3,8 +3,8 @@
 ### Operating System
 Tested under Linux, Mac OS (>10.11) and Windows 10.
 
-Debian, Ubuntu 15.04 and 16.04 (and .10). And Docker images.
-Raspian @ Raspberry Pi
+Debian, Ubuntu 15.04 and 16.04 (and .10). And [Docker](docker.md) images.
+Raspian @ Raspberry Pi.
 
 # PIP 
 $ sudo apt-get install python3-pip python-pip
