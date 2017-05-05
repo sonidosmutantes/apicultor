@@ -4,6 +4,7 @@
 import unittest
 
 from Test_API import *
+from Test_DB_API import *
 #from Test_Similarity import *
 from Test_MIR_Analysis import *
 

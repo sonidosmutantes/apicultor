@@ -1,6 +1,10 @@
 # Requirements
 
-Tested under Debian, Ubuntu 15.04 and 16.04 but should work in other operating systems
+### Operating System
+Tested under Linux, Mac OS (>10.11) and Windows 10.
+
+Debian, Ubuntu 15.04 and 16.04 (and .10). And Docker images.
+Raspian @ Raspberry Pi
 
 # PIP 
 $ sudo apt-get install python3-pip python-pip
@@ -20,7 +24,18 @@ $ sudo pip2 install flask
 
 $ sudo pip2 install flask-autodoc
 
-## MIR
+# Pyo
+$ sudo apt-get install python-dev libjack-jackd2-dev libportmidi-dev portaudio19-dev liblo-dev libsndfile-dev python-dev python-tk python-imaging-tk python-wxgtk2.8
+
+$ wget http://ajaxsoundstudio.com/downloads/pyo_0.8.5-src.tar.bz2
+
+$ tar -xvf pyo_0.8.5-src.tar.bz2 && cd pyo_0.8.5-src
+
+#enable-jack compilation
+$ sudo python setup.py --use-jack install
+
+
+# MIR
 
 ### Essentia (http://essentia.upf.edu/)
 
@@ -77,18 +92,34 @@ $ sudo apt-get install python-tk
 
 * Essentia (ver instrucciones para compilar aquí: http://essentia.upf.edu/documentation/installing.html)
 
-## State Machine
+## MIR State Machine example
+
+### pykov (markov processes)
+Note that Pykov depends on numpy and scipy.
+
+Both for Python2 and Python3:
+
+$ sudo pip install git+git://github.com/riccardoscalco/Pykov@master 
+
+Note: In Raspberry Pi run first $ sudo apt-get install python-numpy python-scipy #pip install scipy no works
+
+### OSC Client
+$ git clone https://github.com/ptone/pyosc.git
+$ cd pyosc && sudo ./setup.py install
+
+#### Freesound API module
 ```
-$ sudo pip install git+git://github.com/riccardoscalco/Pykov@master #both Python2 and Python3
+$ git clone https://github.com/MTG/freesound-python
+$ cd freesound-python
+$ sudo python setup.py install
 ```
-Note that Pykov depends on numpy and scipy
 
-## OSC
+# OSC (different libraries)
 
-# OSC Service Example
-$ sudo pip install python-osc
+## OSC Service Example
+$ sudo pip3 install python-osc
 
-# OSC to the State Machine Example
+## OSC Client
 $ git clone https://github.com/ptone/pyosc.git
 $ cd pyosc && sudo ./setup.py install
 

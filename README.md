@@ -8,23 +8,7 @@ El código da soporte para el procesamiento de sonidos de la web utilizando téc
 
 Funciona a través de una API REST para la consulta externa de archivos y descriptores desde SuperCollider, pyo, pd o cualquier otro tipo de entorno que maneje protocolos estándar.
 
-Extrae miel de RedPanal con técnicas de Music Information Retrieval (MIR).
-
-## Performances utilizando estas herramientas:
-
-### Cierre de Taller de Experimentación Sonora:
-
-[http://redpanal.org/a/banda-de-mutantes-cierre-taller/](http://redpanal.org/a/banda-de-mutantes-cierre-taller/)
-
-
-### La Noche de los Museos La Casa del Bicentenario 29/10/2016
-[http://redpanal.org/a/performance-casa-tomada/](http://redpanal.org/a/performance-casa-tomada/)
-
-[https://www.youtube.com/watch?v=eKcvkgtJIEo](https://www.youtube.com/watch?v=eKcvkgtJIEo)
-
-Con visuales 3D (Blender + game engine)
-
-**Reseña**: [http://blog.enjambrelab.com.ar/enjambrebit-y-la-banda-de-mutantes/](http://blog.enjambrelab.com.ar/enjambrebit-y-la-banda-de-mutantes/)
+Extrae miel de [RedPanal](http://redpanal.org)  con técnicas de Music Information Retrieval (MIR).
 
 ## API
 
@@ -33,12 +17,17 @@ Con visuales 3D (Blender + game engine)
 ## Sonidos Mutantes
 *Sonidos Mutantes, propone performances basadas en el uso artístico de bases de datos preexistentes, las mismas construidas por audios o músicas libres, por ejemplo aquellas de la plataforma colaborativa de RedPanal.org, la cuál es de acceso público vía internet. Estos sonidos, analizados y procesados en tiempo real se combinan en una improvisación colectiva con músicos en vivo bajo consignas preestablecidas, dando lugar a composiciones que mutan a lo largo del tiempo y en función de los propios músicos y de la comunidad toda. Ya que el público podrá participar de la performance subiendo audios y haciendo búsquedas o comentarios en la plataforma web de RedPanal.*
 
-[https://www.facebook.com/SonidosMutantes](https://www.facebook.com/SonidosMutantes)
-
 ### Pruebas de concepto (demos viejas):
 
-* Demo máquina de estados + MIR data + OSC + API + Tests: [http://www.youtube.com/watch?v=pMBl_4y6UmE](http://www.youtube.com/watch?v=pMBl_4y6UmE)
+* Música generativa con máquina de estados MIR y sonidos libres de Freesound.org: http://redpanal.org/a/preview/
+
 * Integración con controlador MIDI + Supercollider + ApicultorWebService: [https://www.youtube.com/watch?v=X0M_gTOZnNQ](https://www.youtube.com/watch?v=X0M_gTOZnNQ)
+
+* Performances utilizando estas herramientas:
+  * Cierre de Taller de Experimentación Sonora: [http://redpanal.org/a/banda-de-mutantes-cierre-taller/](http://redpanal.org/a/banda-de-mutantes-cierre-taller/)
+  * La Noche de los Museos La Casa del Bicentenario 29/10/2016
+[http://redpanal.org/a/performance-casa-tomada/](http://redpanal.org/a/performance-casa-tomada/)
+  * [https://www.youtube.com/watch?v=eKcvkgtJIEo](https://www.youtube.com/watch?v=eKcvkgtJIEo) Con visuales 3D (Blender + game engine) **Reseña**: [http://blog.enjambrelab.com.ar/enjambrebit-y-la-banda-de-mutantes/](http://blog.enjambrelab.com.ar/enjambrebit-y-la-banda-de-mutantes/)
 
 ## Componentes
 
@@ -57,6 +46,11 @@ Con visuales 3D (Blender + game engine)
 Ver la [descripción de archivos](FILES_DESC.md) para más detalles.
 
 # Dependencias
+
+Tested under Linux, Mac OS (>10.11) and Windows 10.
+
+Debian, Ubuntu 15.04 and 16.04 (and .10). And Docker images.
+Raspian @ Raspberry Pi
 
 Ver [INSTALL.md](INSTALL.md)
 

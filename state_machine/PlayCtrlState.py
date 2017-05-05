@@ -252,34 +252,36 @@ if __name__ == '__main__':
 
     print("Starting MIR state machine")
     log.write("Starting MIR state machine: "+json_comp_file+"\n") #WARNING: bad realtime practice (writing file) TODO: add to a memory buffer and write before exit
+    
+    print( json_data['statesArray'][0]['mir'] )
 
-    states_dict = dict() # id to name conversion
-    states_dur = dict() #states duration
-    states_mirdef = dict() #mir state definition
-    start_state = json_data['statesArray'][0]['text'] #TODO: add as property (start: True)
-    for st in json_data['statesArray']:
-        states_dict[ st['id'] ] = st['text'] # 'text' is the name of the state
-        try:
-            states_mirdef[ st['text'] ] = st['mir'][0]
-        except:
-            states_mirdef[ st['text'] ] = {"sfx.duration": "* TO 3", "sfx.inharmonicity.mean": "0.1" } #default value
-        try:
-            states_dur[ st['text'] ] = st['duration'] #default value
-        except:
-            states_dur[ st['text'] ] = 1. # default duration
+    # states_dict = dict() # id to name conversion
+    # states_dur = dict() #states duration
+    # states_mirdef = dict() #mir state definition
+    # start_state = json_data['statesArray'][0]['text'] #TODO: add as property (start: True)
+    # for st in json_data['statesArray']:
+    #     states_dict[ st['id'] ] = st['text'] # 'text' is the name of the state
+    #     try:
+    #         states_mirdef[ st['text'] ] = st['mir'][0]
+    #     except:
+    #         states_mirdef[ st['text'] ] = {"sfx.duration": "* TO 3", "sfx.inharmonicity.mean": "0.1" } #default value
+    #     try:
+    #         states_dur[ st['text'] ] = st['duration'] #default value
+    #     except:
+    #         states_dur[ st['text'] ] = 1. # default duration
 
     
-    sd = states_dict
-    T = pykov.Matrix()
-    for st in json_data['linkArray']:
-        # print( float(st['text']) )
-        T[ sd[st['from']], sd[st['to']] ] = float( st['text'] )
+    # sd = states_dict
+    # T = pykov.Matrix()
+    # for st in json_data['linkArray']:
+    #     # print( float(st['text']) )
+    #     T[ sd[st['from']], sd[st['to']] ] = float( st['text'] )
 
-    try:
-        T.stochastic() #check
-    except Exception,e:
-        print(e)
-        exit(1)
+    # try:
+    #     T.stochastic() #check
+    # except Exception,e:
+    #     print(e)
+    #     exit(1)
 
 #########################
 #FIXME: Time
@@ -288,43 +290,44 @@ if __name__ == '__main__':
 #########################
 #########################
 
-    # Init conditions
-    #state = 'idle' #start state
-    # state = "A" #start state
-    state = start_state
-    previous_state = "H"
-
-
 
     #Fixed amount or infinite with while(1 ) ()
     # events = 10 # or loop with while(1)
     # for i in range(events):
-    while(1):
-        print( "State: %s"%state ) # TODO: call the right method for the state here
+    # while(1):
+        # print( "State: %s"%state ) # TODO: call the right method for the state here
         #(optional) change sound in the same state or not (add as json config file)
-        if state!=previous_state:
+        # if state!=previous_state:
             #retrieve new sound
-            call = '/list/samples' #gets only wav files because SuperCollider
-            response = urllib2.urlopen(URL_BASE + call).read()
-            audioFiles = list()
-            for file in response.split('\n'):
-                if len(file)>0: #avoid null paths
-                    audioFiles.append(file)
-                    # print file
 
-            for i in range(len(audioFiles)): #WARNING: file is chosen randomly
-                file_chosen = audioFiles[ random.randint(0,len(audioFiles)-1) ]
-                print( os.path.getsize(file_chosen) )
-                if os.path.exists( file_chosen ) and os.path.getsize(file_chosen)>1000: #FIXME: prior remove 'silence' sounds from DB (ETL)
-                    print(file_chosen)
-                    pyo_synth(file_chosen, dry_val)
-                    break
-                    # Hardcoded sound for each MIR state
-                    # file_chosen = snd_dict[state]
-                    # granular_synth(file_chosen)
-                    # external_synth(file_chosen)
+            # call = '/list/samples' #gets only wav files because SuperCollider
+            # response = urllib2.urlopen(URL_BASE + call).read()
+            # audioFiles = list()
+            # for file in response.split('\n'):
+            #     if len(file)>0: #avoid null paths
+            #         audioFiles.append(file)
+            #         # print file
 
-        time_bt_states = states_dur[ state ]
+
+    mir_state = json_data['statesArray'][0]['mir'][0]
+
+    print("MIR State: "+str(mir_state))
+    file_chosen, autor, sound_id  = api.get_one_by_mir(mir_state)
+
+    print( os.path.getsize(file_chosen) )
+    if os.path.exists( file_chosen ) and os.path.getsize(file_chosen)>1000: #FIXME: prior remove 'silence' sounds from DB (ETL)
+        print(file_chosen)
+        log.write(file_chosen+" by "+ autor + " - id: "+str(sound_id)+"\n") #WARNING: bad realtime practice (writing file) TODO: add to a memory buffer and write before exit. FIXME
+        pyo_synth(file_chosen, dry_val)
+        s.gui(locals())
+
+                # Hardcoded sound for each MIR state
+                # file_chosen = snd_dict[state]
+                # granular_synth(file_chosen)
+                # external_synth(file_chosen)
+
+
+        # time_bt_states = states_dur[ state ]
         # time_between_notes = random.uniform(0.,2.) #in seconds
         #time.sleep(time_between_notes)
         #TODO: add random variation time?
@@ -337,15 +340,6 @@ if __name__ == '__main__':
         # # Add inputs to the mixer
         # mm.addInput(voice=new_voice, input=sfplay)
         #mm.addInput(voice=new_voice, input=pvs)
-
-        # Delay within states
-        time.sleep(time_bt_states)
-
-        #next state
-        previous_state = state
-        state = T.succ(state).choose() #new state
-
-        # if state==end_state: break
 
     log.close()
     #end
