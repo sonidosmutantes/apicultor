@@ -25,8 +25,12 @@ class RedPanalDB(MirDbApi):
     # #()
 
     # def search_by_content(self, content=""):
-    
+
+    def get_one_by_mir(self, mir_state):
+        return self.search_by_mir(mir_state)
+
     def search_by_mir(self, mir_state):
+        #FIXME generic call
         call = '/list/samples' #gets only wav files because SuperCollider
         response = urllib2.urlopen(self.__url + call).read()
         audioFiles = list()
