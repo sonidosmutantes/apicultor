@@ -1,0 +1,11 @@
+{ 
+  "statesArray": [
+    { "id": 0, "text": "Demo state",
+      "mir": [{
+        "sfx.duration": "7.2",
+        "lowlevel.hfc.mean": "* TO 0.0005",
+        "lowlevel.spectral_complexity.mean": "1"
+        }]
+    }
+  ]
+}

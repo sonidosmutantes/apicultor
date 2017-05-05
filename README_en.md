@@ -17,21 +17,14 @@ Interdisciplinary performances based on sounds of the web platform [Redpanal.org
 
 [http://redpanal.org/a/banda-de-mutantes-cierre-taller/](http://redpanal.org/a/banda-de-mutantes-cierre-taller/)
 
-## La Noche de los Museos La Casa del Bicentenario 29/10/2016
-[http://redpanal.org/a/performance-casa-tomada/](http://redpanal.org/a/performance-casa-tomada/)
-
-[https://www.youtube.com/watch?v=eKcvkgtJIEo](https://www.youtube.com/watch?v=eKcvkgtJIEo)
-
-3D visuals (Blender + game engine)
-
-**Article**: [http://blog.enjambrelab.com.ar/enjambrebit-y-la-banda-de-mutantes/](http://blog.enjambrelab.com.ar/enjambrebit-y-la-banda-de-mutantes/)
-
-[https://www.facebook.com/SonidosMutantes](https://www.facebook.com/SonidosMutantes)
-
 ## Proofs of concept (old demos):
 
-* Demo máquina de estados + MIR data + OSC + API + Tests: [http://www.youtube.com/watch?v=pMBl_4y6UmE](http://www.youtube.com/watch?v=pMBl_4y6UmE)
-* Integración con controlador MIDI + Supercollider + ApicultorWebService: [https://www.youtube.com/watch?v=X0M_gTOZnNQ](https://www.youtube.com/watch?v=X0M_gTOZnNQ)
+* Música generativa con máquina de estados MIR y sonidos libres de Freesound.org: http://redpanal.org/a/preview/
+* Perfomances
+  * La Noche de los Museos La Casa del Bicentenario 29/10/2016: [http://redpanal.org/a/performance-casa-tomada/](http://redpanal.org/a/performance-casa-tomada/)
+  * [https://www.youtube.com/watch?v=eKcvkgtJIEo](https://www.youtube.com/watch?v=eKcvkgtJIEo)
+  * 3D visuals (Blender + game engine): **Article**: [http://blog.enjambrelab.com.ar/enjambrebit-y-la-banda-de-mutantes/](http://blog.enjambrelab.com.ar/enjambrebit-y-la-banda-de-mutantes/)
+* MIDI controller + Supercollider + APICultor WebService + sounds from RedPanal.org: [https://www.youtube.com/watch?v=X0M_gTOZnNQ](https://www.youtube.com/watch?v=X0M_gTOZnNQ)
 
 ## Components
 
@@ -48,7 +41,12 @@ Interdisciplinary performances based on sounds of the web platform [Redpanal.org
 * Examples in Supercollider, pyo
 * Examples with MIDI and OSC controller. Locale and remote.
 
-# Dependencias
+# Dependencies
+
+Tested under Linux, Mac OS (>10.11) and Windows 10.
+
+Debian, Ubuntu 15.04 and 16.04 (and .10). And Docker images.
+Raspian @ Raspberry Pi
 
 See [INSTALL.md](INSTALL.md)
 

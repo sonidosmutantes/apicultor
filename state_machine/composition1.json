@@ -1,10 +1,13 @@
 { 
   "statesArray": [
     { "id": 0, "text": "A",
-       "duration": 7.2,
-       "LFC_min": 0.1,
-       "LFC_max": 0.5
-        },
+      "mir": [{
+        "content": "bass",
+        "sfx.duration": "7.2",
+        "lowlevel.hfc.mean": "* TO 0.0005",
+        "lowlevel.spectral_complexity.mean": "1"
+        }]
+    },
     { "id": 1, "text": "B",
       "mir": [{
         "content": "bass",
