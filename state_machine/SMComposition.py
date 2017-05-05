@@ -308,31 +308,25 @@ if __name__ == '__main__':
         #(optional) change sound in the same state or not (add as json config file)
         if state!=previous_state:
             #retrieve new sound
+            call = '/list/samples' #gets only wav files because SuperCollider
+            response = urllib2.urlopen(URL_BASE + call).read()
+            audioFiles = list()
+            for file in response.split('\n'):
+                if len(file)>0: #avoid null paths
+                    audioFiles.append(file)
+                    # print file
 
-            # call = '/list/samples' #gets only wav files because SuperCollider
-            # response = urllib2.urlopen(URL_BASE + call).read()
-            # audioFiles = list()
-            # for file in response.split('\n'):
-            #     if len(file)>0: #avoid null paths
-            #         audioFiles.append(file)
-            #         # print file
-
-
-            mir_state = states_mirdef[ state ]
-            print("MIR State: "+str(mir_state))
-            file_chosen, autor, sound_id  = api.get_one_by_mir(mir_state)
-
-            print( os.path.getsize(file_chosen) )
-            if os.path.exists( file_chosen ) and os.path.getsize(file_chosen)>1000: #FIXME: prior remove 'silence' sounds from DB (ETL)
-                print(file_chosen)
-                log.write(file_chosen+" by "+ autor + " - id: "+str(sound_id)+"\n") #WARNING: bad realtime practice (writing file) TODO: add to a memory buffer and write before exit. FIXME
-                pyo_synth(file_chosen, dry_val)
-
-                # Hardcoded sound for each MIR state
-                # file_chosen = snd_dict[state]
-                # granular_synth(file_chosen)
-                # external_synth(file_chosen)
-
+            for i in range(len(audioFiles)): #WARNING: file is chosen randomly
+                file_chosen = audioFiles[ random.randint(0,len(audioFiles)-1) ]
+                print( os.path.getsize(file_chosen) )
+                if os.path.exists( file_chosen ) and os.path.getsize(file_chosen)>1000: #FIXME: prior remove 'silence' sounds from DB (ETL)
+                    print(file_chosen)
+                    pyo_synth(file_chosen, dry_val)
+                    break
+                    # Hardcoded sound for each MIR state
+                    # file_chosen = snd_dict[state]
+                    # granular_synth(file_chosen)
+                    # external_synth(file_chosen)
 
         time_bt_states = states_dur[ state ]
         # time_between_notes = random.uniform(0.,2.) #in seconds
