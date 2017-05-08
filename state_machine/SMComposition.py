@@ -58,7 +58,7 @@ else: #Linux
     ### JACK ###
     # or export PYO_SERVER_AUDIO=jack (~/.bashrc)
     s = Server(audio='jack')
-    s.setJackAuto(False, False) #some linux bug workaround
+#    s.setJackAuto(False, False) #some linux bug workaround (not needed with jackd compiled without dbus, when X system is not running)
     s.boot()
     s.setJackAutoConnectOutputPorts(['system:playback_1', 'system:playback_2'])
 
