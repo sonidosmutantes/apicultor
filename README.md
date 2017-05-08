@@ -19,9 +19,13 @@ Extrae miel de [RedPanal](http://redpanal.org)  con técnicas de Music Informati
 
 ### Pruebas de concepto:
 
-* Música generativa con máquina de estados MIR y sonidos libres de Freesound.org: 
-  * "[Feature Thinking](https://soundcloud.com/hern-n-ordiales/feature-thinking)" (con sonidos libres Creative Commons de Freesound.org)
 
+* Remixes que toman audios libres de redpanal.org, se categorizan según diferentes tipos de emoción, luego se elige una y se sincronizan las pistas, cambiando las tonalidades. Y de ser posible se separan de fuentes dentro de las mismas (by Mars Crop)
+* Música generativa con máquina de estados MIR y sonidos libres de Freesound.org: 
+  * "[Feature Thinking](https://soundcloud.com/hern-n-ordiales/feature-thinking)" (con sonidos libres Creative Commons de Freesound.org) by [hordia]
+  * [Beats intro jazz](http://redpanal.org/a/sm-beats-remix/)
+  * [Bass & DJ] (http://redpanal.org/a/sm-bass-guitar-plays-with-dj/)
+  
 * Integración con controlador MIDI + Supercollider + ApicultorWebService: [https://www.youtube.com/watch?v=X0M_gTOZnNQ](https://www.youtube.com/watch?v=X0M_gTOZnNQ)
 
 * Performances en vivo utilizando estas herramientas:
