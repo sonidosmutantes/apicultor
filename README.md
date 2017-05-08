@@ -19,13 +19,13 @@ Extrae miel de [RedPanal](http://redpanal.org)  con técnicas de Music Informati
 
 ### Pruebas de concepto:
 
-
-* Remixes que toman audios libres de redpanal.org, se categorizan según diferentes tipos de emoción, luego se elige una y se sincronizan las pistas, cambiando las tonalidades. Y de ser posible se separan de fuentes dentro de las mismas (by Mars Crop)
 * Música generativa con máquina de estados MIR y sonidos libres de Freesound.org: 
-  * "[Feature Thinking](https://soundcloud.com/hern-n-ordiales/feature-thinking)" (con sonidos libres Creative Commons de Freesound.org) by [hordia]
+  * "[Feature Thinking](https://soundcloud.com/hern-n-ordiales/feature-thinking)" (con sonidos libres Creative Commons de Freesound.org) by [hordia](hordiales)
+  
+* Remixes que toman audios libres de [RedPanal.org](http://redpanal.org/) para categorizarlos según diferentes tipos de emociones. Luego se elige una y se sincronizan las pistas, cambiando las tonalidades. De ser posible se separan de fuentes dentro de las mismas (by Mars Crop)
   * [Beats intro jazz](http://redpanal.org/a/sm-beats-remix/)
   * [Bass & DJ] (http://redpanal.org/a/sm-bass-guitar-plays-with-dj/)
-  
+
 * Integración con controlador MIDI + Supercollider + ApicultorWebService: [https://www.youtube.com/watch?v=X0M_gTOZnNQ](https://www.youtube.com/watch?v=X0M_gTOZnNQ)
 
 * Performances en vivo utilizando estas herramientas:
@@ -33,6 +33,7 @@ Extrae miel de [RedPanal](http://redpanal.org)  con técnicas de Music Informati
   * La Noche de los Museos La Casa del Bicentenario 29/10/2016
 [http://redpanal.org/a/performance-casa-tomada/](http://redpanal.org/a/performance-casa-tomada/)
   * [https://www.youtube.com/watch?v=eKcvkgtJIEo](https://www.youtube.com/watch?v=eKcvkgtJIEo) Con visuales 3D (Blender + game engine) **Reseña**: [http://blog.enjambrelab.com.ar/enjambrebit-y-la-banda-de-mutantes/](http://blog.enjambrelab.com.ar/enjambrebit-y-la-banda-de-mutantes/)
+  * Jam con guitarras y sintes analógicos: https://soundcloud.com/hern-n-ordiales/perfo-mutante-mobile
 
 ## Componentes
 
