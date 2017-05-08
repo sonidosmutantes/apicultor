@@ -132,4 +132,8 @@ $ sudo apt-get install scide
 
 $ sudo apt-get install ffmpeg
 
+In raspberry pi and other debian based systems replace by:
+$ sudo apt-get install libav-tools
+alias ffmpeg=avconv
+
 $ pip install ffmpeg-normalize
