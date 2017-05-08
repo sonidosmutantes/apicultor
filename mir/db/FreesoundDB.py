@@ -31,6 +31,9 @@ import freesound, sys,os
 class FreesoundDB(MirDbApi):
     __api_key = ""
 
+    def __init__(self):
+        self.av_conv = "ffmpeg" #default
+
     def set_api_key(self, api_key):
         self.__api_key = api_key
 
@@ -80,7 +83,8 @@ class FreesoundDB(MirDbApi):
         print("File chosen: "+sound.name+ " - ID: "+ str(sound.id) )
         self.download_by_id(sound.id)
         # convert to wav
-        subprocess.call("ffmpeg -i \"%s\" \"%s.wav\" -y"%(sound.name,os.path.splitext(sound.name)[0]), shell=True)
+        #FIXME: use internal tool, or resolve better avconv vs ffmpeg issue
+        subprocess.call("%s -i \"%s\" \"%s.wav\" -y"%(self.av_conv, sound.name, os.path.splitext(sound.name)[0]), shell=True)
         return os.path.splitext(sound.name)[0]+".wav", sound.username, sound.id
 
     def search_by_mir(self, mir_state):

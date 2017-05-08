@@ -242,6 +242,8 @@ if __name__ == '__main__':
         sys.exit(4)
     print("Using "+api_type+" API")
 
+    api.av_conv = config["av_conv"]
+
     #JSON composition file
     json_data = ""
     try:
