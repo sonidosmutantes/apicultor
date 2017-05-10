@@ -19,6 +19,8 @@ Extrae miel de [RedPanal](http://redpanal.org)  con técnicas de Music Informati
 
 ### Pruebas de concepto:
 
+* [Proyecto de reciclado de sonidos libres de la web en RedPanal.org](http://redpanal.org/p/reciclado-de-samples/) (sonido + referencia al original).
+
 * Música generativa con máquina de estados MIR y sonidos libres de Freesound.org: 
   * "[Feature Thinking](https://soundcloud.com/hern-n-ordiales/feature-thinking)" (con sonidos libres Creative Commons de Freesound.org) by hordia.
   
