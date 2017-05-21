@@ -107,6 +107,12 @@ Note: In Raspberry Pi run first $ sudo apt-get install python-numpy python-scipy
 $ git clone https://github.com/ptone/pyosc.git
 $ cd pyosc && sudo ./setup.py install
 
+### liblo: Lightweight OSC implementation
+$ apt-get install -y liblo-dev
+  
+$ pip2 install cython 
+$ pip2 install pyliblo 
+
 #### Freesound API module
 ```
 $ git clone https://github.com/MTG/freesound-python
@@ -131,5 +137,9 @@ $ sudo apt-get install scide
 ## Pre-processing scripts (saves realtime processing)
 
 $ sudo apt-get install ffmpeg
+
+In raspberry pi and other debian based systems replace by:
+$ sudo apt-get install libav-tools
+alias ffmpeg=avconv
 
 $ pip install ffmpeg-normalize

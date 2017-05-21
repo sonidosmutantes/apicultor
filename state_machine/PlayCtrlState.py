@@ -11,26 +11,120 @@ import os.path
 import json
 from pyo import *
 import signal
+import liblo
+from liblo import make_method
 
 from mir.db.FreesoundDB import FreesoundDB
 from mir.db.RedPanalDB import RedPanalDB
 
 import platform
 #from __future__ import print_function
-
+from random import random
 
 DATA_PATH = "data"
 SAMPLES_PATH = "samples"
 
+state = dict() #global MIR state
+state["duration"] = "1." # default value
+volume = 1.
+
 # OSC Server
-osc_client = OSC.OSCClient()
-sc_Port = 57120
-sc_IP = '127.0.0.1' #Local SC server
+# class OSCServer(liblo.ServerThread):
+    # def __init__(self, port):
+    #     liblo.ServerThread.__init__(self, port)
+
+# @make_method("/volume", 'f')
+def update_volume_callback(path, args):
+    global volume
+    value = args[0]
+    volume = value
+    print("Update volume: %s", value)
+    # out = c.mix(2, mul=value).out() #dry output
+    s.amp = float(value) # server amplitude
+
+# @make_method("/retrieve", 'i')
+def search_by_mir_state_callback(path, args):
+    global state
+    global volume
+    if args[0]==1:
+        print("Estado actual %s"%state)
+        print("Estado actual on/off %s"%osc_desc_state)
+
+    try:
+        new_state = dict()
+        for desc in state:
+            if osc_desc_state[desc]==True:
+                new_state[ osc_desc_conv[desc]] = state[desc]
+
+        #FIXME: needs two descriptors? duration and other?
+        # duration always have a number (minor equal) < value
+        new_state["sfx.duration"] = "* TO %s"%new_state["sfx.duration"]
+
+        #TODO: filter state values (search with AND only if they are enabled (on==1))
+        print("Estado MIR freesound a buscar: %s"%new_state)
+
+        file_chosen, author, sound_id  = api.get_one_by_mir(new_state)
+        #(needs to wait here?)
+        
+        print( os.path.getsize(file_chosen) )
+        if os.path.exists( file_chosen ) and os.path.getsize(file_chosen)>1000: #FIXME: prior remove 'silence' sounds from DB (ETL)
+            print(file_chosen)
+            log.write(file_chosen+" by "+ author + " - id: "+str(sound_id)+"\n") #WARNING: bad realtime practice (writing file) TODO: add to a memory buffer and write before exit. FIXM
+            pyo_synth(file_chosen, volume)
+            # pyo_synth_noisevc("./wow1.wav", float(args[0])) 
+    except Exception, e:
+        print(e)
+#available descriptors
+osc_desc_conv = {
+    "content": "content",
+    "BPM": "BPM",
+    "duration": "sfx.duration",
+    "inharmonicity/mean": "sfx.inharmonicity.mean",
+    "hfc/mean": "lowlevel.hfc.mean",
+    "spectral_centroid/mean": "lowlevel.spectral_centroid.mean",
+    "spectral_complexity/mean": "lowlevel.spectral_complexity.mean"
+}
+osc_descriptors = list()
+# for key,value in osc_desc_conv.iteritems():
+#     osc_descriptors
+osc_descriptors = ["duration", "BPM", "hfc", "spectral_complexity/mean", "spectral_centroid/mean", "inharmonicity" ]
+osc_desc_state = dict()
+for desc in osc_descriptors:
+    osc_desc_state[desc] = False
+
+# @make_method(None, None)
+def update_state_fallback(path, args, types, src):
+    global state
+    global osc_desc_state
+    # print("got unknown message '%s' from '%s'" % (path, src.url))
+    # for a, t in zip(args, types):
+    #     print("argument of type '%s': %s" % (t, a))
+    msg = path[1:]
+    value = args[0]
+    print("Received %s %s"%(path,args))
+
+    if msg[-3:]=="/on":
+        # print("ON/OFF: %s", value)
+        desc = msg[:-3]
+        osc_desc_state[desc] = True if value==1 else False
+        print( "%s state %i"%(desc,osc_desc_state[desc]) )
+        return
+    if msg in osc_descriptors:
+        desc = msg
+        state[ desc ] = value
+        print( "MIR state updated! %s: %f"%(desc,value) )
+    print("Value %s"%value)
+
+
+# OSC Client (i.e. send OSC to SuperCollider)
+# osc_client = OSC.OSCClient()
+# sc_Port = 57120
+# sc_IP = '127.0.0.1' #Local SC server
 #sc_IP = '10.142.39.109' #Remote server
 # Virtual Box: Network device config not in bridge or NAT mode
 # Select 'Network host-only adapter' (Name=vboxnet0)
-sc_IP = '192.168.56.1' # Remote server is the host of the VM
-osc_client.connect( ( sc_IP, sc_Port ) )
+# sc_IP = '192.168.56.1' # Remote server is the host of the VM
+# osc_client.connect( ( sc_IP, sc_Port ) )
 
 
 ### Signal handler (ctrl+c)
@@ -164,6 +258,9 @@ def external_synth(new_file):
 #external_synth()
 
 def pyo_synth(new_file, dry_value):
+    """
+        default synth (freeze intent)
+    """
     #Phase Vocoder
     sfplay = SfPlayer(new_file, loop=True, mul=dry_value)
     pva = PVAnal(sfplay, size=1024, overlaps=4, wintype=2)
@@ -173,6 +270,26 @@ def pyo_synth(new_file, dry_value):
     c.setInput(pvs, fadetime=.25)
     # c = c.mix(2).out()
 #pyo_synth()
+
+def pyo_synth_noisevc(new_file, dry_value):
+    print("noise vocoder synth")
+    # First sound - dynamic spectrum.
+    spktrm = SfPlayer(new_file, speed=[1,1.001], loop=True, mul=dry_value)
+
+    # Second sound - rich and stable spectrum.
+    excite = Noise(0.2)
+
+    # LFOs to modulated every parameters of the Vocoder object.
+    lf1 = Sine(freq=0.1, phase=random()).range(60, 100)
+    lf2 = Sine(freq=0.11, phase=random()).range(1.05, 1.5)
+    lf3 = Sine(freq=0.07, phase=random()).range(1, 20)
+    lf4 = Sine(freq=0.06, phase=random()).range(0.01, 0.99)
+
+    voc = Vocoder(spktrm, excite, freq=lf1, spread=lf2, q=lf3, slope=lf4, stages=32)
+
+    c.setInput(voc, fadetime=.25)
+    # c = c.mix(2).out()
+#pyo_synth_noisevc()
 
 def granular_synth(new_file):
     """
@@ -238,6 +355,8 @@ if __name__ == '__main__':
         sys.exit(4)
     print("Using "+api_type+" API")
 
+    osc_port = config["osc.port"]
+
     #JSON composition file
     json_data = ""
     try:
@@ -253,73 +372,44 @@ if __name__ == '__main__':
     print("Starting MIR state machine")
     log.write("Starting MIR state machine: "+json_comp_file+"\n") #WARNING: bad realtime practice (writing file) TODO: add to a memory buffer and write before exit
     
-    print( json_data['statesArray'][0]['mir'] )
+    # print( json_data['statesArray'][0]['mir'] )
 
-    # states_dict = dict() # id to name conversion
-    # states_dur = dict() #states duration
-    # states_mirdef = dict() #mir state definition
-    # start_state = json_data['statesArray'][0]['text'] #TODO: add as property (start: True)
-    # for st in json_data['statesArray']:
-    #     states_dict[ st['id'] ] = st['text'] # 'text' is the name of the state
-    #     try:
-    #         states_mirdef[ st['text'] ] = st['mir'][0]
-    #     except:
-    #         states_mirdef[ st['text'] ] = {"sfx.duration": "* TO 3", "sfx.inharmonicity.mean": "0.1" } #default value
-    #     try:
-    #         states_dur[ st['text'] ] = st['duration'] #default value
-    #     except:
-    #         states_dur[ st['text'] ] = 1. # default duration
+    # mir_state = json_data['statesArray'][0]['mir'][0]
 
-    
-    # sd = states_dict
-    # T = pykov.Matrix()
-    # for st in json_data['linkArray']:
-    #     # print( float(st['text']) )
-    #     T[ sd[st['from']], sd[st['to']] ] = float( st['text'] )
+    # # Init state (starts playing!)
+    # print("MIR State: "+str(mir_state))
+    # # file_chosen, autor, sound_id  = api.get_one_by_mir(mir_state)
+    # #hardcoded file
+    # file_chosen, autor, sound_id  = "./Tape Start Electric.wav", "void", "0"
 
-    # try:
-    #     T.stochastic() #check
-    # except Exception,e:
-    #     print(e)
-    #     exit(1)
+    # print( os.path.getsize(file_chosen) )
+    # if os.path.exists( file_chosen ) and os.path.getsize(file_chosen)>1000: #FIXME: prior remove 'silence' sounds from DB (ETL)
+    #     print(file_chosen)
+    #     log.write(file_chosen+" by "+ autor + " - id: "+str(sound_id)+"\n") #WARNING: bad realtime practice (writing file) TODO: add to a memory buffer and write before exit. FIXME
+    #     # pyo_synth(file_chosen, dry_val)
+    #     pyo_synth_noisevc(file_chosen, dry_val)
+    #     #s.gui(locals())
 
-#########################
-#FIXME: Time
-    # duration = 1 #FIXME: hardcoded (default duration)
-    # time_bt_states = 1 # (delay within states...)
-#########################
-#########################
+    if 1:
+        # create server, listening on port 1234
+        try:
+            server = liblo.Server(osc_port)
+            # server = OSCServer(osc_port)
+        except liblo.ServerError as err:
+            print(err)
+            sys.exit()
 
+        server.add_method("/volume", 'f', update_volume_callback) # register method taking a float
+        server.add_method("/retrieve", 'i', search_by_mir_state_callback)
+        # server.add_method("/on", 'i', on_callback)
+        server.add_method(None, None, update_state_fallback) # register a fallback for unhandled messages (any other message)
 
-    #Fixed amount or infinite with while(1 ) ()
-    # events = 10 # or loop with while(1)
-    # for i in range(events):
-    # while(1):
-        # print( "State: %s"%state ) # TODO: call the right method for the state here
-        #(optional) change sound in the same state or not (add as json config file)
-        # if state!=previous_state:
-            #retrieve new sound
+        # loop and dispatch messages every 100ms
+        while True:
+            server.recv(100)
+            # server.start()
+            # input("press enter to quit...\n")
 
-            # call = '/list/samples' #gets only wav files because SuperCollider
-            # response = urllib2.urlopen(URL_BASE + call).read()
-            # audioFiles = list()
-            # for file in response.split('\n'):
-            #     if len(file)>0: #avoid null paths
-            #         audioFiles.append(file)
-            #         # print file
-
-
-    mir_state = json_data['statesArray'][0]['mir'][0]
-
-    print("MIR State: "+str(mir_state))
-    file_chosen, autor, sound_id  = api.get_one_by_mir(mir_state)
-
-    print( os.path.getsize(file_chosen) )
-    if os.path.exists( file_chosen ) and os.path.getsize(file_chosen)>1000: #FIXME: prior remove 'silence' sounds from DB (ETL)
-        print(file_chosen)
-        log.write(file_chosen+" by "+ autor + " - id: "+str(sound_id)+"\n") #WARNING: bad realtime practice (writing file) TODO: add to a memory buffer and write before exit. FIXME
-        pyo_synth(file_chosen, dry_val)
-        s.gui(locals())
 
                 # Hardcoded sound for each MIR state
                 # file_chosen = snd_dict[state]
