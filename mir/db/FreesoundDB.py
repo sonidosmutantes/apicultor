@@ -6,19 +6,16 @@ import urllib2
 import subprocess
 import random
 import os
+import freesound
 
-# TODO: Add to Freesound API implementation
-# import oauth2
-# import base64
-# Add doc
 # ## Freesound API Access
 # ```
 # $ sudo pip2 install oauth2
 # ```
+# import oauth2
+# import base64
 
 from mir.db.api import MirDbApi
-
-import freesound, sys,os
 
 """
     Implements MirDbApi interface, using official Freesound module
@@ -27,6 +24,11 @@ import freesound, sys,os
     The client automatically maps function arguments to http parameters of the API. JSON results are converted to python objects, but are also available in their original form (JSON loaded into dictionaries) using the method .as_dict() of returned objets (see examples file). The main object types (Sound, User, Pack) are augmented with the corresponding API calls.
 
     Note that POST resources are not supported. Downloading full quality sounds requires Oauth2 authentication (see http://freesound.org/docs/api/authentication.html). Oauth2 authentication is supported, but you are expected to implement the workflow.
+
+    ready wrappers
+    * text search
+    * by id
+    * 
 """ 
 class FreesoundDB(MirDbApi):
     __api_key = ""
@@ -82,8 +84,7 @@ class FreesoundDB(MirDbApi):
         sound = sounds_list[ random.randint(0,len(sounds_list)-1) ]
         print("File chosen: "+sound.name+ " - ID: "+ str(sound.id) )
         self.download_by_id(sound.id)
-        # convert to wav
-        #FIXME: use internal tool, or resolve better avconv vs ffmpeg issue
+        # Convert to wav FIXME: use internal tool, or resolve better avconv vs ffmpeg issue
         subprocess.call("%s -i \"%s\" \"%s.wav\" -y"%(self.av_conv, sound.name, os.path.splitext(sound.name)[0]), shell=True)
         return os.path.splitext(sound.name)[0]+".wav", sound.username, sound.id
 
@@ -136,7 +137,7 @@ class FreesoundDB(MirDbApi):
     
 """
    Native implementation (without Freesound module)
-   Adds oauth2 (pending)
+   Adds oauth2 (pending) TODO: needs to be completed
 """
 class FreesoundAPI_extended(MirDbApi):
     __api_key = ""
