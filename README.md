@@ -15,13 +15,15 @@ Examples available with SuperCollider, pyo and pd.
 
 Interdisciplinary performances based on sounds of the web platform [Redpanal.org](Redpanal.org)
 
-## Closing performance of the Workshop of Experimental Sounda:
-
-[http://redpanal.org/a/banda-de-mutantes-cierre-taller/](http://redpanal.org/a/banda-de-mutantes-cierre-taller/)
-
-## Proofs of concept (old demos):
+## Proofs of concept:
 
 * [Proyecto de reciclado de sonidos libres de la web en RedPanal.org](http://redpanal.org/p/reciclado-de-samples/) (sonido + referencia al original).
+
+* Performances en vivo utilizando estas herramientas:
+  * Jam con guitarras y sintes analógicos: [Perfo mutante en La Siesta del Fauno](https://soundcloud.com/hern-n-ordiales/perfo-mutante-mobile)
+  * Closing performance of the Workshop of Experimental Sound:
+[http://redpanal.org/a/banda-de-mutantes-cierre-taller/](http://redpanal.org/a/banda-de-mutantes-cierre-taller/)
+  * La Noche de los Museos La Casa del Bicentenario: [Performance 29/10/2016](http://redpanal.org/a/performance-casa-tomada/) [Con visuales 3D (Blender game engine)](https://www.youtube.com/watch?v=eKcvkgtJIEo) ) **Reseña**: [enjambrebit-y-la-banda-de-mutantes/](http://blog.enjambrelab.com.ar/enjambrebit-y-la-banda-de-mutantes/)
 
 * Música generativa con máquina de estados MIR y sonidos libres de Freesound.org: 
   * "[Feature Thinking](https://soundcloud.com/hern-n-ordiales/feature-thinking)" (con sonidos libres Creative Commons de Freesound.org) by hordia.
@@ -30,12 +32,9 @@ Interdisciplinary performances based on sounds of the web platform [Redpanal.org
   * [Beats intro jazz](http://redpanal.org/a/sm-beats-remix/)
   * [Bass & DJ] (http://redpanal.org/a/sm-bass-guitar-plays-with-dj/)
 
-* Integración con controlador MIDI + Supercollider + ApicultorWebService: [https://www.youtube.com/watch?v=X0M_gTOZnNQ](https://www.youtube.com/watch?v=X0M_gTOZnNQ)
+* Old demos:
+  * Integración con controlador MIDI + Supercollider + ApicultorWebService: [https://www.youtube.com/watch?v=X0M_gTOZnNQ](https://www.youtube.com/watch?v=X0M_gTOZnNQ)
 
-* Performances en vivo utilizando estas herramientas:
-  * Cierre de Taller de Experimentación Sonora: [http://redpanal.org/a/banda-de-mutantes-cierre-taller/](http://redpanal.org/a/banda-de-mutantes-cierre-taller/)
-  * La Noche de los Museos La Casa del Bicentenario: [Performance 29/10/2016](http://redpanal.org/a/performance-casa-tomada/) [Con visuales 3D (Blender game engine)](https://www.youtube.com/watch?v=eKcvkgtJIEo) ) **Reseña**: [enjambrebit-y-la-banda-de-mutantes/](http://blog.enjambrelab.com.ar/enjambrebit-y-la-banda-de-mutantes/)
-  * Jam con guitarras y sintes analógicos: [Perfo mutante en La Siesta del Fauno](https://soundcloud.com/hern-n-ordiales/perfo-mutante-mobile)
 
 
 ## Components
