@@ -10,6 +10,8 @@ Funciona a través de una API REST para la consulta externa de archivos y descri
 
 Extrae miel de [RedPanal](http://redpanal.org)  con técnicas de Music Information Retrieval (MIR).
 
+![](doc/Apicultor_chain.png)
+
 ## API
 
 [Documentación sobre la API](doc/API.md)
