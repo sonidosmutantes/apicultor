@@ -8,7 +8,7 @@ Sound is processed digitally using different live-coding techniques. A pre-analy
 
 Examples available with SuperCollider, pyo and pd.
 
-![](doc/Apicultor_chain.png)
+![](doc/InstrNubeTI_repr.png)
 
 ## Performances
 
@@ -52,6 +52,8 @@ Interdisciplinary performances based on sounds of the web platform [Redpanal.org
 * Server OSC
 * Examples in Supercollider, pyo
 * Examples with MIDI and OSC controller. Locale and remote.
+
+![](doc/Apicultor_chain.png)
 
 # Dependencies
 
