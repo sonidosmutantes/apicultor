@@ -89,7 +89,7 @@
                     },
                     {
                         "type": "fader",
-                        "top": 610,
+                        "top": 410,
                         "left": 0,
                         "id": "BPM",
                         "label": "auto",
@@ -142,7 +142,7 @@
                     },
                     {
                         "type": "switch",
-                        "top": 610,
+                        "top": 410,
                         "left": 730,
                         "label": "auto",
                         "width": 90,
@@ -170,7 +170,7 @@
                         "linkId": "",
                         "label": "auto",
                         "width": 140,
-                        "height": 690,
+                        "height": 470,
                         "color": "auto",
                         "css": "",
                         "on": 1,
@@ -183,7 +183,7 @@
                     },
                     {
                         "type": "fader",
-                        "top": 530,
+                        "top": 330,
                         "left": 0,
                         "id": "Duration (seg)",
                         "label": "auto",
@@ -214,7 +214,7 @@
                     },
                     {
                         "type": "switch",
-                        "top": 530,
+                        "top": 330,
                         "left": 730,
                         "label": "auto",
                         "width": 90,
@@ -236,7 +236,7 @@
                     },
                     {
                         "type": "fader",
-                        "top": 460,
+                        "top": 260,
                         "left": 0,
                         "id": "Spectral Centroid (mean)",
                         "linkId": "",
@@ -267,7 +267,7 @@
                     },
                     {
                         "type": "switch",
-                        "top": 460,
+                        "top": 260,
                         "left": 730,
                         "label": "auto",
                         "width": 90,
@@ -405,8 +405,8 @@
                         "height": 170,
                         "color": "auto",
                         "css": "",
-                        "precision": 2,
-                        "address": "/fader_3",
+                        "precision": 0,
+                        "address": "/pitch",
                         "preArgs": [],
                         "target": [],
                         "keys": 24,
@@ -455,7 +455,7 @@
                         "linkId": "",
                         "label": "auto",
                         "width": 220,
-                        "height": 100,
+                        "height": 70,
                         "color": "green",
                         "css": "",
                         "value": "",
@@ -479,11 +479,11 @@
                         "css": "",
                         "values": {
                             "On": 1,
-                            "Off": 2
+                            "Off": -1
                         },
                         "value": "",
                         "precision": 2,
-                        "address": "/switch_5",
+                        "address": "/fx/freeze/on",
                         "preArgs": [],
                         "target": [],
                         "linkId": ""
@@ -659,8 +659,8 @@
                     },
                     {
                         "type": "xy",
-                        "top": 0,
-                        "left": 560,
+                        "top": 10,
+                        "left": 590,
                         "id": "spac",
                         "linkId": "",
                         "label": "auto",
@@ -807,34 +807,32 @@
             },
             {
                 "id": "",
-                "label": "Rec",
+                "label": "Samples",
                 "widgets": [
                     {
-                        "type": "multipush",
+                        "type": "multitoggle",
                         "top": 0,
                         "left": 0,
                         "id": "samples",
+                        "label": "PLAY / REC",
+                        "width": 970,
+                        "height": 580,
+                        "color": "red",
+                        "css": "",
+                        "on": 1,
+                        "off": 0,
+                        "value": "",
+                        "precision": 2,
+                        "address": "/samples",
+                        "preArgs": [],
+                        "target": [],
                         "matrix": [
                             4,
                             4
                         ],
                         "start": 0,
-                        "style": "style",
-                        "label": "auto",
-                        "width": 980,
-                        "height": 600,
-                        "color": "red",
-                        "css": "",
                         "traversing": true,
-                        "on": 1,
-                        "off": 0,
-                        "value": "",
-                        "norelease": false,
-                        "precision": 2,
-                        "address": "/samples",
-                        "preArgs": [],
-                        "split": false,
-                        "target": []
+                        "split": false
                     }
                 ]
             }

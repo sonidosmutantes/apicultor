@@ -21,6 +21,8 @@ import platform
 #from __future__ import print_function
 from random import random
 
+from math import pow
+
 DATA_PATH = "data"
 SAMPLES_PATH = "samples"
 
@@ -42,8 +44,26 @@ def update_volume_callback(path, args):
     # out = c.mix(2, mul=value).out() #dry output
     s.amp = float(value) # server amplitude
 
+# @make_method("/pitch", 'ff')
+def pitch_shift_callback(path, args):
+    print("Received %s %s"%(path,args))
+    global c
+    global volume
+    try:
+        value = args[0]
+        state = int(args[1])
+        if state==0: return #on release
+        #take a reference (now 60 TODO update) and calculate amount of steps shift
+        amount = pow(2,(value-60.)/12.)
+        # FIXME
+        print("Pitch shift amount %f"%amount)
+        c = FreqShift(c, shift=amount, mul=volume)
+    except Exception, e:
+        print(e)
+
 # @make_method("/retrieve", 'i')
 def search_by_mir_state_callback(path, args):
+    print("Received %s %s"%(path,args))
     global state
     global volume
     if args[0]==1:
@@ -374,20 +394,20 @@ if __name__ == '__main__':
     
     # print( json_data['statesArray'][0]['mir'] )
 
-    # mir_state = json_data['statesArray'][0]['mir'][0]
 
     # # Init state (starts playing!)
     # print("MIR State: "+str(mir_state))
-    # # file_chosen, autor, sound_id  = api.get_one_by_mir(mir_state)
+    # mir_state = json_data['statesArray'][0]['mir'][0]
+    # file_chosen, autor, sound_id  = api.get_one_by_mir(mir_state)
     # #hardcoded file
-    # file_chosen, autor, sound_id  = "./Tape Start Electric.wav", "void", "0"
+    file_chosen, autor, sound_id  = "./Tape Start Electric.wav", "void", "0"
 
     # print( os.path.getsize(file_chosen) )
-    # if os.path.exists( file_chosen ) and os.path.getsize(file_chosen)>1000: #FIXME: prior remove 'silence' sounds from DB (ETL)
-    #     print(file_chosen)
-    #     log.write(file_chosen+" by "+ autor + " - id: "+str(sound_id)+"\n") #WARNING: bad realtime practice (writing file) TODO: add to a memory buffer and write before exit. FIXME
-    #     # pyo_synth(file_chosen, dry_val)
-    #     pyo_synth_noisevc(file_chosen, dry_val)
+    if os.path.exists( file_chosen ) and os.path.getsize(file_chosen)>1000: #FIXME: prior remove 'silence' sounds from DB (ETL)
+        print(file_chosen)
+        log.write(file_chosen+" by "+ autor + " - id: "+str(sound_id)+"\n") #WARNING: bad realtime practice (writing file) TODO: add to a memory buffer and write before exit. FIXME
+        pyo_synth(file_chosen, dry_val)
+        # pyo_synth_noisevc(file_chosen, dry_val)
     #     #s.gui(locals())
 
     if 1:
@@ -399,6 +419,7 @@ if __name__ == '__main__':
             print(err)
             sys.exit()
 
+        server.add_method("/pitch", 'if', pitch_shift_callback) # register method taking two floats
         server.add_method("/volume", 'f', update_volume_callback) # register method taking a float
         server.add_method("/retrieve", 'i', search_by_mir_state_callback)
         # server.add_method("/on", 'i', on_callback)
