@@ -277,6 +277,8 @@ def external_synth(new_file):
     time.sleep(duration)
 #external_synth()
 
+
+
 def pyo_synth(new_file, dry_value):
     """
         default synth (freeze intent)
