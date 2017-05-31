@@ -8,7 +8,7 @@ import numpy as np
 
 # from apicultor.SoundSimilarity import * # import from compiled apicultor 
 sys.path.append(os.path.join(os.path.dirname(os.path.realpath('__file__')), '..'))
-from SoundSimilarity import * # first copy SoundSimilarity to tests directory
+from ..machine_learning.SoundSimilarity import * # first copy SoundSimilarity to tests directory
 
 
 #Example
@@ -30,4 +30,3 @@ class Testfiles(unittest.TestCase):
  
 if __name__ == '__main__':
     unittest.main()
-
