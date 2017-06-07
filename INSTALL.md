@@ -103,10 +103,6 @@ $ sudo pip install git+git://github.com/riccardoscalco/Pykov@master
 
 Note: In Raspberry Pi run first $ sudo apt-get install python-numpy python-scipy #pip install scipy no works
 
-### OSC Client
-$ git clone https://github.com/ptone/pyosc.git
-$ cd pyosc && sudo ./setup.py install
-
 ### liblo: Lightweight OSC implementation
 $ apt-get install -y liblo-dev
   
@@ -127,6 +123,7 @@ $ sudo pip3 install python-osc
 
 ## OSC Client
 $ git clone https://github.com/ptone/pyosc.git
+
 $ cd pyosc && sudo ./setup.py install
 
 ## Supercollider
