@@ -1,14 +1,14 @@
-#!/usr/bin/python
+#!/usr/bin/env python3
 # -*- coding: UTF-8 -*-
 
 import os
 import sys
 import json
 import numpy as np
-import scipy
-from essentia import *
-from essentia.standard import *
 import logging
+from .utils.algorithms import *
+from soundfile import read
+from collections import defaultdict, OrderedDict
 
 logging.basicConfig(level=logging.DEBUG)
 logger = logging.getLogger(__name__)  
@@ -29,12 +29,12 @@ descriptors = [
                 'metadata.duration'
                 ]
 
-def process_file(inputSoundFile, frameSize = 1024, hopSize = 512):
+def process_file(inputSoundFile, tag_dir, input_filename):
     descriptors_dir = (tag_dir+'/'+'descriptores')
 
     if not os.path.exists(descriptors_dir):                         
            os.makedirs(descriptors_dir)                                
-           print "Creando directorio para archivos .json"
+           print("Creando directorio para archivos .json")
 
     json_output = descriptors_dir + '/' + os.path.splitext(input_filename)[0] + ".json"
                               
@@ -43,141 +43,112 @@ def process_file(inputSoundFile, frameSize = 1024, hopSize = 512):
     if os.path.exists(json_output) is False:                         
            pass
 
-    input_signal = MonoLoader(filename = inputSoundFile)()
-    sampleRate = 44100
-    
-    #filter direct current noise
-    offset_filter = DCRemoval()    
-    #method alias for extractors
-    centroid = SpectralCentroidTime(sampleRate = sampleRate)
-    contrast = SpectralContrast(frameSize = frameSize+1)
-    levelExtractor = LevelExtractor()
-    mfcc = MFCC(inputSize = 513)    
-    hfc = HFC(sampleRate = sampleRate)
-    dissonance = Dissonance()
-    bpm = RhythmExtractor2013()
-    timelength = Duration()
-    logat = LogAttackTime(sampleRate = sampleRate)
-    harmonic_peaks = HarmonicPeaks()                                   
-    f0_est = PitchYin()    
-    inharmonicity = Inharmonicity()
+    input_signal, sampleRate = read(inputSoundFile)
 
-    #++++helper functions++++
-    envelope = Envelope(sampleRate = sampleRate)
-#    w = Windowing() #default windows
-    w_hann = Windowing(type = 'hann')
-    spectrum = Spectrum()
-    spectral_peaks = SpectralPeaks(sampleRate = sampleRate, orderBy='frequency')
-    audio = offset_filter(input_signal)
+    input_signal = mono_stereo(input_signal)
+
+    retrieve = MIR(input_signal, sampleRate)
+
+    retrieve.signal = retrieve.IIR(retrieve.signal, 40, 'highpass')
+
+    retrieve.mel_bands_global()
+
+    retrieve.onsets_by_flux()
 
     # compute for all frames in our audio and add it to the pool
-    pool = essentia.Pool()
-    for frame in FrameGenerator(audio, frameSize, hopSize, startFromZero = True, lastFrameToEndOfFile=True):
-        frame_windowed = w_hann(frame)
-        frame_spectrum = spectrum(frame_windowed)
+    pool = defaultdict(list)
+    i = 0
+    retrieve.n_bands = 40
+
+    for share in retrieve.spectrum_share():
     
+        #loudness
+        namespace = 'loudness'
+        desc_name = namespace + '.level'
+        retrieve.Loudness()
+        if desc_name in descriptors:
+            pool[desc_name].append(retrieve.loudness)
+
         #low level
         namespace = 'lowlevel'
 
         desc_name = namespace + '.spectral_centroid'
         if desc_name in descriptors:
-            c = centroid( frame_spectrum )
-            pool.add(desc_name, c)
+            c = retrieve.centroid()
+            pool[desc_name].append(c)
 
         desc_name = namespace + '.spectral_contrast'
         if desc_name in descriptors:
-            contrasts, valleys = contrast(frame_spectrum)
-            pool.add(desc_name, contrasts)
-            pool.add('lowlevel.spectral_valleys', valleys)
+            eighth_contrast = retrieve.contrast()
+            pool[desc_name].append(eighth_contrast[0])
+            pool[namespace + '.spectral_valleys'].append(eighth_contrast[1])
 
         desc_name = namespace + '.mfcc'
         if desc_name in descriptors:
-            mfcc_melbands, mfcc_coeffs = mfcc( frame_spectrum )
-            pool.add(desc_name, mfcc_coeffs)
-            pool.add('lowlevel.mfcc_bands', mfcc_melbands)
+            retrieve.MFCC_seq()
+            pool[desc_name].append(retrieve.mfcc_seq)
+            pool[desc_name+'_bands'].append(retrieve.mel_bands)
 
         desc_name = namespace + '.hfc'
         if desc_name in descriptors:
-            h = hfc( frame_spectrum )
-            pool.add(desc_name, h)
+            pool[desc_name].append(retrieve.hfc())
 
         # dissonance
+        retrieve.spectral_peaks()
+        retrieve.fundamental_frequency()
+        retrieve.harmonic_peaks()
         desc_name = namespace + '.dissonance'
         if desc_name in descriptors:
-            frame_frequencies, frame_magnitudes = spectral_peaks(frame_spectrum)
-            frame_dissonance = dissonance(frame_frequencies, frame_magnitudes)
-            pool.add( desc_name, frame_dissonance)
+            pool[desc_name].append(retrieve.dissonance())
 
-        
-        # t frame
-        namespace = 'loudness'
-        desc_name = namespace + '.level'
+        retrieve.Envelope()
+        retrieve.AttackTime()
+        desc_name = 'sfx.logattacktime'
         if desc_name in descriptors:
-            l = levelExtractor(frame)
-            pool.add(desc_name,l)
-
-        #logattacktime #TODO Latest version of Essentia currently returns three values of LogAttackTime, we should decide to use exponentials or use latest Essentia's output in s
-        #desc_name = 'sfx.logattacktime'
-        #if desc_name in descriptors:
-        #    frame_envelope = envelope(frame)
-        #    attacktime = logat(frame_envelope)
-        #    pool.add(desc_name, attacktime)
+            pool[desc_name].append(retrieve.attack_time)
 
         #inharmonicity
         desc_name = 'sfx.inharmonicity'
-        if desc_name in descriptors:
-            pitch = f0_est(frame_windowed)
-            frame_frequencies, frame_magnitudes = spectral_peaks(frame_spectrum)                             
-            harmonic_frequencies, harmonic_magnitudes = harmonic_peaks(frame_frequencies[1:], frame_magnitudes[1:], pitch[0])                         
-            inharmonic = inharmonicity(harmonic_frequencies, harmonic_magnitudes)      
-            pool.add(desc_name, inharmonic)                       
+        if desc_name in descriptors: 
+            pool[desc_name].append(retrieve.inharmonicity())
 
-        #bpm
-        namespace = 'rhythm'
-        desc_name = namespace + '.bpm'
-        if desc_name in descriptors:
-            beatsperminute, ticks = bpm(audio)[0], bpm(audio)[1]
-            pool.add(desc_name, beatsperminute)
-            pool.add('rhythm.bpm_ticks', ticks)
+        i += 1
+        print ("Processing Frame " + str(i))
 
-        #duration
-        namespace = 'metadata'
-        desc_name = namespace + '.duration'
-        if desc_name in descriptors:
-            duration = timelength(audio)
-            pool.add(desc_name, duration)
+    #bpm
+    namespace = 'rhythm'
+    desc_name = namespace + '.bpm'
+    if desc_name in descriptors:
+        retrieve.onsets_strength()
+        retrieve.bpm()
+        pool[desc_name].append(retrieve.tempo)
+        pool['rhythm.bpm_ticks'].append(retrieve.ticks)
+
+    #duration
+    namespace = 'metadata'
+    desc_name = namespace + '.duration'
+    if desc_name in descriptors:
+        pool[desc_name].append(retrieve.duration)
 
     #end of frame computation
 
-    # Pool stats (mean, var)
-    #aggrPool = PoolAggregator(defaultStats = [ 'mean', 'var' ])(pool)
-    aggrPool = PoolAggregator(defaultStats = ['mean'])(pool)
-    # FIXME: por ej el duration no tiene sentido calcularle el 'mean'
+    print("Obtaining mean values")
 
-    # write result to file
-    # json_output = os.path.splitext(inputSoundFile)[0]+"-new.json"
-    # YamlOutput(filename = json_output, format = 'json')(aggrPool)
+    sorted_keys = ["lowlevel.dissonance", "lowlevel.mfcc_bands", "sfx.inharmonicity", "rhythm.bpm", "lowlevel.spectral_contrast", "lowlevel.spectral_centroid", "rhythm.bpm_ticks", "lowlevel.mfcc", "loudness.level", "metadata.duration","lowlevel.spectral_valleys", "sfx.logattacktime", "lowlevel.hfc"] #sort the keys correctly to prevent bad scaling
 
-    data = dict()
-    #for dn in pool.descriptorNames(): data[dn] = pool[dn].tolist()
-    for dn in aggrPool.descriptorNames():
-        try:
-            data[dn] = str( aggrPool[dn][0] )
-        except:
-            data[dn] = str( aggrPool[dn] )
-    print data
+    pool_stats = OrderedDict((k+'.mean', np.mean(pool.get(k)).real) for k in sorted_keys)
+    print (pool_stats)
 
     with open(json_output, 'w') as outfile:
-         json.dump(data, outfile) #write to file
+         json.dump(pool_stats, outfile) #write to file
 
     print(json_output) 
 #()    
 
 Usage = "./run_MIR_analysis.py [FILES_DIR]"
-if __name__ == '__main__':
-  
+def main():  
     if len(sys.argv) < 2:
-        print "\nBad amount of input arguments\n\t", Usage, "\n"
+        print("\nBad amount of input arguments\n\t", Usage, "\n")
         print("Example:\n\t./run_MIR_analysis.py data\n\t./run_MIR_analysis.py samples\n")
         sys.exit(1)
 
@@ -197,14 +168,17 @@ if __name__ == '__main__':
                 input_filename = f
                 audio_input = subdir+'/'+f
                 try:
-                    print( "\n*** Processing %s\n"%audio_input )
-                    process_file( audio_input )
-                except Exception, e:
-                    print logger.exception(e)
+                    print(( "\n*** Processing %s\n"%audio_input ))
+                    process_file( audio_input, tag_dir, input_filename )
+                except Exception as e:
+                    print(logger.exception(e))
                     error_count += 1 
                     continue					                		                         
-        print("Errors: %i"%error_count)
+        print(("Errors: %i"%error_count))
         sys.exit( -error_count )
-    except Exception, e:
+    except Exception as e:
         logger.exception(e)
         exit(1)
+
+if __name__ == '__main__': 
+    main()
