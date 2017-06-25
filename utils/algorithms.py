@@ -696,16 +696,16 @@ class MIR:
       self.harmonic_frequencies, indexes = np.unique(self.harmonic_frequencies, return_index = True)
       self.harmonic_magnitudes = self.harmonic_magnitudes[indexes]
       n = 0          
-      for i in range(son.harmonic_magnitudes.size):
+      for i in range(self.harmonic_magnitudes.size):
           try:
-              if son.harmonic_magnitudes[i] == 0: #ideally it's not the f0
-                  son.harmonic_magnitudes = np.delete(son.harmonic_magnitudes, i)
-                  son.harmonic_frequencies = np.delete(son.harmonic_frequencies, i)
+              if self.harmonic_magnitudes[i] == 0: #ideally it's not the f0
+                  self.harmonic_magnitudes = np.delete(self.harmonic_magnitudes, i)
+                  self.harmonic_frequencies = np.delete(self.harmonic_frequencies, i)
           except IndexError:
               n += 1
-              if son.harmonic_magnitudes[i-n] == 0:                                
-                  son.harmonic_magnitudes = np.delete(son.harmonic_magnitudes, i-n)  
-                  son.harmonic_frequencies = np.delete(son.harmonic_frequencies, i-n)
+              if self.harmonic_magnitudes[i-n] == 0:                                
+                  self.harmonic_magnitudes = np.delete(self.harmonic_magnitudes, i-n)  
+                  self.harmonic_frequencies = np.delete(self.harmonic_frequencies, i-n)
               break
       return self.harmonic_frequencies, self.harmonic_magnitudes
 
