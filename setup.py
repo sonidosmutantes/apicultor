@@ -33,14 +33,5 @@ setup(name='apicultor',
     entry_points={'console_scripts': [
         'rpdl = apicultor.helper.WebScrapingDownload:main', 'rpdla = apicultor.helper.ArchiveWebScrapingDownload:main', 'miranalysis = apicultor.run_mir_analysis:main', 'musicemotionmachine = apicultor.emotion.MusicEmotionMachine:main', 'sonify = apicultor.sonification.Sonification:main', 'qualify = apicultor.machine_learning.quality:main', 'soundsimilarity = apicultor.machine_learning.SoundSimilarity:main', 'mockrpapi = apicultor.MockRedPanalAPI_service:main', 'audio2ogg = apicultor.helper.convert_to_ogg:main', 'smcomposition = apicultor.state_machine.SMComposition:main'
     ]},
-    package_data={
-        'doc': ['*.sh', '*.pdf','*.html', '*.md', '*.png'],
-        'examples.supercollider': ['*.scd', '*.sc'],
-        'helper': ['*.sh'],
-        'state_machine': ['*.js', '*.json', '*png'],
-        'tests': ['*.json'],
-        'ui': ['*.js', '*.preset'],
-        'utils': ['*.sh'],
-    },
     install_requires=['numpy', 'wget', 'colorama', 'pysoundfile', 'librosa', 'scipy', 'matplotlib', 'scikit-learn', 'bs4', 'pandas']
      )
