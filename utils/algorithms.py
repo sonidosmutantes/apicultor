@@ -326,16 +326,10 @@ class MIR:
 
     def ISTFT(self, signal, to_frame = True):
         """Computes the Inverse Short-Time Fourier Transform of a signal for sonification"""
-        x_back = polar_to_cartesian(signal, self.phase)
-        tmp = ifft(x_back, n = self.N)[:self.M].real
-        data = (tmp * 8)
-        data *= synth_window(self.M)
-        if to_frame == True:
-            data[:64] = self.frame[:64]
-            data[self.M-100:] = self.frame[self.M-100:]
-            return data
-        else:
-            return data
+        x_back = ((signal * np.exp(1j*self.phase)) / 2) * 1000
+        tmp = ifft(x_back, n = self.N)[:self.M].real * 2
+        data = tmp * 10
+        return data
 
     def Phase(self, fft):
         """Computes phase spectrum from fft. The size is the same as the size of the magnitude spectrum""" 
@@ -354,7 +348,7 @@ class MIR:
             yield self.magnitude_spectrum
 
     def onsets_by_flux(self):
-        """Computes magnitude spectrum of windowed frame""" 
+        """Use this function to get only frames containing peak parts of the signal""" 
         self.onsets_indexes = np.where(self.flux(self.mel_dbs) > 80)[0]
         self.audio_signal_spectrum = np.array(self.audio_signal_spectrum)[self.onsets_indexes]
 
@@ -463,7 +457,7 @@ class MIR:
         self.envelope = self.mel_dbs[:,1:] - self.mel_dbs[:,:-1]
         self.envelope = np.maximum(0.0, self.envelope)
         channels = [slice(None)] 
-        self.envelope = util.sync(self.envelope, channels, None, True, 0)
+        self.envelope = util.sync(self.envelope, channels, np.mean, True, 0)
         pad_width = 1 + (2048//(2*self.H)) 
         self.envelope = np.pad(self.envelope, ([0, 0], [int(pad_width), 0]),mode='constant') 
         self.envelope = lfilter([1.,-1.], [1., -0.99], self.envelope, axis = -1) 
@@ -492,17 +486,16 @@ class MIR:
         bin_frequencies[0] = np.inf
         bin_frequencies[1:] = 60.0 * self.fs / (self.H * np.arange(1.0, tempogram.shape[0]))
 
-        prior = np.exp(-0.5 * ((np.log2(bin_frequencies) - np.log2(90)) / 1.0)**2)
+        prior = np.exp(-0.5 * ((np.log2(bin_frequencies) - np.log2(80)) / bin_frequencies[1:].std())**2)
         max_indexes = np.argmax(bin_frequencies < 208)
-        min_indexes = np.argmax(bin_frequencies < 90)
+        min_indexes = np.argmax(bin_frequencies < 80)
 
         prior[:max_indexes] = 0
         prior[min_indexes:] = 0
+        p = prior.nonzero()
 
-        best_period = np.argmax(tempogram * prior[:, np.newaxis], axis=0)
-        self.tempo = bin_frequencies[best_period]
-
-        self.tempo[best_period == 0] = 90
+        best_period = np.argmax(tempogram[p] * prior[p][:, np.newaxis] * -1, axis=0)
+        self.tempo = bin_frequencies[p][best_period]
 
         period = round(60.0 * (44100/512) / self.tempo[0])
 
@@ -839,23 +832,23 @@ class sonify(MIR):
             self.spectral_peaks()
             self.fundamental_frequency()
             self.f0s.append(self.f0)
+        self.f0 = Counter(self.f0s).most_common()[0][0]
+        self.mel_bands_global()
+        self.bpm()
+        self.tempo_onsets = clicks(frames = self.ticks * self.fs, length = len(self.signal), sr = self.fs, hop_length = self.H)
+        starts = self.ticks * 44100
+        for i in starts:
+            self.frame = self.signal[int(i):int(i)+1024]
             self.Envelope()
             self.AttackTime()
             self.ats.append(self.attack_time)
-        attacks = []               
-        for i in range(len(self.ats)):                         
-            if self.ats[i] > np.mean(self.ats):                       
-                samples_range = np.arange(i*self.M, (i*self.M) + self.M)                             
-                sample_index = (np.atleast_1d(self.ats[i]) * self.fs).astype(int)                                                 
-                attacks.append(int(samples_range[sample_index]))
+        starts = starts[np.where(self.ats < np.mean(self.ats))]
+        self.ats = np.array(self.ats)[np.where(self.ats < np.mean(self.ats))]
+        attacks = np.int64((np.array(self.ats) * 44100) + starts)
+        self.attacks = self.create_clicks(attacks) 
         self.hfcs /= max(self.hfcs)
         fir = firwin(11, 1.0 / 8, window = "hamming")  
         self.filtered = np.convolve(self.hfcs, fir, mode="same")
         self.climb_hills()
         self.hfc_locs = np.array([i for i, x in enumerate(self.Filtered) if x > 0]) * self.M
-        self.hfc_locs = self.create_clicks(self.hfc_locs) 
-        self.attacks = self.create_clicks(attacks) 
-        self.mel_bands_global()
-        self.bpm()
-        self.tempo_onsets = clicks(frames = self.ticks * self.fs, length = len(self.signal), sr = self.fs, hop_length = self.H)
-        self.f0 = Counter(self.f0s).most_common()[0][0]
+        self.hfc_locs = self.create_clicks(self.hfc_locs)
