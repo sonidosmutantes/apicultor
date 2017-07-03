@@ -33,7 +33,7 @@ def hiss_removal(audio):
     song.FrameGenerator().__next__()
     song.window() 
     song.Spectrum()
-    noise_fft = song.fft(song.windowed_x)
+    noise_fft = song.fft(song.windowed_x)[:song.H+1]
     noise_power = np.log10(np.abs(noise_fft + 2 ** -16))
     noise_floor = np.exp(2.0 * noise_power.mean())                                    
     mn = song.magnitude_spectrum
@@ -48,12 +48,11 @@ def hiss_removal(audio):
         selection = pin+2048
         song.frame = audio[pin:selection] 
         song.window()     
-        song.M = 2048
-        song.H = 255               
-        ft = song.fft(song.windowed_x)          
-        m = np.array([np.sqrt(pow(ft[i].real, 2) + pow(ft[i].imag, 2)) for i in range(1024 + 1)]).ravel()
-        e_m = energy(m)
+        song.M = 2048            
+        song.Spectrum()
+        e_m = energy(song.magnitude_spectrum)
         SNR = 10 * np.log10(e_m / e_n)
+        ft = song.fft(song.windowed_x)[:song.H+1]
         power_spectral_density = np.abs(ft) ** 2
         song.Envelope()
         song.AttackTime()
@@ -76,13 +75,14 @@ def hiss_removal(audio):
                 if cr <= hold_time:
                     gc = np.complex64([gc[i- 1] for i,x in enumerate(gc)])
                 print ("Reducing noise floor, this is taking some time")
-                ft = ifft(ft * gc, 2048)
-                song.frame = ft
-                song.window()
-                np.add.at(output, range(pin, selection), song.windowed_x)
+                song.Phase(song.fft(song.windowed_x))
+                song.phase = song.phase[:song.magnitude_spectrum.size]
+                ft *= gc
+                song.magnitude_spectrum = np.sqrt(pow(ft.real,2) + pow(ft.imag,2))
+                np.add.at(output, range(pin, selection), song.ISTFT(song.magnitude_spectrum))
             else:
                 np.add.at(output, range(pin, selection), audio[pin:selection])                                              
-        pin = pin + 255
+        pin = pin + song.H
         hold_time += selection/44100
     hissless = amp * output / output.max() #amplify to normal level                                                 
     return np.float32(hissless) 
@@ -152,18 +152,18 @@ def main():
 
         for subdir, dirs, files in os.walk(DATA_PATH):                  
             for f in files:                                           
-                print(( "Rewriting without hissing in %s"%f ))          
+                #print(( "Rewriting without hissing in %s"%f ))          
                 audio = read(DATA_PATH+'/'+f)[0] 
                 audio = mono_stereo(audio)              
-                hissless = hiss_removal(audio) #remove hiss             
+                #hissless = hiss_removal(audio) #remove hiss             
                 print(( "Rewriting without crosstalk in %s"%f ))        
                 hrtf = read(sys.argv[2])[0] #load the hrtf wav file                                          
                 b = firwin(2, [0.05, 0.95], width=0.05, pass_zero=False)            
                 convolved = fftconvolve(hrtf, b[np.newaxis, :], mode='valid') 
                 left = convolved[:int(convolved.shape[0]/2), :] 
                 right = convolved[int(convolved.shape[0]/2):, :]    
-                h_sig_L = lfilter(left.flatten(), 1., hissless)             
-                h_sig_R = lfilter(right.flatten(), 1., hissless)            
+                h_sig_L = lfilter(left.flatten(), 1., audio)             
+                h_sig_R = lfilter(right.flatten(), 1., audio)            
                 del hissless  
                 result = np.float32([h_sig_L, h_sig_R]).T               
                 neg_angle = result[:,(1,0)]         
