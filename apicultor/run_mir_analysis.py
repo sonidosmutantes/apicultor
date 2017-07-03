@@ -51,13 +51,16 @@ def process_file(inputSoundFile, tag_dir, input_filename):
 
     retrieve.signal = retrieve.IIR(retrieve.signal, 40, 'highpass')
 
+    retrieve.mel_bands_global()
+
+    retrieve.onsets_by_flux()
+
     # compute for all frames in our audio and add it to the pool
     pool = defaultdict(list)
     i = 0
+    retrieve.n_bands = 40
 
-    for frame in retrieve.FrameGenerator():
-        retrieve.window()
-        retrieve.Spectrum()
+    for share in retrieve.spectrum_share():
     
         #loudness
         namespace = 'loudness'
@@ -116,6 +119,7 @@ def process_file(inputSoundFile, tag_dir, input_filename):
     namespace = 'rhythm'
     desc_name = namespace + '.bpm'
     if desc_name in descriptors:
+        retrieve.onsets_strength()
         retrieve.bpm()
         pool[desc_name].append(retrieve.tempo)
         pool['rhythm.bpm_ticks'].append(retrieve.ticks)
