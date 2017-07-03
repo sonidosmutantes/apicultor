@@ -7,6 +7,7 @@ import numpy as np
 from random import choice, randint
 from ..utils.algorithms import *
 from librosa.effects import time_stretch
+from librosa.util import axis_sort
 import sklearn
 import librosa
 import scipy
@@ -14,7 +15,7 @@ import scipy
 seconds_to_indices = lambda times: np.int32(times * 44100)  
 
 @memoize
-def NMF(stft, spectrum, n_sources):
+def NMF(stft, n_sources):
     """
     Sound source separation using NMF
     :param stft: the short-time Fourier Transform of the signal
@@ -24,18 +25,56 @@ def NMF(stft, spectrum, n_sources):
     """
     print("Computing approximations")
     transformer = sklearn.decomposition.NMF(n_components=n_sources)                                  
-    H = transformer.fit_transform(spectrum.T).T
-    H = transformer.transform(spectrum.T).T
+    H = transformer.fit_transform(stft.T).T
     W = transformer.components_.T
-    idx = np.argsort(W, axis = -1)
-    W = np.sort(W, axis = -1)
+    W, idx = axis_sort(W, index = True)
     H = H[idx]
+    return W,H
+
+@memoize
+def reconstruct_sound_sources(W, H, n_sources, frames, phase, song, x):
     print("Reconstructing signals")
-    Ys = list(scipy.outer(W[:,i], H[i])*np.exp(1j*np.angle(stft)) for i in range(n_sources))
+    Ys = list(scipy.outer(W[:,i], H[i]) for i in range(n_sources))
     print("Saving sound arrays")
-    ys = [scipy.fftpack.ifft(Y, 1024) for Y in Ys][0].size
-    del Ys
-    return ys
+    outputs = []        
+    for i in range(len(Ys)):
+        output = []            
+        for j in range(frames):
+            song.phase = phase[j]
+            song.frame = x[j*1024:(j*1024)+1024] 
+            output.append(song.ISTFT(Ys[i][j]))      
+        outputs.append(np.ravel(output)) 
+    for i in range(len(outputs)):
+        if rms(i) > 0.01:
+            continue
+        else:
+            outputs.pop(i)
+    return outputs
+
+@memoize
+def source_separation(x, n): 
+    song = sonify(x, 44100)
+    if not song.duration > 10:
+        frames = int(len(x) / 1024) 
+    else:
+        frames = int(441000/1024)      
+    stftx = []
+    phase = []
+    for i in range(frames):
+        selection = x[i*1024:(i*1024)+1024]
+        song.frame = selection
+        song.window()
+        fft = song.fft(selection)
+        stftx.append(fft[:513])
+        song.Phase(fft)
+        phase.append(song.phase)
+    stftx = np.complex64(stftx)
+    print("It can take some time to find any source in this signal")
+    print("Separating sources")
+
+    W, H = NMF(np.abs(stftx), n) 
+
+    return reconstruct_sound_sources(W, H, n, frames, phase, song, x[:441000])
 
 def overlapped_intervals(interv):   
     """
@@ -50,7 +89,7 @@ def overlapped_intervals(interv):
     return np.array(steps)
 
 def get_coordinate(index, cls, decisions):  
-    return decisions[int(index), cls]
+    return decisions[int(index), int(cls)]
 
 def distance_velocity(audio, coordinate):
     return np.min((np.max([coordinate/len(audio), 0.36]), 10))
