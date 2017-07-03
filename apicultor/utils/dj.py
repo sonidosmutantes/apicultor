@@ -43,9 +43,9 @@ def reconstruct_sound_sources(W, H, n_sources, frames, phase, song, x):
             song.phase = phase[j]
             song.frame = x[j*1024:(j*1024)+1024] 
             output.append(song.ISTFT(Ys[i][j]))      
-        outputs.append(np.ravel(output)) 
+        outputs.append(np.ravel(output) / np.ravel(output).max()) 
     for i in range(len(outputs)):
-        if rms(i) > 0.01:
+        if rms(outputs[i]) > 0.01:
             continue
         else:
             outputs.pop(i)
