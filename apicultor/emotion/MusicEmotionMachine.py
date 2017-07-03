@@ -715,65 +715,14 @@ class MusicEmotionStateMachine(object):
         self.states = ['angry','sad','relaxed','happy','not angry','not sad', 'not relaxed','not happy']
         self.name = name
         self.state = lambda: random.choice(self.states)
-    def source_separation(self, x): 
-        song = sonify(x, 44100)
-        if not song.duration > 10:
-           frames = int(len(x[:441000]) / 1024)
-           stftx = []
-           spectrum = []
-           for i in range(frames):
-               selection = x[i*1024:(i*1024)+1024]
-               song.frame = selection
-               song.window()
-               stftx.append(song.fft(selection)[:513])
-               song.Spectrum()
-               spectrum.append(song.magnitude_spectrum)
-           stftx = np.complex64(stftx)
-           spectrum = np.float64(spectrum)
-           real = stftx.real
-           imag = stftx.imag
-           ssp = find_sparse_source_points(real, imag) #find sparsity in the signal
-           cos_dist = cosine_distance(ssp) #cosine distance from sparse data
-           sources = find_number_of_sources(cos_dist) #find possible number of sources
-           if (sources == 0) or (sources == 1):  #this means x is an instrumental track and doesn't have more than one source        
-               print("There's only one visible source")   
-               return x 
-           else:
-               print("Separating sources")              
-               xs = NMF(stftx, spectrum, sources)
-               return xs[0] #take the bass part #TODO: correct NMF to return noiseless reconstruction
-        else: 
-           frames = int(len(x) / 1024)
-           stftx = []
-           spectrum = []
-           for i in range(frames):
-               selection = x[i*1024:(i*1024)+1024]
-               song.frame = selection
-               song.window()
-               stftx.append(song.fft(selection)[:513])
-               song.Spectrum()
-               spectrum.append(song.magnitude_spectrum)
-           stftx = np.complex64(stftx)
-           spectrum = np.float64(spectrum)
-           print("It can take some time to find any source in this signal")           
-           real = stftx.real
-           imag = stftx.imag
-           ssp = find_sparse_source_points(real, imag) #find sparsity in the signal
-           cos_dist = cosine_distance(ssp) #cosine distance from sparse data
-           sources = find_number_of_sources(cos_dist) #find possible number of sources
-           if (sources == 0) or (sources == 1):  #this means x is an instrumental track and doesn't have more than one source 
-               print("There's only one visible source")        
-               return x    
-           else:  
-               print("Separating sources")          
-               xs = NMF(stftx, spectrum, sources)
-               return xs[0] #take the bass part #TODO: correct NMF to return noiseless reconstruction
     def sad_music_remix(self, neg_arous_dir, files, decisions, files_dir, harmonic = None):
         for subdirs, dirs, sounds in os.walk(neg_arous_dir):   
             fx = random.choice(sounds[::-1])                    
             fy = random.choice(sounds[:])                      
         x = read(neg_arous_dir + '/' + fx)[0]  
         y = read(neg_arous_dir + '/' + fy)[0] 
+        x = (mono_stereo(x) if len(x) == 2 else x) 
+        y = (mono_stereo(y) if len(y) == 2 else y) 
         fx = fx.split('.')[0]+'.json'                                  
         fy = fy.split('.')[0]+'.json'                                 
         fx = np.where(files == fx)[0]                       
@@ -784,7 +733,7 @@ class MusicEmotionStateMachine(object):
         else:
             dec_x = get_coordinate(fx, 2, decisions)
             dec_y = get_coordinate(fy, 2, decisions)
-        x = self.source_separation(x)   
+        x = source_separation(x, 4)[0]   
         x = scratch_music(x, dec_x)                            
         y = scratch_music(y, dec_y)                           
         x, y = same_time(x,y)                                                                       
@@ -807,6 +756,8 @@ class MusicEmotionStateMachine(object):
             fy = random.choice(sounds[:])                      
         x = read(pos_arous_dir + '/' + fx)[0]  
         y = read(pos_arous_dir + '/' + fy)[0] 
+        x = (mono_stereo(x) if len(x) == 2 else x) 
+        y = (mono_stereo(y) if len(y) == 2 else y) 
         fx = fx.split('.')[0]+'.json'                                  
         fy = fy.split('.')[0]+'.json'                                  
         fx = np.where(files == fx)[0]                      
@@ -817,7 +768,7 @@ class MusicEmotionStateMachine(object):
         else:
             dec_x = get_coordinate(fx, 0, decisions)
             dec_y = get_coordinate(fy, 0, decisions)
-        x = self.source_separation(x) 
+        x = source_separation(x, 4)[0] 
         x = scratch_music(x, dec_x)                            
         y = scratch_music(y, dec_y)
         x, y = same_time(x,y)  
@@ -827,14 +778,15 @@ class MusicEmotionStateMachine(object):
         if harmonic is True:
             return librosa.decompose.hpss(librosa.stft(positive_arousal_x), margin = (1.0, 5.0))[0]  
         if harmonic is False or harmonic is None:
-            interv = librosa.beat.beat_track(positive_arousal_x, sr = 44100, hop_length = 512, units = 'samples')[1]
-            steps = overlapped_intervals(interv)
+            song = sonify(positive_arousal_x, 44100)
+            interv = song.bpm()[1]
+            steps = overlapped_intervals(np.int32(interv * 44100))
             output = librosa.effects.remix(positive_arousal_x, steps, align_zeros = False)
             output = librosa.effects.pitch_shift(output, sr = 44100, n_steps = 4)
             remix_filename = files_dir+'/emotions/remixes/happy/'+str(time.strftime("%Y%m%d-%H:%M:%S"))+'multitag_remix'
             write_file(remix_filename, 44100, np.float32(output))
             subprocess.call(["ffplay", "-nodisp", "-autoexit", remix_filename+'.ogg'])
-    def relaxed_music_remix(self, neg_arous_dir, files, files_dir, decisions):
+    def relaxed_music_remix(self, neg_arous_dir, files, decisions, files_dir):
         neg_arousal_h = self.sad_music_remix(neg_arous_dir, files, decisions, files_dir, harmonic = True)
         relaxed_harmonic = librosa.istft(neg_arousal_h)
         interv = hfc_onsets(np.float32(relaxed_harmonic))
@@ -847,7 +799,8 @@ class MusicEmotionStateMachine(object):
     def angry_music_remix(self, pos_arous_dir, files, decisions, files_dir):
         pos_arousal_h = self.happy_music_remix(pos_arous_dir, files, decisions, files_dir, harmonic = True)
         angry_harmonic = librosa.istft(pos_arousal_h)
-        interv = librosa.beat.beat_track(angry_harmonic, sr = 44100, hop_length = 512, units = 'samples')[1]
+        song = sonify(angry_harmonic, 44100)
+        interv = song.bpm()[1]
         steps = overlapped_intervals(interv)
         output = librosa.effects.remix(angry_harmonic, steps, align_zeros = True)
         output = librosa.effects.pitch_shift(output, sr = 44100, n_steps = 3)
@@ -863,13 +816,15 @@ class MusicEmotionStateMachine(object):
         fy = random.choice(sounds[:])                    
         x = read(fx)[0]
         y = read(fy)[0]  
+        x = (mono_stereo(x) if len(x) == 2 else x) 
+        y = (mono_stereo(y) if len(y) == 2 else y) 
         fx = fx.split('/')[-1].split('.')[0]+'.json'                                  
         fy = fy.split('/')[-1].split('.')[0]+'.json'                                   
         fx = np.where(files == fx)[0]                     
         fy = np.where(files == fy)[0]                
         dec_x = get_coordinate(fx, choice(list(range(3))), decisions)               
         dec_y = get_coordinate(fy, choice(list(range(3))), decisions)
-        x = self.source_separation(x) 
+        x = source_separation(x, 4)[0] 
         x = scratch_music(x, dec_x)                            
         y = scratch_music(y, dec_y)
         x, y = same_time(x, y)
@@ -891,19 +846,22 @@ class MusicEmotionStateMachine(object):
         fy = random.choice(sounds[:])                    
         x = read(fx)[0]  
         y = read(fy)[0]  
+        x = (mono_stereo(x) if len(x) == 2 else x) 
+        y = (mono_stereo(y) if len(y) == 2 else y) 
         fx = fx.split('/')[-1].split('.')[0]+'.json'                            
         fy = fy.split('/')[-1].split('.')[0]+'.json'                                
         fx = np.where(files == fx)[0]                    
         fy = np.where(files == fy)[0]             
         dec_x = get_coordinate(fx, choice([0,2,3]), decisions)               
         dec_y = get_coordinate(fy, choice([0,2,3]), decisions)
-        x = self.source_separation(x) 
+        x = source_separation(x, 4)[0] 
         x = scratch_music(x, dec_x)                            
         y = scratch_music(y, dec_y)
         x, y = same_time(x,y)
         not_sad_x = np.sum((x,y),axis=0) 
         not_sad_x = np.float32(0.5*not_sad_x/not_sad_x.max())
-        interv = librosa.beat.beat_track(not_sad_x, sr = 44100, hop_length = 512, units = 'samples')[1]
+        song = sonify(not_sad_x, 44100)
+        interv = song.bpm()[1]
         steps = overlapped_intervals(interv)
         output = librosa.effects.remix(not_sad_x, steps[::-1], align_zeros = True)
         output = librosa.effects.pitch_shift(output, sr = 44100, n_steps = 4)
@@ -918,18 +876,20 @@ class MusicEmotionStateMachine(object):
         fx = random.choice(sounds[::-1])
         fy = random.choice(sounds[:])                    
         x = read(fx)[0] 
-        y = read(fy)[0]  
+        y = read(fy)[0]
+        x = (mono_stereo(x) if len(x) == 2 else x) 
+        y = (mono_stereo(y) if len(y) == 2 else y)   
         fx = fx.split('/')[-1].split('.')[0]+'.json'                                 
         fy = fy.split('/')[-1].split('.')[0]+'.json'                                  
         fx = np.where(files == fx)[0]                      
         fy = np.where(files == fy)[0]              
         dec_x = get_coordinate(fx, choice(list(range(1,3))), decisions)               
         dec_y = get_coordinate(fy, choice(list(range(1,3))), decisions)
-        x = self.source_separation(x) 
+        x = source_separation(x, 4)[0] 
         x = scratch_music(x, dec_x)                            
         y = scratch_music(y, dec_y)
         x, y = same_time(x,y)
-        stft_morph = morph(x,y,512,0.01,0.7)
+        stft_morph = np.nan_to_num(morph(x,y,512,0.01,0.7))
         interv = hfc_onsets(np.float32(stft_morph))
         steps = overlapped_intervals(interv)
         output = librosa.effects.remix(stft_morph, steps[::-1], align_zeros = False)
@@ -945,19 +905,22 @@ class MusicEmotionStateMachine(object):
         fx = random.choice(sounds[::-1])
         fy = random.choice(sounds[:])                    
         x = read(fx)[0]  
-        y = read(fy)[0] 
+        y = read(fy)[0]
+        x = (mono_stereo(x) if len(x) == 2 else x) 
+        y = (mono_stereo(y) if len(y) == 2 else y)  
         fx = fx.split('/')[-1].split('.')[0]+'.json'                                
         fy = fy.split('/')[-1].split('.')[0]+'.json'                       
         fx = np.where(files == fx)[0]                     
         fy = np.where(files == fy)[0]         
         dec_x = get_coordinate(fx, choice([0,1,3]), decisions)               
         dec_y = get_coordinate(fy, choice([0,1,3]), decisions)
-        x = self.source_separation(x) 
+        x = source_separation(x, 4)[0] 
         x = scratch_music(x, dec_x)                            
         y = scratch_music(y, dec_y)
         x, y = same_time(x,y)
-        stft_morph = morph(x,y,512,0.01,0.7)
-        interv = librosa.beat.beat_track(morph, sr = 44100, hop_length = 512, units = 'samples')[1]
+        stft_morph = np.nan_to_num(morph(x,y,512,0.01,0.7))
+        song = sonify(stft_morph, 44100)
+        interv = song.bpm()[1]
         steps = overlapped_intervals(interv)
         output = librosa.effects.remix(stft_morph, steps[::-1], align_zeros = False)
         output = librosa.effects.pitch_shift(output, sr = 44100, n_steps = 3)
