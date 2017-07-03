@@ -580,9 +580,10 @@ class MIR:
                         sigma += self.magnitude_spectrum[spec_index+i]                                                        
                 valley = sigma/nn_bins + min_real                                                                            
                 sigma = 0                                                                                                    
-                if i > n_bins_in_bands[band_index]-nn_bins and spec_index+i-1 < self.magnitude_spectrum.size and i > 0:       
-                    i -= 1                                                                                                   
-                    sigma += self.magnitude_spectrum[spec_index+i-1]                                                                        
+                for i in range(n_bins_in_bands[band_index]):
+                    if i > n_bins_in_bands[band_index]-nn_bins and spec_index+i-1 < self.magnitude_spectrum.size and i > 0:       
+                        i -= 1                                                                                    
+                    sigma += self.magnitude_spectrum[spec_index+i-1]                                                                      
                 peak = sigma/nn_bins + min_real                                                                       
                 self.sc[band_index] = (-1. * (pow(float(peak)/valley, 1./np.log(band_mean))))                                
                 self.valleys[band_index] = np.log(valley)                                                             
