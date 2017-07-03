@@ -122,7 +122,7 @@ def process_file(inputSoundFile, tag_dir, input_filename):
         retrieve.onsets_strength()
         retrieve.bpm()
         pool[desc_name].append(retrieve.tempo)
-        pool['rhythm.bpm_ticks'].append(retrieve.ticks)
+        pool['rhythm.bpm_ticks'].append(retrieve.ticks / retrieve.M)
 
     #duration
     namespace = 'metadata'
