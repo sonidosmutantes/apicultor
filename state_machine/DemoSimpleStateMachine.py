@@ -1,6 +1,12 @@
 #! /usr/bin/env python2
 # -*- coding: utf-8 -*-
 
+"""
+    proof of concept. Deprecated. Test it.
+    Check OSC port. Use 1234 instead
+"""
+
+
 import pykov # Markov chains helpers
 import time
 import random
