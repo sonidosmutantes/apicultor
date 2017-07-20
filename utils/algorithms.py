@@ -153,10 +153,10 @@ class MIR:
 
     def FrameGenerator(self):
         """Creates frames of the input signal based on detected peak onsets, which allow to get information from pieces of audio with much information"""
-        frames = int(len(self.signal) / self.M) 
+        frames = int(len(self.signal) / self.H) 
         total_size = self.M
         for i in range(frames):
-            self.frame = self.signal[i*self.M:(i*self.M) + self.M]
+            self.frame = self.signal[i*(self.M-self.H):(i*(self.M-self.H) + self.M)]
             if not len(self.frame) == total_size:
                 break 
             elif all(self.frame == 0):           
@@ -313,7 +313,7 @@ class MIR:
         n = np.arange(N_min)
         k = n[:, None]   
         M = np.exp(-2j * np.pi * n * k / N_min)
-        transformed = np.dot(M, np.append(frame,np.zeros(self.M - (frame.size - self.M))).reshape((N_min, -1))).astype(np.complex64)
+        transformed = np.dot(M, np.append(frame,np.zeros(self.M - (frame.size - self.M), dtype=complex)).reshape((N_min, -1))).astype(np.complex64)
                                                        
         while transformed.shape[0] < transformed.size: 
             even = transformed[:, :int(transformed.shape[1] / 2)]
@@ -540,7 +540,7 @@ class MIR:
         """Computes the Spectral Contrast from magnitude spectrum. It returns the contrast and the valleys""" 
         min_real = 1e-30
         part_to_scale = 0.85                                                            
-        bin_width = 22050 / 1024                                                        
+        bin_width = (self.fs/2) / self.M                                                      
         last_bins = round(20/bin_width)                                                 
         start_at_bin = last_bins                                                                                             
         n_bins_in_bands = np.zeros(6)                                                                                        
@@ -745,16 +745,52 @@ class MIR:
                 total_diss += peak_diss
         total_diss = total_diss / 2
         return total_diss
+
     def hfc(self): 
         """Computes the High Frequency Content"""
         bin2hz = (self.fs/2.0) / (self.magnitude_spectrum.size - 1)                   
         return (sum([i*bin2hz * pow(self.magnitude_spectrum[i],2) for i in range(len(self.magnitude_spectrum))])) * self.H
+
     def NoiseAdder(self, array):                 
         random.seed(0)                                              
         noise = np.zeros(len(array))                            
         for i in range(len(noise)):                                   
             noise[i] = array[i] + 1e-10 * (random.random()*2.0 - 1.0)              
         return noise
+
+    def LPC(self):
+        fft = self.fft(self.windowed_x)
+        self.Phase(fft)
+        self.Spectrum()
+        invert = self.ISTFT(self.magnitude_spectrum)
+        invert = np.array(invert).T                                    
+        self.correlation = util.normalize(invert, norm = np.inf)
+        subslice = [slice(None)] * np.array(self.correlation).ndim
+        subslice[0] = slice(self.windowed_x.shape[0])
+        self.correlation = np.array(self.correlation)[subslice]      
+        if not np.iscomplexobj(self.correlation):               
+            self.correlation = self.correlation.real #compute autocorrelation of the frame
+        self.correlation.flags.writeable = False
+        E = np.copy(self.correlation[0])
+        corr = np.copy(self.correlation)
+        p = 14
+        reflection = np.zeros(p)
+        lpc = np.zeros(p+1)
+        lpc[0] = 1
+        temp = np.zeros(p)
+        for i in range(1, p+1):
+            k = float(self.correlation[i])
+            for j in range(i):
+                k += self.correlation[i-j] * lpc[j]
+            k /= E
+            reflection[i-1] = k
+            lpc[i] = -k
+            for j in range(1,i):
+                temp[j] = lpc[j] - k * lpc[i-j]
+            for j in range(1,i):
+                lpc[j] = temp[j]
+            E *= (1-pow(k,2))
+        return lpc[1:]
 
 class sonify(MIR):                                
     def __init__(self, audio, fs):
@@ -813,6 +849,15 @@ class sonify(MIR):
             else:                                                   
                 click_signal[start:end] += click                    
         return click_signal
+    def output_array(self, array):
+        self.M = 1024
+        self.H = 512
+        output = np.zeros(len(self.signal)) 
+        i = 0
+        for frame in self.FrameGenerator():
+            output[i*(self.M-self.H):(i*(self.M-self.H) + self.M)] = array[i]  
+            i += 1
+        return output
     def sonify_music(self):
         """Function to sonify MFCC, Spectral Contrast, HFC and Tempo of the input signal"""
         self.mfcc_outputs = []
@@ -833,6 +878,8 @@ class sonify(MIR):
             self.spectral_peaks()
             self.fundamental_frequency()
             self.f0s.append(self.f0)
+        self.mfcc_outputs = self.output_array(self.mfcc_outputs)
+        self.contrast_outputs = self.output_array(self.contrast_outputs)
         self.f0 = Counter(self.f0s).most_common()[0][0]
         self.mel_bands_global()
         self.bpm()
@@ -851,5 +898,5 @@ class sonify(MIR):
         fir = firwin(11, 1.0 / 8, window = "hamming")  
         self.filtered = np.convolve(self.hfcs, fir, mode="same")
         self.climb_hills()
-        self.hfc_locs = np.array([i for i, x in enumerate(self.Filtered) if x > 0]) * self.M
+        self.hfc_locs = np.array([i for i, x in enumerate(self.Filtered) if x > 0]) * self.H
         self.hfc_locs = self.create_clicks(self.hfc_locs)
