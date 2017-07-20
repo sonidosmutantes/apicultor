@@ -9,6 +9,9 @@
 # docker with bash entrypoint
 # docker run -p 5000:5000 --name apicultor  -it --net="host" --entrypoint /bin/bash apicultor_v0.9
 
+# link samples dir
+# -v ./samples:/srv/apicultor/samples
+
 # Bash entrypoint + (--rm) to automatically remove the container when it exits.
 # docker run -p 5000:5000 --name apicultor  -it --rm --net="host" --entrypoint /bin/bash apicultor_v0.9 /bin/bash
 

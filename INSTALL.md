@@ -83,9 +83,11 @@ Luego se puede usar `Fill_DB.py` para crear la base de datos del MIR
 * pip install smst
 * pip install colorama
 
+```
 $ sudo pip install bs4 regex wget numpy scipy scikit-learn 
 $ sudo pip install matplotlib smst
 $ sudo apt-get install python-tk
+```
 
 * pip install librosa
 * pip install transitions
@@ -99,19 +101,15 @@ Note that Pykov depends on numpy and scipy.
 
 Both for Python2 and Python3:
 
-$ sudo pip install git+git://github.com/riccardoscalco/Pykov@master 
+    $ sudo pip install git+git://github.com/riccardoscalco/Pykov@master 
 
 Note: In Raspberry Pi run first $ sudo apt-get install python-numpy python-scipy #pip install scipy no works
 
-### OSC Client
-$ git clone https://github.com/ptone/pyosc.git
-$ cd pyosc && sudo ./setup.py install
-
 ### liblo: Lightweight OSC implementation
-$ apt-get install -y liblo-dev
+    $ apt-get install -y liblo-dev
   
-$ pip2 install cython 
-$ pip2 install pyliblo 
+    $ pip2 install cython 
+    $ pip2 install pyliblo 
 
 #### Freesound API module
 ```
@@ -123,23 +121,22 @@ $ sudo python setup.py install
 # OSC (different libraries)
 
 ## OSC Service Example
-$ sudo pip3 install python-osc
+    $ sudo pip3 install python-osc
 
 ## OSC Client
-$ git clone https://github.com/ptone/pyosc.git
-$ cd pyosc && sudo ./setup.py install
+    $ git clone https://github.com/ptone/pyosc.git
+    $ cd pyosc && sudo ./setup.py install
 
 ## Supercollider
-
-$ sudo apt-get install supercollider supercollider-ide
-$ sudo apt-get install scide 
+    $ sudo apt-get install supercollider supercollider-ide
+    $ sudo apt-get install scide 
 
 ## Pre-processing scripts (saves realtime processing)
 
-$ sudo apt-get install ffmpeg
+    $ sudo apt-get install ffmpeg
 
-In raspberry pi and other debian based systems replace by:
-$ sudo apt-get install libav-tools
-alias ffmpeg=avconv
+In Raspberry Pi and other debian based systems replace by:
+    $ sudo apt-get install libav-tools
+    alias ffmpeg=avconv
 
-$ pip install ffmpeg-normalize
+    $ pip install ffmpeg-normalize
