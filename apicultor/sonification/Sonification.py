@@ -87,7 +87,7 @@ def mir_sonification(input_filename, inputSoundFile, tag_dir, data):
            print("Creando directorio para paso de banda de mfcc")
 
     print ("Generating Signal according to Mel bands mean")
-    write_file(mfcc_dir + '/' + os.path.splitext(input_filename)[0] + 'mfcc', sampleRate, normalize(np.array(retriever.mfcc_outputs).flatten()))
+    write_file(mfcc_dir + '/' + os.path.splitext(input_filename)[0] + 'mfcc', sampleRate, retriever.mfcc_outputs)
 
     #inharmonicity of sound recording
 
@@ -135,9 +135,8 @@ def mir_sonification(input_filename, inputSoundFile, tag_dir, data):
            os.makedirs(valleys_dir)                                
            print("Creando directorio para escucha de contraste espectral basado en valle espectral")                                           
  
-    output = np.array(retriever.contrast_outputs).flatten()
     print ("Saving recording Contrast")
-    write_file(valleys_dir + '/' + os.path.splitext(input_filename)[0] + 'contrast', sampleRate, normalize(output)) 
+    write_file(valleys_dir + '/' + os.path.splitext(input_filename)[0] + 'contrast', sampleRate, retriever.contrast_outputs) 
 
     #sound recording with hfc marker
 
@@ -170,7 +169,6 @@ def main():
         print("\nNeed tag dir\n", Usage, "\n")
         sys.exit(1)
 
-
     try:
         files_dir = sys.argv[1]
         descriptors_dir = files_dir+'/descriptores/' 
@@ -193,5 +191,6 @@ def main():
 
 if __name__ == '__main__': 
     main()
+
 
 
