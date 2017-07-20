@@ -165,7 +165,7 @@ class deep_support_vector_machines(object):
         :param x: your dataset          
         :param y: another dataset (sth like transposed(x))
         """  
-        return ssd(x,y, dense_output = True)
+        return x @ y
     @classmethod
     @memoize
     def sigmoid_kernel(self, x, y, gamma):
@@ -320,16 +320,16 @@ class deep_support_vector_machines(object):
                     g1 = g(lab[p1[j]], a0[p1[j]], self.Q[p1[j],p1[j]])
                     g2 = g(lab[p2[j]], a0[p2[j]], self.Q[p2[j],p2[j]])
                     w0 = es(a, lab, self.trained_features[c]) 
-                    direction_grad = 0.8 * ((w0 * g2) + ((1 - w0) * g1))
+                    direction_grad = 0.8 * ((w0 * g2) + ((1 - w0) * g1)) #step with 0.8 of learning rate
 
                     if (direction_grad * (g1 + g2) <= 0.):        
                         break
 
-                    a[p1[j]] = a0[p1[j]] + direction_grad
-                    a[p2[j]] = a0[p2[j]] + direction_grad
+                    a[p1[j]] = a0[p1[j]] + direction_grad #do step
+                    a[p2[j]] = a0[p2[j]] + direction_grad #do step
 
-                a = la(a)
-                a = ha(a, class_weight[self.classesm[c]], self.C)
+                a = la(a) #satisfy constraints for lower As
+                a = ha(a, class_weight[self.classesm[c]], self.C) #satisfy constraints for higher As using class weights
                 diff = Q_a(a, self.Q) - Q_a(a0, self.Q)
                 iterations += 1
                 if (diff < reg_param):
@@ -448,12 +448,10 @@ class deep_support_vector_machines(object):
         if self.kernel1 == "sigmoid":
             kernel = self.sigmoid_kernel
         if self.kernel1 == "rbf":
-            kernel = self.rbf_kernel 
-        if self.kernel1 == "linear":
-            kernel = self.linear_kernel_matrix
+            kernel = self.rbf_kernel
                                                
         if self.kernel1 == "linear":           
-            self.k = kernel(self.svs, features.T)
+            self.k = self.svs @ features.T
         else:           
             self.k = kernel(self.svs, features, self.gamma)     
 
@@ -547,9 +545,9 @@ class svm_layers(deep_support_vector_machines):
         self.targets_outputs = []
         self.scores = []
         sample_weight = float(len(features)) / (len(np.array(list(set(labels)))) * np.bincount(labels))
-        Cs = [1./0.01, 1./0.04, 1./0.06]
-        reg_params = [0.01, 0.04, 0.06]
-        self.kernel_configs = [['linear', 'poly'], ['linear', 'rbf'], ['linear', 'sigmoid']]
+        Cs = [1./0.01, 1./0.04, 1./0.06, 1./0.08, 1./0.1, 1./0.12]
+        reg_params = [0.01, 0.04, 0.06, 0.08, 0.1, 0.12]
+        self.kernel_configs = [['linear', 'poly'], ['linear', 'rbf'], ['linear', 'sigmoid'], ['poly', 'sigmoid'], ['poly', 'rbf'], ['rbf', 'sigmoid']]
         for i in range(len(self.kernel_configs)):
             print ("Calculating values for prediction")
             best_estimator = GridSearch(self, features, labels, Cs, reg_params, [self.kernel_configs[i]])
@@ -560,17 +558,30 @@ class svm_layers(deep_support_vector_machines):
             print(("Predicted"), pred_c)
             err = score(labels, pred_c)
             self.scores.append(err)
-            if err < 0.5: #benefit of deep learning, we can minimize and bypass all error
-                self.fxs.append(self.decision)
+            if err < 0.5:
+                self.fxs.append(self.decision)            
                 self.targets_outputs.append(pred_c)
-  
+        if len(self.fxs) <= 1:
+            raise IndexError("You've been giving bad information. Most likely data that doesn't scale very good enough")
+
         return self
 
-    def scaled_sum_fx(self):
+    def store_attention(self, files, output_dir):
         """
-        Sum all distances along the first axis                          
-        """ 
-        return feature_scaling(sum(self.fxs)) 
+        Save the decision_function result in a text file so you can use it in applications
+        """  
+        d = defaultdict(list) 
+        for i in range(len(files)):
+            d[files[i]] = self.attention[i].tolist()    
+        array = pandas.DataFrame(d)
+        array.to_csv(output_dir + '/attention.csv')  
+
+    def attention(self):
+        """
+        A function that averages feasibility in the model                         
+        """
+        self.attention = np.average(np.array(self.fxs).T, axis = 2).T 
+        return self
 
     def best_labels(self):
         """
@@ -579,6 +590,16 @@ class svm_layers(deep_support_vector_machines):
         self.targets_outputs = np.int32([Counter(np.int32(self.targets_outputs)[:,i]).most_common()[0][0] for i in range(np.array(self.targets_outputs).shape[1])])
 
         return self.targets_outputs 
+
+    def store_good_labels(self, files, output_dir):
+        """
+        Save the decision_function result in a text file so you can use it in applications
+        """  
+        d = defaultdict(list) 
+        for i in range(len(files)):
+            d[files[i]] = self.targets_outputs[i] 
+        array = pandas.DataFrame(d)
+        array.to_csv(output_dir + '/attention.csv')  
 
 def best_kernels_output(best_estimator, kernel_configs):
     """
@@ -640,7 +661,7 @@ class main_svm(deep_support_vector_machines):
         Save the emotions of each sound in a text file so you can use it in applications           
         """ 
         array = pandas.DataFrame(self.neg_and_pos(files))
-        array.to_csv(self.output_dir + '/files_classes.csv')                 
+        array.to_csv(self.output_dir + '/files_classes.csv')            
 
 #create emotions directory in data dir if multitag classification has been performed
 def emotions_data_dir(files_dir):
@@ -972,13 +993,12 @@ class MusicEmotionStateMachine(object):
                 print("EXITING STATE " + state.upper()) 
                             
 
-Usage = "./MusicEmotionMachine.py [FILES_DIR] [OUTPUT_DIR] [MULTITAG CLASSIFICATION False/True/None]"
+Usage = "./MusicEmotionMachine.py [FILES_DIR] [OUTPUT_DIR] [MULTITAG PROBLEM FalseNone/True] [TRANSITION a/r/s]"
 
 def main():  
-    if len(sys.argv) < 4:
+    if (len(sys.argv) < 4) or (len(sys.argv) == 4  and (sys.argv[3] == 'False' or sys.argv[3] == 'None')):
         print("\nBad amount of input arguments\n", Usage, "\n")
         sys.exit(1)
-
 
     try:
         files_dir = sys.argv[1]
@@ -988,29 +1008,43 @@ def main():
             raise IOError("Must run MIR analysis") 
 
         if sys.argv[3] in ('True'):
-            tags_dir = tags_dirs(files_dir)
-            files = descriptors_and_keys(tags_dir, True)._files
-            features = descriptors_and_keys(tags_dir, True)._features
-            fscaled = feature_scaling(features)
-            del features
-            labels = KMeans_clusters(fscaled)
-            input_layers = svm_layers()
-            input_layers.layer_computation(fscaled, labels)
+            if not 'r' in sys.argv[4]:     
+                tags_dir = tags_dirs(files_dir)                
+                files = descriptors_and_keys(tags_dir, True)._files  
+                features = descriptors_and_keys(tags_dir, True)._features
+                fscaled = feature_scaling(features)
+                print (len(fscaled))
+                del features                 
+                labels = KMeans_clusters(fscaled)
+                layers = svm_layers()                
+                layers.layer_computation(fscaled, labels)
+                              
+                layers.attention() 
+                layers.store_attention(files, sys.argv[2])
+                                       
+                labl = layers.best_labels()
+                fx = layers.attention  
+                #layers.store_good_labels(labl, sys.argv[2])
 
-            fx = input_layers.scaled_sum_fx()
+            if 'a' in sys.argv[4]:  
+                sys.exit()    
 
-            labl = input_layers.best_labels()
+            if 'r' in sys.argv[4]:  
+                fx = read_attention_file(sys.argv[2])
+                labl = read_good_labels(sys.argv[2])
 
-            Cs = [1./0.33, 1./0.4, 1./0.6, 1./0.8] #it should work well with less parameter searching
-            reg_params = [0.33, 0.4, 0.6, 0.8] 
-            kernel_configs = [['linear', 'poly'], ['linear', 'rbf'], ['linear', 'sigmoid']] #Also can use rbf with linear if you've got difficult to handle data, or try your parameters  
-            best_estimators = GridSearch(svm_layers(), fx, labl, Cs, reg_params, kernel_configs)
-            C, reg_param, kernels_config = best_kernels_output(best_estimators, kernel_configs)
-            msvm = main_svm(fx, labl, C[0], reg_param[0], 1./fx.shape[1], kernels_config, output_dir)
-            msvm.save_decisions()  
-            msvm.save_classes(files)          
-            emotions_data_dir(files_dir)
-            multitag_emotions_dir(tags_dir, files_dir, msvm.neg_and_pos(files))
+            if 's' in sys.argv[4] or 'r' in sys.argv[4]:                             
+                Cs = [1./0.33, 1./0.4, 1./0.6, 1./0.8] #it should work well with less parameter searching                           
+                reg_params = [0.33, 0.4, 0.6, 0.8]                                   
+                kernel_configs = [['linear', 'poly'], ['linear', 'rbf'], ['linear', 'sigmoid']] #Also can use rbf with linear if you've got difficult to handle data, or try your parameters                                                                   
+                best_estimators = GridSearch(svm_layers(), fx, labl, Cs, reg_params, kernel_configs)          
+                C, reg_param, kernels_config = best_kernels_output(best_estimators, kernel_configs)                                            
+                msvm = main_svm(layers.attention, labl, C[0], reg_param[0], 1./fx.shape[1], kernels_config, output_dir) 
+                msvm.save_decisions()         
+                msvm.save_classes(files)          
+                emotions_data_dir(files_dir)                                   
+                multitag_emotions_dir(tags_dir, files_dir, msvm.neg_and_pos(files))
+
         if (sys.argv[3] in ('None')) or (sys.argv[3] in ('False')): 
             files_dir = sys.argv[1]
             data_dir = sys.argv[2]    
