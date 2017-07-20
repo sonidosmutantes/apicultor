@@ -20,6 +20,8 @@ Interdisciplinary performances based on sounds of the web platform [Redpanal.org
 
 ## Proofs of concept:
 
+* [APICultor + No Input + Granular synthesis performance](https://soundcloud.com/hern-n-ordiales/hard-glitch-trip).
+
 * [Proyecto de reciclado de sonidos libres de la web en RedPanal.org](http://redpanal.org/p/reciclado-de-samples/) (sonido + referencia al original).
 
 * Performances en vivo utilizando estas herramientas:

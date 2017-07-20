@@ -24,6 +24,7 @@ Extrae miel de [RedPanal](http://redpanal.org)  con técnicas de Music Informati
 ### Pruebas de concepto:
 
 * Performances en vivo utilizando estas herramientas:
+  * [APICultor + No Input + Granular synthesis performance](https://soundcloud.com/hern-n-ordiales/hard-glitch-trip).
   * Jam con guitarras + fx chain y sintes analógicos: [Perfo mutante en La Siesta del Fauno](https://soundcloud.com/hern-n-ordiales/perfo-mutante-mobile)
   * Cierre de Taller de Experimentación Sonora: [http://redpanal.org/a/banda-de-mutantes-cierre-taller/](http://redpanal.org/a/banda-de-mutantes-cierre-taller/)
   * La Noche de los Museos La Casa del Bicentenario 29/10/2016
