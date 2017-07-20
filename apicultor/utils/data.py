@@ -78,3 +78,11 @@ def read_file(f, data_dir):
     lc = np.array(classes)[:,2]
     decisions = pandas.read_csv(data_dir+'/data.csv').values[:,(1,2,3,4)]
     return sounds, lc, decisions
+
+def read_attention_file(data_dir):                 
+    attention_variables = pandas.read_csv(data_dir+'/attention.csv')
+    return attention_variables
+
+def read_good_labels(data_dir):                 
+    good_labels = pandas.read_csv(data_dir+'/attention.csv').values[:,1]
+    return good_labels
