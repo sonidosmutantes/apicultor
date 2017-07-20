@@ -38,14 +38,14 @@ def reconstruct_sound_sources(W, H, n_sources, frames, phase, song, x):
     print("Saving sound arrays")
     outputs = []        
     for i in range(len(Ys)):
-        output = []            
+        output = np.zeros(len(song.signal))            
         for j in range(frames):
             song.phase = phase[j]
-            song.frame = x[j*1024:(j*1024)+1024] 
-            output.append(song.ISTFT(Ys[i][j]))      
-        outputs.append(np.ravel(output) / np.ravel(output).max()) 
+            song.frame = x[j*(1024-512):(j*(1024-512) + 1024)]
+            output[j*(1024-512):(j*(1024-512) + 1024)] += song.ISTFT(Ys[i][j])     
+        outputs.append(np.ravel(output) / max(np.ravel(output))) 
     for i in range(len(outputs)):
-        if rms(outputs[i]) > 0.01:
+        if rms(i) > 0.01:
             continue
         else:
             outputs.pop(i)
@@ -55,13 +55,13 @@ def reconstruct_sound_sources(W, H, n_sources, frames, phase, song, x):
 def source_separation(x, n): 
     song = sonify(x, 44100)
     if not song.duration > 10:
-        frames = int(len(x) / 1024) 
+        frames = int(len(x) / 512) 
     else:
-        frames = int(441000/1024)      
+        frames = int(441000/512)      
     stftx = []
     phase = []
     for i in range(frames):
-        selection = x[i*1024:(i*1024)+1024]
+        selection = x[i*(1024-512):(i*(1024-512) + 1024)]
         song.frame = selection
         song.window()
         fft = song.fft(selection)
@@ -93,6 +93,16 @@ def get_coordinate(index, cls, decisions):
 
 def distance_velocity(audio, coordinate):
     return np.min((np.max([coordinate/len(audio), 0.36]), 10))
+
+def filter_from_attention(array, pos_attention_value):     
+    """
+    Use the attention as moving average with a linear filter
+    :param array: your input sound 
+    :param pos_attention_value: attention value from a class (it can be used as long as it is positive)
+    :returns:                                                                                                         
+      - faster sound
+    """            
+    return lfilter(np.ones(int(round(pos_attention_value,)))*(1./pos_attention_value), [1], array) 
 
 def speedx(sound_array, factor):
     """
