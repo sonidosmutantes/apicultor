@@ -3,13 +3,14 @@
 
 import os, sys
 import numpy as np
+from hashlib import sha512
 
 # a memoize class for faster computing
 class memoize:       
     """
     The memoize class stores returned results into a cache so that those can be used later on if the same case happens
     """
-    def __init__(self, func, size = 100):
+    def __init__(self, func, size = 96):
         """
         memoize class init
         :param func: the function that you're going to decorate
@@ -22,7 +23,7 @@ class memoize:
         self.size_copy = int(np.copy(self.size))
 
     def __call__(self, *args, **kwargs):
-        key = hash(repr((args, kwargs)))
+        key = sha512(bytes(str((args, kwargs)), 'utf-8')).hexdigest()
         if (not key in self.known_keys): #when an ammount of arguments can't be identified from keys
             value = self.func(*args, **kwargs) #compute function
             self.known_keys.append(key) #add the key to your list of keys
@@ -36,6 +37,8 @@ class memoize:
                     self.known_keys = []
                     self.known_values = []
                     self.size = self.size_copy 
+                    self.known_keys.append(key)
+                    self.known_values.append(value)
             return value
         else: #if you've already computed everything
             i = self.known_keys.index(key) #find your key and return your values
