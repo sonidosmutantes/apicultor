@@ -23,7 +23,7 @@ class memoize:
         self.size_copy = int(np.copy(self.size))
 
     def __call__(self, *args, **kwargs):
-        key = sha512(bytes(str((args, kwargs)), 'utf-8')).hexdigest()
+        key = sha512(bytes(str((args, kwargs, len(args[1]), len(args[2]))), 'utf-8')).hexdigest()
         if (not key in self.known_keys): #when an ammount of arguments can't be identified from keys
             value = self.func(*args, **kwargs) #compute function
             self.known_keys.append(key) #add the key to your list of keys
