@@ -48,22 +48,22 @@ class descriptors_and_keys():
     :param files_dir: data tag dir if not performing multitag classification. data dir if performing multitag classification
     :param multitag: if True, will classify all downloaded files and remix when performing emotional state transition 
     """                   
-    def __init__(self, files_dir,  multitag):
+    def __init__(self, tags_dir,  multitag):
         self.multitag = None
-        self._files_dir = files_dir
+        self._files_dir = tags_dir
         if multitag == None or multitag == False:                                                
             raise IndexError("Need lots of data for emotion classification")                                    
         elif multitag == True:                                              
-            self._files = np.hstack([get_files(tag) for tag in files_dir])        
-            self._dics = [[] for tag in files_dir]
+            self._files = np.hstack([get_files(tag) for tag in self._files_dir])        
+            self._dics = [[] for tag in self._files_dir]
             try:                             
-                for tag in range(len(files_dir)):                       
-                    for subdir, dirs, files in os.walk(files_dir[tag]+'/descriptores'):                                               
+                for tag in range(len(self._files_dir)):                       
+                    for subdir, dirs, files in os.walk(self._files_dir[tag]+'/descriptores'):                                               
                         for f in files:                               
                             with open(subdir + '/' + f) as read:                                                              
                                 self._dics[tag].append(json.load(read)) 
             except:                                              
-                if not os.path.exists(files_dir[tag]+'/descriptores'):
+                if not os.path.exists(self._files_dir[tag]+'/descriptores'):
                     print ("No readable MIR data found")
             self._dics = np.hstack(self._dics)          
         for i,x in enumerate(np.vstack((self._files, [len(i) for i in self._dics])).T): 
@@ -572,7 +572,7 @@ class svm_layers(deep_support_vector_machines):
         """  
         d = defaultdict(list) 
         for i in range(len(files)):
-            d[files[i]] = self.attention[i].tolist()    
+            d[files[i]] = self.attention_dataset[i].tolist()    
         array = pandas.DataFrame(d)
         array.to_csv(output_dir + '/attention.csv')  
 
@@ -580,7 +580,10 @@ class svm_layers(deep_support_vector_machines):
         """
         A function that averages feasibility in the model                         
         """
-        self.attention = np.average(np.array(self.fxs).T, axis = 2).T 
+        class_weight = float(len(self.targets))/(4 * np.bincount(self.targets)) 
+        w = np.broadcast_to(class_weight, (np.array(self.fxs).T.ndim-1)*(1,) + class_weight.shape)
+        w = w.swapaxes(-1, 2)
+        self.attention_dataset = np.multiply(np.array(self.fxs), w).sum(axis=0)/(sum(w))
         return self
 
     def best_labels(self):
@@ -599,7 +602,7 @@ class svm_layers(deep_support_vector_machines):
         for i in range(len(files)):
             d[files[i]] = self.targets_outputs[i] 
         array = pandas.DataFrame(d)
-        array.to_csv(output_dir + '/attention.csv')  
+        array.to_csv(output_dir + '/attention_labels.csv')  
 
 def best_kernels_output(best_estimator, kernel_configs):
     """
@@ -694,7 +697,7 @@ def emotions_data_dir(files_dir):
         os.makedirs(files_dir+'/emotions/remixes/not relaxed')
 
 #look for all downloaded audio
-tags_dirs = lambda files_dir: [os.path.join(files_dir,dirs) for dirs in next(os.walk(os.path.abspath(files_dir)))[1]]
+tags_dirs = lambda files_dir: [os.path.join(files_dir,dirs) for dirs in next(os.walk(os.path.abspath(files_dir)))[1] if not os.path.join(files_dir, dirs) == files_dir +'/descriptores']
 
 #emotions dictionary directory (to use with RedPanal API)
 def multitag_emotions_dictionary_dir():
@@ -996,7 +999,7 @@ class MusicEmotionStateMachine(object):
 Usage = "./MusicEmotionMachine.py [FILES_DIR] [OUTPUT_DIR] [MULTITAG PROBLEM FalseNone/True] [TRANSITION a/r/s]"
 
 def main():  
-    if (len(sys.argv) < 4) or (len(sys.argv) == 4  and (sys.argv[3] == 'False' or sys.argv[3] == 'None')):
+    if (len(sys.argv) < 5) or (len(sys.argv) == 5  and (sys.argv[3] == 'False' or sys.argv[3] == 'None')):
         print("\nBad amount of input arguments\n", Usage, "\n")
         sys.exit(1)
 
@@ -1018,13 +1021,14 @@ def main():
                 labels = KMeans_clusters(fscaled)
                 layers = svm_layers()                
                 layers.layer_computation(fscaled, labels)
-                              
-                layers.attention() 
-                layers.store_attention(files, sys.argv[2])
                                        
                 labl = layers.best_labels()
-                fx = layers.attention  
-                #layers.store_good_labels(labl, sys.argv[2])
+
+                layers.attention() 
+                layers.store_attention(files, sys.argv[2])
+
+                fx = layers.attention_dataset  
+                layers.store_good_labels(labl, sys.argv[2])
 
             if 'a' in sys.argv[4]:  
                 sys.exit()    
@@ -1034,12 +1038,12 @@ def main():
                 labl = read_good_labels(sys.argv[2])
 
             if 's' in sys.argv[4] or 'r' in sys.argv[4]:                             
-                Cs = [1./0.33, 1./0.4, 1./0.6, 1./0.8] #it should work well with less parameter searching                           
-                reg_params = [0.33, 0.4, 0.6, 0.8]                                   
+                Cs = [1./0.1, 1./0.33, 1./0.4, 1./0.6, 1./0.8] #it should work well with less parameter searching                           
+                reg_params = [0.1, 0.33, 0.4, 0.6, 0.8]                                   
                 kernel_configs = [['linear', 'poly'], ['linear', 'rbf'], ['linear', 'sigmoid']] #Also can use rbf with linear if you've got difficult to handle data, or try your parameters                                                                   
                 best_estimators = GridSearch(svm_layers(), fx, labl, Cs, reg_params, kernel_configs)          
                 C, reg_param, kernels_config = best_kernels_output(best_estimators, kernel_configs)                                            
-                msvm = main_svm(layers.attention, labl, C[0], reg_param[0], 1./fx.shape[1], kernels_config, output_dir) 
+                msvm = main_svm(fx, labl, C[0], reg_param[0], 1./fx.shape[1], kernels_config, output_dir) 
                 msvm.save_decisions()         
                 msvm.save_classes(files)          
                 emotions_data_dir(files_dir)                                   
