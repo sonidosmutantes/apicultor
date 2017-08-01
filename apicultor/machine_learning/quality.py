@@ -152,10 +152,10 @@ def main():
 
         for subdir, dirs, files in os.walk(DATA_PATH):                  
             for f in files:                                           
-                #print(( "Rewriting without hissing in %s"%f ))          
+                print(( "Rewriting without hissing in %s"%f ))          
                 audio = read(DATA_PATH+'/'+f)[0] 
                 audio = mono_stereo(audio)              
-                #hissless = hiss_removal(audio) #remove hiss             
+                hissless = hiss_removal(audio) #remove hiss             
                 print(( "Rewriting without crosstalk in %s"%f ))        
                 hrtf = read(sys.argv[2])[0] #load the hrtf wav file                                          
                 b = firwin(2, [0.05, 0.95], width=0.05, pass_zero=False)            
