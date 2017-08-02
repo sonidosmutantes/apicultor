@@ -602,7 +602,7 @@ class svm_layers(deep_support_vector_machines):
         for i in range(len(files)):
             d[files[i]] = self.targets_outputs[i] 
         array = pandas.DataFrame(d)
-        array.to_csv(output_dir + '/attention.csv')  
+        array.to_csv(output_dir + '/attention_labels.csv')  
 
 def best_kernels_output(best_estimator, kernel_configs):
     """
@@ -1028,7 +1028,7 @@ def main():
                 layers.store_attention(files, sys.argv[2])
 
                 fx = layers.attention_dataset  
-                #layers.store_good_labels(labl, sys.argv[2])
+                layers.store_good_labels(labl, sys.argv[2])
 
             if 'a' in sys.argv[4]:  
                 sys.exit()    
@@ -1038,8 +1038,8 @@ def main():
                 labl = read_good_labels(sys.argv[2])
 
             if 's' in sys.argv[4] or 'r' in sys.argv[4]:                             
-                Cs = [1./0.33, 1./0.4, 1./0.6, 1./0.8] #it should work well with less parameter searching                           
-                reg_params = [0.33, 0.4, 0.6, 0.8]                                   
+                Cs = [1./0.1, 1./0.33, 1./0.4, 1./0.6, 1./0.8] #it should work well with less parameter searching                           
+                reg_params = [0.1, 0.33, 0.4, 0.6, 0.8]  #add 0.1, it might work in cases with a smaller dataset                                
                 kernel_configs = [['linear', 'poly'], ['linear', 'rbf'], ['linear', 'sigmoid']] #Also can use rbf with linear if you've got difficult to handle data, or try your parameters                                                                   
                 best_estimators = GridSearch(svm_layers(), fx, labl, Cs, reg_params, kernel_configs)          
                 C, reg_param, kernels_config = best_kernels_output(best_estimators, kernel_configs)                                            

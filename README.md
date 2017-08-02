@@ -10,6 +10,8 @@ Examples available with SuperCollider, pyo and pd.
 
 ![](doc/InstrNubeTI_repr.png)
 
+![](doc/retrieve_ui.png)
+
 ## Performances
 
 ### Sonidos Mutantes
@@ -17,6 +19,8 @@ Examples available with SuperCollider, pyo and pd.
 Interdisciplinary performances based on sounds of the web platform [Redpanal.org](Redpanal.org)
 
 ## Proofs of concept:
+
+* [APICultor + No Input + Granular synthesis performance](https://soundcloud.com/hern-n-ordiales/hard-glitch-trip).
 
 * [Proyecto de reciclado de sonidos libres de la web en RedPanal.org](http://redpanal.org/p/reciclado-de-samples/) (sonido + referencia al original).
 
@@ -28,6 +32,7 @@ Interdisciplinary performances based on sounds of the web platform [Redpanal.org
 
 * Música generativa con máquina de estados MIR y sonidos libres de Freesound.org: 
   * "[Feature Thinking](https://soundcloud.com/hern-n-ordiales/feature-thinking)" (con sonidos libres Creative Commons de Freesound.org) by hordia.
+  * State Machine @ CASo (Centro de Arte Sonoro) https://www.youtube.com/watch?v=sG1YUc8PQV4
   
 * Remixes que toman audios libres de [RedPanal.org](http://redpanal.org/) para categorizarlos según diferentes tipos de emociones. Luego se elige una y se sincronizan las pistas, cambiando las tonalidades. De ser posible se separan de fuentes dentro de las mismas (by Mars Crop)
   * [Beats intro jazz](http://redpanal.org/a/sm-beats-remix/)

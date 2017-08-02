@@ -1,6 +1,7 @@
-# docker build -t apicultor_v0.9 .
 # REPOSITORY    SIZE
-# apicultor     881.2 MB
+# apicultor     881.2 (FIXME)
+
+# docker build -t apicultor_v0.9 .
 
 # docker with apicultor webservice as entrypoint (default)
 # docker run -p 5000:5000 --name apicultor  -it --net="host" apicultor_v0.9
@@ -8,7 +9,10 @@
 # docker with bash entrypoint
 # docker run -p 5000:5000 --name apicultor  -it --net="host" --entrypoint /bin/bash apicultor_v0.9
 
-# container --rm and bash entrypoint
+# link samples dir
+# -v ./samples:/srv/apicultor/samples
+
+# Bash entrypoint + (--rm) to automatically remove the container when it exits.
 # docker run -p 5000:5000 --name apicultor  -it --rm --net="host" --entrypoint /bin/bash apicultor_v0.9 /bin/bash
 
 FROM gcr.io/google_containers/ubuntu-slim:0.6
