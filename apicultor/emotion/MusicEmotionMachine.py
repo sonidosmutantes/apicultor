@@ -568,7 +568,7 @@ class svm_layers(deep_support_vector_machines):
 
     def store_attention(self, files, output_dir):
         """
-        Save the decision_function result in a text file so you can use it in applications
+        Save the Attention values in a .csv file as a dataset for further usage
         """  
         d = defaultdict(list) 
         for i in range(len(files)):
@@ -596,13 +596,13 @@ class svm_layers(deep_support_vector_machines):
 
     def store_good_labels(self, files, output_dir):
         """
-        Save the decision_function result in a text file so you can use it in applications
+        Store best processed targets during learning process
         """  
         d = defaultdict(list) 
         for i in range(len(files)):
             d[files[i]] = self.targets_outputs[i] 
-        array = pandas.DataFrame(d)
-        array.to_csv(output_dir + '/attention_labels.csv')  
+        array = pandas.DataFrame(d, index = range(1))
+        array.to_csv(output_dir + '/attention_labels.csv')   
 
 def best_kernels_output(best_estimator, kernel_configs):
     """
