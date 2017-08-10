@@ -9,6 +9,10 @@ import os
 
 from mir.db.api import MirDbApi
 
+
+DATA_PATH = "data"
+SAMPLES_PATH = "samples"
+
 # RedPanal API
 class RedPanalDB(MirDbApi):
     __api_key = ""
