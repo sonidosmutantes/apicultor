@@ -14,8 +14,8 @@ import freesound
 # ```
 # import oauth2
 # import base64
-
 from mir.db.api import MirDbApi
+
 
 """
     Implements MirDbApi interface, using official Freesound module
