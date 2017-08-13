@@ -23,7 +23,7 @@ def get_files(files_dir):
         return files_list                                     
     except:                                              
         if not os.path.exists(files_dir+'/descriptores'):
-            print ("No .json files found")
+            print ("No .json files found in " + str(files_dir))
 
 
 def get_dics(files_dir):
@@ -84,5 +84,5 @@ def read_attention_file(data_dir):
     return attention_variables
 
 def read_good_labels(data_dir):                 
-    good_labels = pandas.read_csv(data_dir+'/attention.csv').values[:,1]
+    good_labels = pandas.read_csv(data_dir+'/attention_labels.csv').values[:,1]
     return good_labels
