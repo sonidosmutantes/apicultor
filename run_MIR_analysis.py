@@ -57,8 +57,12 @@ def process_file(inputSoundFile, tag_dir, input_filename):
 
     # compute for all frames in our audio and add it to the pool
     pool = defaultdict(list)
-    i = 0
-    retrieve.n_bands = 40
+
+    i = 0                                        
+    if not sampleRate == 96000:                                                                 
+        retrieve.n_bands = 40                                                    
+    else:                                                      
+        retrieve_n_bands = 31 #we can't use 40 bands when fs is vinyl type, 31 is the limit  
 
     for share in retrieve.spectrum_share():
     
@@ -110,7 +114,10 @@ def process_file(inputSoundFile, tag_dir, input_filename):
         #inharmonicity
         desc_name = 'sfx.inharmonicity'
         if desc_name in descriptors: 
-            pool[desc_name].append(retrieve.inharmonicity())
+            try:
+                pool[desc_name].append(retrieve.inharmonicity())
+            except IndexError:
+                pool[desc_name].append(1.0) #we say its 1.0 simply because there's only one harmonic peak, meaning other peaks easily depart
 
         i += 1
         print ("Processing Frame " + str(i))
