@@ -415,23 +415,9 @@ class MIR:
         self.mfcc_seq = self.DCT(dbs)
 
     def autocorrelation(self):
-        self.N = 2 *  self.windowed_x.shape[0] + 1
-        self.frame = self.windowed_x
-        n = np.arange(self.N)                                 
-        k = n.reshape((self.N,1))                     
-        self.M = np.exp(-2.j * np.pi * k * n / self.N)         
-        ft = []                                  
-        for i in range(self.windowed_x.shape[1]):
-            ft.append(self.M @ np.append(self.windowed_x[:,i], np.zeros(self.N - self.windowed_x[:,i].size)))
-        fourier = np.array(ft).T                           
-        self.magnitude_spectrum = (pow(fourier.real, 2) + pow(fourier.imag, 2)).real                         
-        invert = []     
-        self.M = self.M[:,0].size         
-        for i in range(self.magnitude_spectrum.shape[1]):      
-            self.phase = np.angle(fourier[:,i])
-            invert.append(self.ISTFT(self.magnitude_spectrum[:,i], False))                      
-        invert = np.array(invert).T                                    
-        self.correlation = util.normalize(invert, norm = np.inf)
+        self.N = (self.windowed_x[:,0].shape[0]+1) * 2
+        corr = ifft(fft(self.windowed_x, n = self.N))                                   
+        self.correlation = util.normalize(corr, norm = np.inf)
         subslice = [slice(None)] * np.array(self.correlation).ndim
         subslice[0] = slice(self.windowed_x.shape[0])                   
                                      
@@ -498,7 +484,7 @@ class MIR:
         best_period = np.argmax(tempogram[p] * prior[p][:, np.newaxis] * -1, axis=0)
         self.tempo = bin_frequencies[p][best_period]
 
-        period = round(60.0 * (self.fs/512) / self.tempo[0])
+        period = round(60.0 * (self.fs/self.H) / self.tempo[0])
 
         window = np.exp(-0.5 * (np.arange(-period, period+1)*32.0/period)**2)
         localscore = convolve(self.envelope/self.envelope.std(ddof=1), window, 'same')
