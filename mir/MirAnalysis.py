@@ -13,7 +13,8 @@ import logging
 logging.basicConfig(level=logging.DEBUG)
 logger = logging.getLogger(__name__)  
 
-ext_filter = ['.mp3','.ogg','.undefined','.wav','.wma','.mid', '.amr']
+#ext_filter = ['.mp3','.ogg','.undefined','.wav','.wma','.mid', '.amr', '.au]
+ext_filter = ['.mp3','.ogg', '.wav', '.au']
 
 # descriptores de interés
 descriptors = [ 
@@ -138,7 +139,8 @@ def process_file(inputSoundFile, frameSize = 1024, hopSize = 512):
         if desc_name in descriptors:
             beatsperminute, ticks = bpm(audio)[0], bpm(audio)[1]
             pool.add(desc_name, beatsperminute)
-            pool.add('rhythm.bpm_ticks', ticks)
+            # pool.add('rhythm.bpm_ticks', ticks)
+            pool.add('rhythm.bpm', beatsperminute)
 
         #duration
         namespace = 'metadata'
