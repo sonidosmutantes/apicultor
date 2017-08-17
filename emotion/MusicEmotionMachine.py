@@ -123,7 +123,7 @@ def KMeans_clusters(fscaled):
     :returns:                                                                                                         
       - labels: classes         
     """
-    labels = (KMeans(init = pca(n_components = 4).fit(fscaled).components_, n_clusters=4, n_init=1, precompute_distances = True).fit(fscaled).labels_)
+    labels = (KMeans(init = pca(n_components = 4).fit(fscaled).components_, n_clusters=4, n_init=1, precompute_distances = True, random_state = 0, n_jobs = -1).fit(fscaled).labels_)
     return labels
 
 class deep_support_vector_machines(object):
@@ -211,7 +211,7 @@ class deep_support_vector_machines(object):
         np.exp(rbfk,rbfk)
         return np.array(rbfk)
 
-    def fit_model(self, features,labels, kernel1, kernel2, C, reg_param, gamma):
+    def fit_model(self, features,labels, kernel1, kernel2, C, reg_param, gamma, learning_rate):
         """
         Fit your data for classification. Attributes such as alpha, the bias, the weight, and the support vectors can be accessed after training. 
         :param features: your features dataset            
@@ -234,6 +234,7 @@ class deep_support_vector_machines(object):
         self.kernel2 = kernel2
         self.gamma = gamma
         self.C = C
+        self.learning_rate = learning_rate
 
         features = np.ascontiguousarray(features)
 
@@ -302,25 +303,18 @@ class deep_support_vector_machines(object):
 
             a = np.zeros(n_f)
 
+            p1 = np.argsort([self.Q[i,i] for i in range(n_f0-1)])
+            p2 = np.argsort([self.Q[i,i] for i in range(n_f0, n_f)])  
+
             iterations = 0                                            
             diff = 1. + reg_param 
-            for i in range(int(n_f/2)):
+            for i in range(min(p1.size, p2.size)):
                 a0 = a.copy()
-                p1 = []
-                p2 = []                               
-                for k in range(n_f):
-                    zero = int(uniform(k, n_f0-1))
-                    one = int(uniform(n_f0, n_f))                        
-                    if (not zero in p1) and (not one in p2):                                             
-                        p1.append(zero)                                        
-                        p2.append(one)
-                    if (not zero >= k):                                             
-                        break
-                for j in range(len(p1)): 
+                for j in range(min(p1.size, p2.size)): 
                     g1 = g(lab[p1[j]], a0[p1[j]], self.Q[p1[j],p1[j]])
                     g2 = g(lab[p2[j]], a0[p2[j]], self.Q[p2[j],p2[j]])
                     w0 = es(a, lab, self.trained_features[c]) 
-                    direction_grad = 0.8 * ((w0 * g2) + ((1 - w0) * g1)) #step with 0.8 of learning rate
+                    direction_grad = self.learning_rate * ((w0 * g2) + ((1 - w0) * g1))
 
                     if (direction_grad * (g1 + g2) <= 0.):        
                         break
@@ -545,14 +539,14 @@ class svm_layers(deep_support_vector_machines):
         self.targets_outputs = []
         self.scores = []
         sample_weight = float(len(features)) / (len(np.array(list(set(labels)))) * np.bincount(labels))
-        Cs = [1./0.01, 1./0.04, 1./0.06, 1./0.08, 1./0.1, 1./0.12]
-        reg_params = [0.01, 0.04, 0.06, 0.08, 0.1, 0.12]
+        Cs = [1./0.001, 1./0.01, 1./0.04, 1./0.06, 1./0.08, 1./0.1, 1./0.12, 1./0.2, 1./0.4]
+        reg_params = [0.001, 0.01, 0.04, 0.06, 0.08, 0.1, 0.12, 0.2, 0.4]
         self.kernel_configs = [['linear', 'poly'], ['linear', 'rbf'], ['linear', 'sigmoid'], ['poly', 'sigmoid'], ['poly', 'rbf'], ['rbf', 'sigmoid']]
         for i in range(len(self.kernel_configs)):
             print ("Calculating values for prediction")
             best_estimator = GridSearch(self, features, labels, Cs, reg_params, [self.kernel_configs[i]])
             print(("Best estimators are: ") + str(best_estimator['C'][0]) + " for C and " + str(best_estimator['reg_param'][0]) + " for regularization parameter")
-            self.fit_model(features, labels, self.kernel_configs[i][0], self.kernel_configs[i][1], best_estimator['C'][0][0], best_estimator['reg_param'][0][0], 1./features.shape[1])
+            self.fit_model(features, labels, self.kernel_configs[i][0], self.kernel_configs[i][1], best_estimator['C'][0][0], best_estimator['reg_param'][0][0], 1./features.shape[1], 1e-16)
             print ("Predicting")
             pred_c = self.predictions(features, labels)
             print(("Predicted"), pred_c)
@@ -568,7 +562,7 @@ class svm_layers(deep_support_vector_machines):
 
     def store_attention(self, files, output_dir):
         """
-        Save the decision_function result in a text file so you can use it in applications
+        Save the Attention values in a .csv file as a dataset for further usage
         """  
         d = defaultdict(list) 
         for i in range(len(files)):
@@ -596,12 +590,13 @@ class svm_layers(deep_support_vector_machines):
 
     def store_good_labels(self, files, output_dir):
         """
-        Save the decision_function result in a text file so you can use it in applications
+        Store best processed targets during learning process
         """  
         d = defaultdict(list) 
         for i in range(len(files)):
             d[files[i]] = self.targets_outputs[i] 
-        array = pandas.DataFrame(d)
+#        array = pandas.DataFrame(d)
+        array = pandas.DataFrame(d, index = range(1))
         array.to_csv(output_dir + '/attention_labels.csv')  
 
 def best_kernels_output(best_estimator, kernel_configs):
@@ -634,7 +629,7 @@ class main_svm(deep_support_vector_machines):
         super(deep_support_vector_machines, self).__init__()
         self._S = S
         self.output_dir = output_dir
-        self.fit_model(self._S, lab, kernels_config[0], kernels_config[1], C, reg_param, gamma)
+        self.fit_model(self._S, lab, kernels_config[0], kernels_config[1], C, reg_param, gamma, 0.8)
         self._labels = self.predictions(self._S, lab)
         print(self._labels)
         print(score(lab, self._labels))
@@ -728,6 +723,7 @@ def multitag_emotions_dir(tags_dirs, files_dir, generator):
                      if not f in list(os.walk(str().join((files_dir,emotions_folder[c])), topdown=False)):
                          shutil.copy(os.path.join(tag, f), os.path.join(files_dir+emotions_folder[c], f))     
                          print(str().join((str(f),' evokes ',emotions[c])))
+                         break
 
 from transitions import Machine
 import random
@@ -1037,13 +1033,15 @@ def main():
                 fx = read_attention_file(sys.argv[2])
                 labl = read_good_labels(sys.argv[2])
 
-            if 's' in sys.argv[4] or 'r' in sys.argv[4]:                             
-                Cs = [1./0.1, 1./0.33, 1./0.4, 1./0.6, 1./0.8] #it should work well with less parameter searching                           
-                reg_params = [0.1, 0.33, 0.4, 0.6, 0.8]  #add 0.1, it might work in cases with a smaller dataset                                
-                kernel_configs = [['linear', 'poly'], ['linear', 'rbf'], ['linear', 'sigmoid']] #Also can use rbf with linear if you've got difficult to handle data, or try your parameters                                                                   
-                best_estimators = GridSearch(svm_layers(), fx, labl, Cs, reg_params, kernel_configs)          
-                C, reg_param, kernels_config = best_kernels_output(best_estimators, kernel_configs)                                            
-                msvm = main_svm(fx, labl, C[0], reg_param[0], 1./fx.shape[1], kernels_config, output_dir) 
+#            if 's' in sys.argv[4] or 'r' in sys.argv[4]:                             
+#                Cs = [1./0.1, 1./0.33, 1./0.4, 1./0.6, 1./0.8] #it should work well with less parameter searching                           
+#                reg_params = [0.1, 0.33, 0.4, 0.6, 0.8]  #add 0.1, it might work in cases with a smaller dataset                                
+#                kernel_configs = [['linear', 'poly'], ['linear', 'rbf'], ['linear', 'sigmoid']] #Also can use rbf with linear if you've got difficult to handle data, or try your parameters                                                                   
+#                best_estimators = GridSearch(svm_layers(), fx, labl, Cs, reg_params, kernel_configs)          
+#                C, reg_param, kernels_config = best_kernels_output(best_estimators, kernel_configs)                                            
+#                msvm = main_svm(fx, labl, C[0], reg_param[0], 1./fx.shape[1], kernels_config, output_dir) 
+            if 's' in sys.argv[4] or 'r' in sys.argv[4]:                                        
+                msvm = main_svm(fx, labl, 1./0.001, 0.001, 1./fx.shape[1], ['linear', 'rbf'], output_dir) 
                 msvm.save_decisions()         
                 msvm.save_classes(files)          
                 emotions_data_dir(files_dir)                                   

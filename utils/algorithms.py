@@ -313,7 +313,7 @@ class MIR:
         n = np.arange(N_min)
         k = n[:, None]   
         M = np.exp(-2j * np.pi * n * k / N_min)
-        transformed = np.dot(M, np.append(frame,np.zeros(self.M - (frame.size - self.M), dtype=complex)).reshape((N_min, -1))).astype(np.complex64)
+        transformed = np.dot(M, np.append(frame,np.zeros(self.M - (frame.size - self.M), dtype=np.complex128)).reshape((N_min, -1))).astype(np.complex128)
                                                        
         while transformed.shape[0] < transformed.size: 
             even = transformed[:, :int(transformed.shape[1] / 2)]
@@ -326,10 +326,11 @@ class MIR:
 
     def ISTFT(self, signal, to_frame = True):
         """Computes the Inverse Short-Time Fourier Transform of a signal for sonification"""
-        x_back = ((signal * np.exp(1j*self.phase)) / 2) * 1000
-        tmp = ifft(x_back, n = self.N)[:self.M].real * 2
-        data = tmp * 10
-        return data
+        x_back = np.zeros(self.M, dtype = np.complex128)
+        x_back[:self.H+1] = polar_to_cartesian(signal, self.phase)
+        x_back[self.H+1:] = polar_to_cartesian(signal[-2:0:-1], self.phase[-2:0:-1])
+        tmp = ifft(x_back, n = self.N).real[:self.M]
+        return tmp
 
     def Phase(self, fft):
         """Computes phase spectrum from fft. The size is the same as the size of the magnitude spectrum""" 
@@ -370,8 +371,8 @@ class MIR:
         for i in range(self.n_bands):                          
             fstep1 = band_freq[i+1] - band_freq[i]   
             fstep2 = band_freq[i+2] - band_freq[i+1] 
-            jbegin = int(band_freq[i] / frequencyScale + 0.5)           
-            jend = int(band_freq[i+2] / frequencyScale + 0.5)
+            jbegin = int(round(band_freq[i] / frequencyScale + 0.5))           
+            jend = int(round(band_freq[i+2] / frequencyScale + 0.5))
             if jend - jbegin <= 1:   
                 raise ValueError 
             for j in range(jbegin, jend):
@@ -382,28 +383,28 @@ class MIR:
                     self.filter_coef[i][j] = (band_freq[i+2] - bin_freq) / fstep2
         bands = np.zeros(self.n_bands)                             
         for i in range(self.n_bands):                                       
-            jbegin = int(band_freq[i] / frequencyScale + 0.5)
-            jend = int(band_freq[i+2] / frequencyScale + 0.5)
+            jbegin = int(round(band_freq[i] / frequencyScale + 0.5))
+            jend = int(round(band_freq[i+2] / frequencyScale + 0.5))
             for j in range(jbegin, jend):            
                 bands[i] += pow(self.magnitude_spectrum[j],2) * self.filter_coef[i][j]
         return bands
 
     def DCT(self, array):                                                   
-        self.table = np.zeros((40,40))
-        scale = 1./np.sqrt(40)
-        scale1 = np.sqrt(2./40)
-        for i in range(40):
+        self.table = np.zeros((self.n_bands,self.n_bands))
+        scale = 1./np.sqrt(self.n_bands)
+        scale1 = np.sqrt(2./self.n_bands)
+        for i in range(self.n_bands):
             if i == 0:
                 scale = scale
             else:
                 scale = scale1
-            freq_mul = (np.pi / 40 * i)
-            for j in range(40):
+            freq_mul = (np.pi / self.n_bands * i)
+            for j in range(self.n_bands):
                 self.table[i][j] = scale * np.cos(freq_mul * (j + 0.5))
             dct = np.zeros(13)
             for i in range(13):
                 dct[i] = 0
-                for j in range(40):
+                for j in range(self.n_bands):
                     dct[i] += array[j] * self.table[i][j]
         return dct
 
@@ -414,23 +415,9 @@ class MIR:
         self.mfcc_seq = self.DCT(dbs)
 
     def autocorrelation(self):
-        self.N = 2 *  self.windowed_x.shape[0] + 1
-        self.frame = self.windowed_x
-        n = np.arange(self.N)                                 
-        k = n.reshape((self.N,1))                     
-        self.M = np.exp(-2.j * np.pi * k * n / self.N)         
-        ft = []                                  
-        for i in range(self.windowed_x.shape[1]):
-            ft.append(self.M @ np.append(self.windowed_x[:,i], np.zeros(self.N - self.windowed_x[:,i].size)))
-        fourier = np.array(ft).T                           
-        self.magnitude_spectrum = (pow(fourier.real, 2) + pow(fourier.imag, 2)).real                         
-        invert = []     
-        self.M = self.M[:,0].size         
-        for i in range(self.magnitude_spectrum.shape[1]):      
-            self.phase = np.angle(fourier[:,i])
-            invert.append(self.ISTFT(self.magnitude_spectrum[:,i], False))                      
-        invert = np.array(invert).T                                    
-        self.correlation = util.normalize(invert, norm = np.inf)
+        self.N = (self.windowed_x[:,0].shape[0]+1) * 2
+        corr = ifft(fft(self.windowed_x, n = self.N))                                   
+        self.correlation = util.normalize(corr, norm = np.inf)
         subslice = [slice(None)] * np.array(self.correlation).ndim
         subslice[0] = slice(self.windowed_x.shape[0])                   
                                      
@@ -497,7 +484,7 @@ class MIR:
         best_period = np.argmax(tempogram[p] * prior[p][:, np.newaxis] * -1, axis=0)
         self.tempo = bin_frequencies[p][best_period]
 
-        period = round(60.0 * (44100/512) / self.tempo[0])
+        period = round(60.0 * (self.fs/self.H) / self.tempo[0])
 
         window = np.exp(-0.5 * (np.arange(-period, period+1)*32.0/period)**2)
         localscore = convolve(self.envelope/self.envelope.std(ddof=1), window, 'same')
@@ -509,7 +496,7 @@ class MIR:
 
         self.ticks = np.array(self.ticks[::-1], dtype=int)
 
-        self.ticks = trim_beats(localscore, self.ticks, False) * 512
+        self.ticks = trim_beats(localscore, self.ticks, False) * self.H
         if not len(self.ticks) >= 2:
             raise ValueError(("Only found one single onset, can't make sure if the beat is correct"))
         interv_value = self.ticks[1] - self.ticks[0] #these are optimal beat locations
@@ -518,7 +505,7 @@ class MIR:
         for i in range(int(self.signal.size/interv_value)):
             self.ticks.append(interval + interv_value)
             interval += interv_value #compute tempo frames locations based on the beat location value
-        self.ticks = np.array(self.ticks) / 44100
+        self.ticks = np.array(self.ticks) / self.fs
         return self.tempo, self.ticks
 
     def centroid(self):
@@ -855,7 +842,7 @@ class sonify(MIR):
         output = np.zeros(len(self.signal)) 
         i = 0
         for frame in self.FrameGenerator():
-            output[i*(self.M-self.H):(i*(self.M-self.H) + self.M)] = array[i]  
+            output[i*(self.M-self.H):(i*(self.M-self.H) + self.M)] += array[i]  
             i += 1
         return output
     def sonify_music(self):
@@ -884,7 +871,7 @@ class sonify(MIR):
         self.mel_bands_global()
         self.bpm()
         self.tempo_onsets = clicks(frames = self.ticks * self.fs, length = len(self.signal), sr = self.fs, hop_length = self.H)
-        starts = self.ticks * 44100
+        starts = self.ticks * self.fs
         for i in starts:
             self.frame = self.signal[int(i):int(i)+1024]
             self.Envelope()
