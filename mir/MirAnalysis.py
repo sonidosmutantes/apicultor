@@ -30,6 +30,10 @@ descriptors = [
                 'metadata.duration'
                 ]
 
+sampleRate = 44100
+#sampleRate = 22050
+print("WARNING: sampleRate hardcoded %i"%sampleRate)
+
 def process_file(inputSoundFile, frameSize = 1024, hopSize = 512):
     descriptors_dir = (tag_dir+'/'+'descriptores')
 
@@ -37,16 +41,19 @@ def process_file(inputSoundFile, frameSize = 1024, hopSize = 512):
            os.makedirs(descriptors_dir)                                
            print "Creando directorio para archivos .json"
 
+    global input_filename
     json_output = descriptors_dir + '/' + os.path.splitext(input_filename)[0] + ".json"
                               
-    if os.path.exists(json_output) is True:                         
-           raise IOError(".json already saved")
-    if os.path.exists(json_output) is False:                         
-           pass
+	# Disable json overwrite
+#    if os.path.exists(json_output) is True:                         
+#           raise IOError(".json already saved")
+#    if os.path.exists(json_output) is False:                         
+#           pass
 
     input_signal = MonoLoader(filename = inputSoundFile)()
-    sampleRate = 44100
-    
+#    sampleRate = 44100
+    global sampleRate
+
     #filter direct current noise
     offset_filter = DCRemoval()    
     #method alias for extractors
