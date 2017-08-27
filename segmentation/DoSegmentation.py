@@ -10,7 +10,6 @@ from random import choice
 from ..utils.algorithms import *
 import os
 
-@memoize
 def do_segmentation(audio_input, audio_input_from_filename = True, audio_input_from_array = False, sec_len = 6, save_file = True):
 
     lenght = int(sec_len) * 10
