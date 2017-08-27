@@ -37,9 +37,22 @@ def GridSearch(model, features, targets, Cs, reg_params, kernel_configs):
     :returns:                                                                                                         
       - the best estimator values (its accuracy score, its C and its reg_param value)
     """  
-    test_n = int((30 * len(features))/100) # an auto test size for lower number of samples 
-    train_n = n - test_n 
-    features_train, targets_train, features_test, targets_test = features[:train_n], targets[:train_n], features[train_n:], targets[train_n:]               
+    features_train = []
+    features_test = []
+    targets_train = []
+    targets_test = []
+    for i in range(len(np.unique(targets))):
+        n = len(features[targets==i])
+        test_n = int((20 * n)/100)
+        train_n = n - test_n
+        features_train.append(features[targets==i][:train_n])
+        features_test.append(features[targets==i][train_n:])
+        targets_train.append(targets[targets==i][:train_n])
+        targets_test.append(targets[targets==i][train_n:])
+    features_test = np.vstack(features_test)
+    features_train = np.vstack(features_train)
+    targets_train = np.hstack(targets_train)
+    targets_test = np.hstack(targets_test)
     params = defaultdict(list)
     timing = defaultdict(list)      
     scores = defaultdict(list) 
@@ -60,19 +73,18 @@ def GridSearch(model, features, targets, Cs, reg_params, kernel_configs):
         for j in range(len(params['C'][0])):
             try:                                                   
                 training_time = time.time()                            
-                clf_train = model.fit_model(features_train, targets_train, kernel_configs[i][0], kernel_configs[i][1], params['C'][0][j], params['reg_param'][0][j], 1./features_train.shape[1])                          
+                model.fit_model(features_train, targets_train, kernel_configs[i][0], kernel_configs[i][1], params['C'][0][j], params['reg_param'][0][j], 1./features_train.shape[1], 0.8)                          
                 training_time = np.abs(training_time - time.time())            
                 timing['training_times'][i].append(training_time)         
                 print(str().join(("Training time is: ", str(training_time))))      
                 clf_predictions_train = model.predictions(features_train, targets_train)                    
                 train_scores['scorings'][i].append(score(targets_train, clf_predictions_train))                                                  
-                print(str().join(("Train Scoring Error is: ", str(train_scores['scorings'][i][j])))) 
-                clf_test = model.fit_model(features_test, targets_test, kernel_configs[i][0], kernel_configs[i][1], params['C'][0][j], params['reg_param'][0][j], 1./features_test.shape[1])                                                                      
+                print(str().join(("Train Scoring Error is: ", str(train_scores['scorings'][i][j]))))
                 clf_predictions_test = model.predictions(features_test, targets_test)                      
                 test_scores['scorings'][i].append(score(targets_test, clf_predictions_test))                                                     
                 print(str().join(("Test Scoring Error is: ", str(test_scores['scorings'][i][j]))))      
                 clf_time = time.time()                                 
-                clf = model.fit_model(features, targets, kernel_configs[i][0], kernel_configs[i][1], params['C'][0][j], params['reg_param'][0][j], 1./features.shape[1])                                            
+                model.fit_model(features, targets, kernel_configs[i][0], kernel_configs[i][1], params['C'][0][j], params['reg_param'][0][j], 1./features.shape[1], 0.8)                                            
                 clf_time = np.abs(clf_time - time.time())                      
                 timing['classifier times'][i].append(clf_time)            
                 print(str().join(("Classification time is: ", str(clf_time))))     
@@ -80,7 +92,7 @@ def GridSearch(model, features, targets, Cs, reg_params, kernel_configs):
                 scores['scorings'][i].append(score(targets, clf_predictions))                                                                    
                 print(str().join(("Scoring error is: ", str(scores['scorings'][i][j]))))    
             except Exception as e:                                       
-                print("A not optimal tuning has been found. Continuing...")
+                print("Something happened! Continuing...")
                 if len(train_scores['scorings'][i])-1 == j: train_scores['scorings'][i].pop(j)
                 if len(train_scores['scorings'][i])-1 != j: train_scores['scorings'][i].append(2)
                 if len(test_scores['scorings'][i])-1 == j: test_scores['scorings'][i].pop(j)
