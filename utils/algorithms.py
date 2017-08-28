@@ -104,7 +104,7 @@ def morph(x, y, H, smoothing_factor, balance_factor):
         output_mag = balance_factor * ymag + (1 - balance_factor) * xmag
         xsong.phase = np.angle(xsong.fft(xsong.windowed_x))[:257].ravel()
         invert = xsong.ISTFT(output_mag)
-        z[pin:selection] = invert
+        z[pin:selection] += invert
         pin += H
         selection += H
     return z 
