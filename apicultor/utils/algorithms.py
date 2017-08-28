@@ -520,7 +520,7 @@ class MIR:
             if b_pow_sum == 0 or a_pow_sum == 0:                                                                            
                 centroid = 0                                                
             else:                                                                   
-                centroid = (np.sqrt(b_pow_sum) / np.sqrt(a_pow_sum)) * (44100/np.pi)
+                centroid = (np.sqrt(b_pow_sum) / np.sqrt(a_pow_sum)) * (self.fs/np.pi)
         return centroid
 
     def contrast(self):
@@ -879,7 +879,7 @@ class sonify(MIR):
             self.ats.append(self.attack_time)
         starts = starts[np.where(self.ats < np.mean(self.ats))]
         self.ats = np.array(self.ats)[np.where(self.ats < np.mean(self.ats))]
-        attacks = np.int64((np.array(self.ats) * 44100) + starts)
+        attacks = np.int64((np.array(self.ats) * self.fs) + starts)
         self.attacks = self.create_clicks(attacks) 
         self.hfcs /= max(self.hfcs)
         fir = firwin(11, 1.0 / 8, window = "hamming")  
