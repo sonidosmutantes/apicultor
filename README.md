@@ -2,9 +2,9 @@ Spanish version: [README_es.md](README_es.md)
 
 # About the project
 
-APICultor born to realize interdisciplinary performances based on sounds of the web platform [http://redpanal.org](http://redpanal.org). The system is also useful to use with any other sound database on internet or even running it locally.
+APICultor born to realize interdisciplinary performances based on sounds of the web platform [http://redpanal.org](http://redpanal.org). The system is also useful to use with any other sound database on the internet or even running it locally.
 
-Sound is processed digitally using different live-coding techniques. A pre-analysis based on MIR (Music Information Retrieval) stored in a database and accessed via a web-service (REST API) is combined with real-time processing and synthesis, random processes and human control via external interfaces.
+Sound is processed digitally using different live-coding techniques. A pre-analysis based on Music Information Retrieval (MIR) stored in a database and accessed via a web-service REST API is combined with real-time processing and synthesis, random processes and human control via external interfaces.
 
 Examples available with SuperCollider, pyo and pd.
 
