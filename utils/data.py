@@ -80,9 +80,9 @@ def read_file(f, data_dir):
     return sounds, lc, decisions
 
 def read_attention_file(data_dir):                 
-    attention_variables = pandas.read_csv(data_dir+'/attention.csv')
-    return attention_variables
+    attention_variables = pandas.read_csv(data_dir+'/attention.csv').values.T[1:]
+    return attention_variables, pandas.read_csv(data_dir+'/attention.csv').keys()
 
 def read_good_labels(data_dir):                 
-    good_labels = pandas.read_csv(data_dir+'/attention_labels.csv').values[:,1]
+    good_labels = pandas.read_csv(data_dir+'/attention_labels.csv').values
     return good_labels

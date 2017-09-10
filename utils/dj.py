@@ -14,7 +14,6 @@ import scipy
 
 seconds_to_indices = lambda times: np.int32(times * 44100)  
 
-@memoize
 def NMF(stft, n_sources):
     """
     Sound source separation using NMF
@@ -31,7 +30,6 @@ def NMF(stft, n_sources):
     H = H[idx]
     return W,H
 
-@memoize
 def reconstruct_sound_sources(W, H, n_sources, frames, phase, song, x):
     print("Reconstructing signals")
     Ys = list(scipy.outer(W[:,i], H[i]) for i in range(n_sources))
@@ -39,7 +37,7 @@ def reconstruct_sound_sources(W, H, n_sources, frames, phase, song, x):
     outputs = []        
     for i in range(len(Ys)):
         output = np.zeros(len(song.signal))            
-        for j in range(frames):
+        for j in range(frames-1):
             song.phase = phase[j]
             song.frame = x[j*(1024-512):(j*(1024-512) + 1024)]
             output[j*(1024-512):(j*(1024-512) + 1024)] += song.ISTFT(Ys[i][j])     
@@ -51,30 +49,31 @@ def reconstruct_sound_sources(W, H, n_sources, frames, phase, song, x):
             outputs.pop(i)
     return outputs
 
-@memoize
 def source_separation(x, n): 
     song = sonify(x, 44100)
     if not song.duration > 10:
         frames = int(len(x) / 512) 
     else:
-        frames = int(441000/512)      
+        frames = int(x.size/512)      
     stftx = []
     phase = []
     for i in range(frames):
         selection = x[i*(1024-512):(i*(1024-512) + 1024)]
         song.frame = selection
+        if song.frame.size < 1024:
+            continue
         song.window()
         fft = song.fft(selection)
         stftx.append(fft[:513])
         song.Phase(fft)
         phase.append(song.phase)
-    stftx = np.complex64(stftx)
+    stftx = np.complex128(stftx)
     print("It can take some time to find any source in this signal")
     print("Separating sources")
 
     W, H = NMF(np.abs(stftx), n) 
 
-    return reconstruct_sound_sources(W, H, n, frames, phase, song, x[:441000])
+    return reconstruct_sound_sources(W, H, n, frames, phase, song, x)
 
 def overlapped_intervals(interv):   
     """
@@ -100,7 +99,7 @@ def filter_from_attention(array, pos_attention_value):
     :param array: your input sound 
     :param pos_attention_value: attention value from a class (it can be used as long as it is positive)
     :returns:                                                                                                         
-      - faster sound
+      - focused array of the sound signal
     """            
     return lfilter(np.ones(int(round(pos_attention_value,)))*(1./pos_attention_value), [1], array) 
 
