@@ -1,37 +1,56 @@
-#!/usr/bin/python
+#!/usr/bin/env python3
 # -*- coding: UTF-8 -*-
 
-from utils.dj import hfc_onsets
+from ..utils.algorithms import *
 import os
 import sys
 import json
 import numpy as np
-import scipy
-from essentia import *
-from essentia.standard import *
+from scipy.io.wavfile import write
 import logging
-from smst.models.harmonic import from_audio
-from smst.models.sine import to_audio
+from soundfile import read
+from subprocess import call
 
 logging.basicConfig(level=logging.DEBUG)
 logger = logging.getLogger(__name__)  
 
-def mir_sonification(inputSoundFile, data):
-    input_signal = MonoLoader(filename = inputSoundFile)()
-    sampleRate = 44100
-    
-    #filter direct current noise
-    offset_filter = DCRemoval()                                     
-    f0_est = PitchYin()    
-    #++++helper functions++++
-    w_hann = Windowing(type = 'hann')
-    spectrum = Spectrum()
-    audio = offset_filter(input_signal)
+def write_file(filename, fs, data):           
+    write(filename+'.wav', fs, data) 
+    call(['ffmpeg', '-i', filename+'.wav', filename+'.ogg', '-y'])
+    call(['rm', '-f', filename+'.wav'])
 
-    #++++more helpers++++
-    onsets_location = Onsets()
+def hfc_onsets(audio):
+    """
+    Find onsets in music based on High Frequency Content
+    :param audio: the input signal                                                                         
+    :returns:                                                                                                         
+      - hfcs = onsets locations in seconds
+    """
+    song = sonify(audio, 44100)
+    hfcs = []                          
+    for frame in song.FrameGenerator():
+        song.window()    
+        song.Spectrum()    
+        hfcs.append(song.hfc())   
+    hfcs /= max(hfcs) 
+    song.hfcs = hfcs
+    fir = firwin(11, 1.0 / 8, window = "hamming")
+    song.filtered = np.convolve(hfcs, fir, mode="same")
+    song.climb_hills() 
+    return np.array([i for i, x in enumerate(song.Filtered) if x > 0]) * song.N
 
-    audio_f0 = PitchYinFFT()(spectrum(w_hann(audio)))[0]
+def normalize(signal):
+    maximum_normalizing = np.max(np.abs(signal))/-1 
+    normalized = np.true_divide(signal,maximum_normalizing)
+    return normalized
+
+def mir_sonification(input_filename, inputSoundFile, tag_dir, data):
+    input_signal, sampleRate = read(inputSoundFile)
+
+    input_signal = mono_stereo(input_signal)
+
+    retriever = sonify(input_signal, sampleRate)
+    retriever.sonify_music()
 
     descriptors_dir = (tag_dir+'/'+'descriptores') #descriptors directory of tag
 
@@ -41,14 +60,10 @@ def mir_sonification(inputSoundFile, data):
 
     if not os.path.exists(tempo_dir):                         
            os.makedirs(tempo_dir)                                
-           print "Creando directorio para marcado de tempo"
-
-    ticks = RhythmExtractor2013()(audio)[1] 
-    mark_ticks = AudioOnsetsMarker(onsets=ticks, type='beep')                                             
+           print("Creando directorio para marcado de tempo")                                            
                                               
-    signal_bpm = mark_ticks(audio)
     print ("Saving File with tempo beeps") 
-    output = MonoWriter(filename = tempo_dir + '/' + os.path.splitext(input_filename)[0] + 'tempo.ogg', format = 'ogg')(signal_bpm)
+    write_file(tempo_dir + '/' + os.path.splitext(input_filename)[0] + 'tempo', retriever.fs, retriever.tempo_onsets + input_signal)
 
     #spectral centroid of sound recording
 
@@ -56,12 +71,12 @@ def mir_sonification(inputSoundFile, data):
 
     if not os.path.exists(centroid_dir):                         
            os.makedirs(centroid_dir)                                
-           print "Creando directorio para paso de banda de centroide"
+           print("Creando directorio para paso de banda de centroide")
 
-    band_pass_filter = BandPass(cutoffFrequency = float(data['lowlevel.spectral_centroid.mean']))
+    cutoffHz = data['lowlevel.spectral_centroid.mean']
     print ("Filtering Signal")
-    signal_centroid = band_pass_filter(audio)
-    output = MonoWriter(filename = centroid_dir + '/' + os.path.splitext(input_filename)[0] + 'centroid.ogg', format = 'ogg')(signal_centroid)
+    signal_centroid = retriever.IIR(input_signal, [float(cutoffHz)-300, float(cutoffHz)], 'bandpass')
+    write_file(centroid_dir + '/' + os.path.splitext(input_filename)[0] + 'centroid', sampleRate, normalize(signal_centroid))
 
     #mfccs of sound recording
 
@@ -69,12 +84,10 @@ def mir_sonification(inputSoundFile, data):
 
     if not os.path.exists(mfcc_dir):                         
            os.makedirs(mfcc_dir)                                
-           print "Creando directorio para paso de banda de mfcc"
+           print("Creando directorio para paso de banda de mfcc")
 
-    melband_pass_filter = BandPass(cutoffFrequency = abs(float(data['lowlevel.mfcc.mean'])))
-    print ("Filtering Signal according to Mel bands mean")
-    signal_mfcc = melband_pass_filter(audio)
-    output = MonoWriter(filename = mfcc_dir + '/' + os.path.splitext(input_filename)[0] + 'mfcc.ogg', format = 'ogg')(signal_mfcc)
+    print ("Generating Signal according to Mel bands mean")
+    write_file(mfcc_dir + '/' + os.path.splitext(input_filename)[0] + 'mfcc', sampleRate, retriever.mfcc_outputs)
 
     #inharmonicity of sound recording
 
@@ -82,13 +95,11 @@ def mir_sonification(inputSoundFile, data):
 
     if not os.path.exists(inharmonicity_dir):                         
            os.makedirs(inharmonicity_dir)                                
-           print "Creando directorio para filtrado por inarmonia"
+           print("Creando directorio para filtrado por inarmonia")
 
-    inharmonicity_pass_filter = AllPass(cutoffFrequency = audio_f0
- * (1 + float(data['sfx.inharmonicity.mean'])), bandwidth = 55)
+    signal_inharmonicity = retriever.AllPass(retriever.f0, retriever.f0 / (1 + float(data['sfx.inharmonicity.mean'])))
     print ("Filtering Signal according to Inharmonicity mean")
-    signal_inharmonicity = inharmonicity_pass_filter(audio)
-    output = MonoWriter(filename = inharmonicity_dir + '/' + os.path.splitext(input_filename)[0] + 'inharmonicity.ogg', format = 'ogg')(signal_inharmonicity)
+    write_file(inharmonicity_dir + '/' + os.path.splitext(input_filename)[0] + 'inharmonicity', 44100, signal_inharmonicity)
 
     #dissonance of sound recording
 
@@ -96,13 +107,12 @@ def mir_sonification(inputSoundFile, data):
 
     if not os.path.exists(dissonance_dir):                         
            os.makedirs(dissonance_dir)                                
-           print "Creando directorio para escucha de disonancia"
+           print("Creando directorio para escucha de disonancia")
 
-    dissonant_f = audio_f0 + 2.27*(pow(audio_f0, 0.4777))/(1 + float(data['lowlevel.dissonance.mean']))
-    dissonance_pass_filter = BandPass(cutoffFrequency = dissonant_f, bandwidth = 55)
+    dissonant_f = retriever.f0 + 2.27*(pow(retriever.f0, 0.4777))/(1 + float(data['lowlevel.dissonance.mean']))
     print ("Filtering Signal according to Dissonance mean")
-    signal_dissonance = dissonance_pass_filter(audio)
-    output = MonoWriter(filename = dissonance_dir + '/' + os.path.splitext(input_filename)[0] + 'dissonance.ogg', format = 'ogg')(signal_dissonance)
+    signal_dissonance = retriever.IIR(input_signal, [retriever.f0, dissonant_f], 'bandpass')
+    write_file(dissonance_dir + '/' + os.path.splitext(input_filename)[0] + 'dissonance', sampleRate, normalize(signal_dissonance))
 
     #loudness sound recording
 
@@ -110,13 +120,12 @@ def mir_sonification(inputSoundFile, data):
 
     if not os.path.exists(loudness_dir):                         
            os.makedirs(loudness_dir)                                
-           print "Creando directorio para escucha de loudness"                                          
+           print("Creando directorio para escucha de loudness")                                          
 
-    audio_loud = 10*np.log10(float(data['loudness.level.mean'])) * audio 
-    maximum = np.max(np.abs(audio_loud))/-1 
-    loud_sound = np.true_divide(audio_loud, maximum) 
+    loudness = float(data['loudness.level.mean'])
+    loud_sound = loudness * input_signal
     print ("Saving Loud Sound")
-    output = MonoWriter(filename = loudness_dir + '/' + os.path.splitext(input_filename)[0] + 'loudness.ogg', format = 'ogg')(loud_sound) 
+    write_file(loudness_dir + '/' + os.path.splitext(input_filename)[0] + 'loudness', sampleRate, normalize(loud_sound)) 
 
     #sound recording based on valleys
 
@@ -124,13 +133,10 @@ def mir_sonification(inputSoundFile, data):
 
     if not os.path.exists(valleys_dir):                         
            os.makedirs(valleys_dir)                                
-           print "Creando directorio para escucha de contraste espectral basado en valle espectral"                                           
-
-    freq, mag, phase = from_audio(audio, sampleRate, scipy.hanning(1023), 2048, 512, -70, 20, audio_f0, audio_f0*2, 10, abs(float(data['lowlevel.spectral_contrast.mean'])))   
-    contrast_enhancement = ((1.3 * mag) - (0.3*float(data['lowlevel.spectral_valleys.mean']))) 
-    contrast = to_audio(freq, mag + contrast_enhancement, phase, 1025, 512, sampleRate)  
+           print("Creando directorio para escucha de contraste espectral basado en valle espectral")                                           
+ 
     print ("Saving recording Contrast")
-    output = MonoWriter(filename = valleys_dir + '/' + os.path.splitext(input_filename)[0] + 'contrast.ogg', format = 'ogg')(array(contrast)) 
+    write_file(valleys_dir + '/' + os.path.splitext(input_filename)[0] + 'contrast', sampleRate, retriever.contrast_outputs) 
 
     #sound recording with hfc marker
 
@@ -138,11 +144,11 @@ def mir_sonification(inputSoundFile, data):
 
     if not os.path.exists(hfc_dir):                         
            os.makedirs(hfc_dir)                                
-           print "Creando directorio para marcado de contenido de frecuencia alta" 
+           print("Creando directorio para marcado de contenido de frecuencia alta") 
 
-    hfcs = hfc_onsets(audio)
-    print ("Saving File with hfc bursts") 
-    output = MonoWriter(filename = hfc_dir + '/' + os.path.splitext(input_filename)[0] + 'hfc.ogg', format = 'ogg')(AudioOnsetsMarker(onsets=hfcs, type='beep')(audio)) 
+    output = retriever.hfc_locs
+    print ("Saving File with hfc marks") 
+    write_file(hfc_dir + '/' + os.path.splitext(input_filename)[0] + 'hfc', sampleRate, output + input_signal) 
 
     #sound recording with attack marker
 
@@ -150,43 +156,41 @@ def mir_sonification(inputSoundFile, data):
 
     if not os.path.exists(attack_dir):                         
            os.makedirs(attack_dir)                                
-           print "Creando directorio para marcado de ataque" 
+           print("Creando directorio para marcado de ataque")                                              
 
-    at_s = 10**(float(data['sfx.logattacktime.mean']))                                              
-
-    audio = offset_filter(input_signal)
-    audio[audio == audio[(at_s)*sampleRate]] = audio[audio == audio[(at_s)*sampleRate]] + marker  
+    output = retriever.attacks
     print ("Saving File with attack marker") 
-    output = MonoWriter(filename = attack_dir + '/' + os.path.splitext(input_filename)[0] + 'attack.ogg', format = 'ogg')(audio)     
+    write_file(attack_dir + '/' + os.path.splitext(input_filename)[0] + 'attack', sampleRate, output + input_signal)     
 
 Usage = "./Sonification.py [FILES_DIR]"
-if __name__ == '__main__':
-  
-    if len(sys.argv) < 2:
-        print "\nNeed tag dir\n", Usage, "\n"
-        sys.exit(1)
 
+def main():
+    if len(sys.argv) < 2:
+        print("\nNeed tag dir\n", Usage, "\n")
+        sys.exit(1)
 
     try:
         files_dir = sys.argv[1]
         descriptors_dir = files_dir+'/descriptores/' 
 
-    	if not os.path.exists(files_dir):                         
-		raise IOError("Must download sounds")
+        if not os.path.exists(files_dir):                             
+            raise IOError("Must download sounds")    
 
-	for subdir, dirs, files in os.walk(files_dir):
-	    for f in files:
-		    tag_dir = subdir
-		    input_filename = f
-		    audio_input = subdir+'/'+f
-		    print( audio_input )
-		    with open(descriptors_dir+f.split('.')[0]+'.json') as mir_data:
-		    	data = json.load(mir_data)
-		    mir_sonification(audio_input, data)                           
-
-    except Exception, e:
+        for subdir, dirs, files in os.walk(files_dir):    
+            for f in files:    
+                tag_dir = subdir    
+                input_filename = f    
+                audio_input = subdir+'/'+f    
+                print( audio_input )    
+                with open(descriptors_dir+f.split('.')[0]+'.json') as mir_data:                             
+                    data = json.load(mir_data)                        
+                mir_sonification(input_filename, audio_input, tag_dir, data)                     
+    except Exception as e:
         logger.exception(e)
-        exit(1)
+        sys.exit(1)
+
+if __name__ == '__main__': 
+    main()
 
 
 
