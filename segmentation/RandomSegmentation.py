@@ -50,7 +50,7 @@ def random_segmentation(filename, segments, options):
 #TODO: freeze effect, time stretching
 def experimental_random_segmentation(filename, segments, options, sr):
     """
-		(del branch mir-dev)
+        (del branch mir-dev)
         Segmenta con valores aleatorios según opciones
     """
     sinusoidal_model_anal = SineModelAnal()
