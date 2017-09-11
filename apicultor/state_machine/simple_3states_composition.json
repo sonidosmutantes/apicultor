@@ -1,0 +1,18 @@
+{
+   "statesArray": [
+    { "id": 0, "text": "harmonic" },
+    { "id": 1, "text": "inharmonic" },
+    { "id": 2, "text": "idle" }
+  ],
+  "linkArray": [
+    { "from": 0, "to": 0, "text": "0.7" },
+    { "from": 0, "to": 1, "text": "0.1"  },
+    { "from": 1, "to": 0, "text": "0.1"  },
+    { "from": 1, "to": 1, "text": "0"    },
+    { "from": 1, "to": 2, "text": "0.9"  },
+    { "from": 2, "to": 1, "text": "0.1"  },
+    { "from": 0, "to": 2, "text": "0.2"  },
+    { "from": 2, "to": 0, "text": "0.4"  },
+    { "from": 2, "to": 2, "text": "0.5"  }
+  ]
+}

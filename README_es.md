@@ -80,12 +80,20 @@ $ ./download-test-data.sh # Predefinidos (testing)
 $ python WebScrapingDownload.py <nombre_del_tag>
 $ cd ..
 $ python run_MIR_analysis.py <directorio_de_sonidos_del_tag>
+$ rpdl <directorio_de_sonidos_tag>
+
+ó
+
+$ rpdla <directorio_de_sonidos_tag>
+
+$ miranalysis <directorio_de_sonidos_tag>
 ```
 
 ## Segmentar sonidos
 
 ```
 $ python RandomSegmentation.py
+from apicultor.segmentation import RandomSegmentation //hay que cambiar variables como el data dir para correrlo automáticamente desde la terminal
 ```
 
 ## Similaridad Sonora
@@ -93,13 +101,13 @@ $ python RandomSegmentation.py
 Procesar señales de salida para guardar los sonidos en base a clusters
 
 ```
-$ python SoundSimilarity.py carpetadeltag
+$ soundsimilarity carpetadondehayanaudiosdescriptos
 ```
 
 ## Sonificación
 
 ```
-$ python Sonification.py carpetadeltag
+$ sonify carpetadondehayanaudiosdescriptos
 ```
 
 ## SuperCollider
@@ -110,7 +118,7 @@ Performance and helper scripts in "supercollider/".
 ## Correr webservice (requiere api rest)
 
 ```
-$ python MockRedPanalAPI_service.py
+from apicultor.segmentation import MockRedPanalAPI_service
 ```
 
 
@@ -135,6 +143,7 @@ Resultado: API-Documentation.html
 
 ```
 $ python MusicEmotionMachine.py directoriodondeestadata multitag
+$ musicemotionmachine directoriodondeestadata directoriodondesevanaguardarlasvariablesdedecisionylasclasesdeemociones True/False(== None)
 ```
 
 (True, clasifica Todos los audios descargados. Después de haber hecho la clasificación, correr de nuevo con la opcion multitag en False o en None para llamar a Johnny (la máquina de estados emocionales) para que comienzen las transiciones emocionales con remixes en tiempo real de Todos los sonidos)
@@ -159,7 +168,18 @@ $ docker run -p 5000:5000 --name apicultor  -it --net="host"  apicultor_v0.9
 
 ~~Si ya tenés instaladas todas las dependencias se puede correr: 
 ```
-$ sudo python setup.py install
+$ sudo python3 setup.py install
 ```
-y tener Apicultor instalado en el sistema~~
+Y tener varias opciones de comando disponibles para utilizar. Los comandos utilizados hasta el momento son:
 
+* rpdl: para descargar sonidos de RedPanal
+* rpdla: para descargar los sonidos provenientes de archive.redpanal.org
+* miranalysis: para analizar archivos de audio utilizando versiones en Python3 de algoritmos en la lib Essentia by MTG
+* musicemotionmachine: para clasificar los sonidos en base a las emociones y luego correr la MEM
+* sonify: para sonificar los sonidos en base a descripciones
+* qualify: para reparar defectos en la calidad sonora en los sonidos descargados //hay que reparar un bug en hiss, el reparador de sibilancias está mas insensible en la detección
+* soundsimilarity: para clasificar sonidos de acuerdo a la similaridad sonora y remixarlos
+* mockrpapi: mock de la API redpanalera
+* audio2ogg: para convertir archivos de audio a ogg
+* smcomposition: para replicar una performance de Sonidos Mutantes
+~~

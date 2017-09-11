@@ -93,3 +93,26 @@ API listening in port 5000:
 $ docker build -t apicultor_v0.9 .
 $ docker run -p 5000:5000 --name apicultor  -it --net="host"  apicultor_v0.9
 ```
+
+## Build
+
+Building it is slightly easy:
+
+~~
+```
+$ sudo python3 setup.py install
+```
+And you will be provided of command line tools. At the moment these are all available:
+
+* rpdl: download sounds from RedPanal
+* rpdla: download sounds from archive.redpanal.org
+* miranalysis: analyze sound files using our pythonic versions of some of MTG's Essentia algorithms
+* musicemotionmachine: classify sounds according to emotions and run the Music Emotion Machine (MEM)
+* sonify: sonify the outputs of the retriever class descriptors
+* qualify: fix common sound artifacts //we still have to fix a hiss reduction bug which makes it very insensitive in most cases to hissings
+* soundsimilarity: classify sounds according to similarity and remix
+* mockrpapi: mock of RedPanal API
+* audio2ogg: convert sound files to ogg (THIS IS IMPORTANT)
+* smcomposition: Sonidos Mutantes performance 
+~~
+

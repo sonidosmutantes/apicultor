@@ -1,1 +1,1 @@
-from mirdbapi.imirdbapi import *
+__all__ = ['apicultor']
