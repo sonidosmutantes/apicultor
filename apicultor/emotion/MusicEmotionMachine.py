@@ -304,7 +304,7 @@ class deep_support_vector_machines(object):
             a = np.zeros(n_f)
 
             p1 = np.argsort([self.Q[i,i] for i in range(n_f0-1)])
-            p2 = np.argsort([self.Q[i,i] for i in range(n_f0, n_f)])+n_f0  
+            p2 = np.argsort([self.Q[i,i] for i in range(n_f0, n_f-1)])+n_f0  
 
             iterations = 0                                            
             diff = 1. + reg_param 
@@ -529,16 +529,19 @@ class svm_layers(deep_support_vector_machines):
         reg_params = [0.001, 0.01, 0.04, 0.06, 0.08, 0.1, 0.12, 0.2, 0.3, 0.4, 0.5, 0.6, 0.8, 2]
         self.kernel_configs = kernel_configs
         for i in range(len(self.kernel_configs)):
-            print ("Calculating values for prediction")
-            best_estimator = GridSearch(self, features, labels, Cs, reg_params, [self.kernel_configs[i]])
-            print(("Best estimators are: ") + str(best_estimator['C'][0]) + " for C and " + str(best_estimator['reg_param'][0]) + " for regularization parameter")
-            self.fit_model(features, labels, self.kernel_configs[i][0], self.kernel_configs[i][1], best_estimator['C'][0][0], best_estimator['reg_param'][0][0], 1./features.shape[1], 0.8)
-            print ("Predicting")
-            pred_c = self.predictions(features, labels)
-            print(("Predicted"), pred_c)
-            err = score(labels, pred_c)
-            self.scores.append(err)
-            if err < 0.5:
+            try:
+                best_estimator = GridSearch(self, features, labels, Cs, reg_params, [self.kernel_configs[i]])
+                print(("Best estimators are: ") + str(best_estimator['C'][0]) + " for C and " + str(best_estimator['reg_param'][0]) + " for regularization parameter")
+                self.fit_model(features, labels, self.kernel_configs[i][0], self.kernel_configs[i][1], best_estimator['C'][0][0], best_estimator['reg_param'][0][0], 1./features.shape[1], 0.8)                                                  
+                pred_c = self.predictions(features, labels)
+            except Exception as e:
+                continue
+            precision, recall, f1score, support = precision_recall_fscore_support(labels, pred_c, average='weighted')
+            self.scores.append(f1score)
+            print("Relevant information %: " + str(precision * 100))
+            print("% of used information: " + str(recall * 100))
+            print("Harmonic: " + str(f1score * 100))
+            if f1score > 0.5:
                 self.fxs.append(self.decision)            
                 self.targets_outputs.append(pred_c)
         if len(self.fxs) <= 1:
@@ -616,8 +619,10 @@ class main_svm(deep_support_vector_machines):
         self.output_dir = output_dir
         self.fit_model(self._S, lab, kernels_config[0], kernels_config[1], C, reg_param, gamma, 0.8)
         self._labels = self.predictions(self._S, lab)
-        print(self._labels)
-        print(score(lab, self._labels))
+        precision, recall, f1score, support = precision_recall_fscore_support(lab, self._labels, average='weighted')
+        print("Relevant information %: " + str(precision * 100))
+        print("% of used information: " + str(recall * 100))
+        print("Harmonic: " + str(f1score * 100))
                                                     
     def neg_and_pos(self, files):
         """
@@ -645,6 +650,15 @@ class main_svm(deep_support_vector_machines):
         """ 
         array = pandas.DataFrame(self.neg_and_pos(files))
         array.to_csv(self.output_dir + '/files_classes.csv')            
+
+def extract_tonal_shift(song): 
+    hpcps = []
+    for frame in song.FrameGenerator():
+        song.window()
+        song.Spectrum()
+        song.spectral_peaks()
+        hpcps.append(hpcp(song))
+    return np.mean(hpcps, axis=0).argmax()
 
 #create emotions directory in data dir if multitag classification has been performed
 def emotions_data_dir(files_dir):
@@ -726,8 +740,13 @@ class MusicEmotionStateMachine(object):
             fy = random.choice(sounds[:])                      
         x = read(neg_arous_dir + '/' + fx)[0]  
         y = read(neg_arous_dir + '/' + fy)[0] 
-        x = (mono_stereo(x) if len(x) == 2 else x) 
-        y = (mono_stereo(y) if y.shape[1] == 2 else y) 
+        try:                                          
+            x = (mono_stereo(x) if x[0].size == 2 else x) 
+            y = (mono_stereo(y) if y[0].size == 2 else y) 
+        except Exception as e:
+            print("Remixing only a few seconds due to MemoryError")
+            x = (mono_stereo(x[:192000 * 60]) if x[0].size == 2 else x) 
+            y = (mono_stereo(y[:192000 * 60]) if y[0].size == 2 else y) 
         fx = fx.split('.')[0]+'.json'                                  
         fy = fy.split('.')[0]+'.json'                                 
         fx = np.where(files == fx)[0]                       
@@ -751,7 +770,13 @@ class MusicEmotionStateMachine(object):
             interv = hfc_onsets(np.float32(negative_arousal_x))
             steps = overlapped_intervals(interv)
             output = librosa.effects.remix(negative_arousal_x, steps[::-1], align_zeros = False)
-            output = librosa.effects.pitch_shift(output, sr = 44100, n_steps = 3)
+            song = sonify(output, 44100)
+            n_steps = extract_tonal_shift(song) #based on maximum value of Harmonic Pitch Class Profile mean values of 12 bins we know where to shift
+            try:
+                output = librosa.effects.pitch_shift(output, sr = 44100, n_steps = n_steps)           
+            except Exception as e:
+                print("Remixing only a few seconds due to MemoryError")
+                output = librosa.effects.pitch_shift(output[:1920000], sr = 44100, n_steps = n_steps) #remix only fewer seconds
             remix_filename = files_dir+'/emotions/remixes/sad/'+str(time.strftime("%Y%m%d-%H:%M:%S"))+'multitag_remix' 
             write_file(remix_filename, 44100, output)
             subprocess.call(["ffplay", "-nodisp", "-autoexit", remix_filename+'.ogg']) 
@@ -761,8 +786,13 @@ class MusicEmotionStateMachine(object):
             fy = random.choice(sounds[:])                      
         x = read(pos_arous_dir + '/' + fx)[0]  
         y = read(pos_arous_dir + '/' + fy)[0] 
-        x = (mono_stereo(x) if len(x) == 2 else x) 
-        y = (mono_stereo(y) if len(y) == 2 else y) 
+        try:                                          
+            x = (mono_stereo(x) if x[0].size == 2 else x) 
+            y = (mono_stereo(y) if y[0].size == 2 else y) 
+        except Exception as e:
+            print("Remixing only a few seconds due to MemoryError")
+            x = (mono_stereo(x[:192000 * 60]) if x[0].size == 2 else x) 
+            y = (mono_stereo(y[:192000 * 60]) if y[0].size == 2 else y) 
         fx = fx.split('.')[0]+'.json'                                  
         fy = fy.split('.')[0]+'.json'                                  
         fx = np.where(files == fx)[0]                      
@@ -775,10 +805,17 @@ class MusicEmotionStateMachine(object):
             dec_y = get_coordinate(fy, 0, decisions)
         x = source_separation(x, 4)[0] 
         x = scratch_music(x, dec_x)                            
-        y = scratch_music(y, dec_y)
-        x, y = same_time(x,y)  
+        try:
+            y = scratch_music(y, dec_y)
+            x, y = same_time(x,y)
+        except Exception as e:
+            print('A memory error has ocurred during scratching, more snippets to be optimized')
+        if x.size < y.size:
+            y = y[:x.size]
+        else:
+            x = x[:y.size]
         positive_arousal_samples = [i/i.max() for i in (x,y)]  
-        positive_arousal_x = np.float32(positive_arousal_samples).sum(axis=0) 
+        positive_arousal_x = np.sum(np.vstack(positive_arousal_samples), axis=0) 
         positive_arousal_x = 0.5*positive_arousal_x/positive_arousal_x.max()
         if harmonic is True:
             return librosa.decompose.hpss(librosa.stft(positive_arousal_x), margin = (1.0, 5.0))[0]  
@@ -788,29 +825,42 @@ class MusicEmotionStateMachine(object):
             interv = song.bpm()[1]
             steps = overlapped_intervals(np.int32(interv * 44100))
             output = librosa.effects.remix(positive_arousal_x, steps, align_zeros = False)
-            output = librosa.effects.pitch_shift(output, sr = 44100, n_steps = 4)
+            n_steps = extract_tonal_shift(song) #based on maximum value of Harmonic Pitch Class Profile mean values of 12 bins we know where to shift
+            try:
+                output = librosa.effects.pitch_shift(output, sr = 44100, n_steps = n_steps)           
+            except Exception as e:
+                print("Remixing only a few seconds due to MemoryError")
+                output = librosa.effects.pitch_shift(output[:1920000], sr = 44100, n_steps = n_steps) #remix only fewer seconds
             remix_filename = files_dir+'/emotions/remixes/happy/'+str(time.strftime("%Y%m%d-%H:%M:%S"))+'multitag_remix'
             write_file(remix_filename, 44100, np.float32(output))
             subprocess.call(["ffplay", "-nodisp", "-autoexit", remix_filename+'.ogg'])
     def relaxed_music_remix(self, neg_arous_dir, files, decisions, files_dir):
-        neg_arousal_h = self.sad_music_remix(neg_arous_dir, files, decisions, files_dir, harmonic = True)
-        relaxed_harmonic = librosa.istft(neg_arousal_h)
+        relaxed_harmonic = self.sad_music_remix(neg_arous_dir, files, decisions, files_dir, harmonic = True)
         interv = hfc_onsets(np.float32(relaxed_harmonic))
         steps = overlapped_intervals(interv)
         output = librosa.effects.remix(relaxed_harmonic, steps[::-1], align_zeros = True)
-        output = librosa.effects.pitch_shift(output, sr = 44100, n_steps = 4)
+        n_steps = extract_tonal_shift(song) #based on maximum value of Harmonic Pitch Class Profile mean values of 12 bins we know where to shift
+        try:
+            output = librosa.effects.pitch_shift(output, sr = 44100, n_steps = n_steps)           
+        except Exception as e:
+            print("Remixing only a few seconds due to MemoryError")
+            output = librosa.effects.pitch_shift(output[:1920000], sr = 44100, n_steps = n_steps) #remix only fewer seconds
         remix_filename = files_dir+'/emotions/remixes/relaxed/'+str(time.strftime("%Y%m%d-%H:%M:%S"))+'multitag_remix'
         write_file(remix_filename, 44100, output)
         subprocess.call(["ffplay", "-nodisp", "-autoexit", remix_filename+'.ogg'])
     def angry_music_remix(self, pos_arous_dir, files, decisions, files_dir):
-        pos_arousal_h = self.happy_music_remix(pos_arous_dir, files, decisions, files_dir, harmonic = True)
-        angry_harmonic = librosa.istft(pos_arousal_h)
+        angry_harmonic = self.happy_music_remix(pos_arous_dir, files, decisions, files_dir, harmonic = True)
         song = sonify(angry_harmonic, 44100)
         song.mel_bands_global()
         interv = song.bpm()[1]
         steps = overlapped_intervals(interv)
         output = librosa.effects.remix(angry_harmonic, steps, align_zeros = True)
-        output = librosa.effects.pitch_shift(output, sr = 44100, n_steps = 3)
+        n_steps = extract_tonal_shift(song) #based on maximum value of Harmonic Pitch Class Profile mean values of 12 bins we know where to shift
+        try:
+            output = librosa.effects.pitch_shift(output, sr = 44100, n_steps = n_steps)           
+        except Exception as e:
+            print("Remixing only a few seconds due to MemoryError")
+            output = librosa.effects.pitch_shift(output[:1920000], sr = 44100, n_steps = n_steps) #remix only fewer seconds
         remix_filename = files_dir+'/emotions/remixes/angry/'+str(time.strftime("%Y%m%d-%H:%M:%S"))+'multitag_remix'
         write_file(remix_filename, 44100, np.float32(output))
         subprocess.call(["ffplay", "-nodisp", "-autoexit", remix_filename+'.ogg'])
@@ -823,8 +873,13 @@ class MusicEmotionStateMachine(object):
         fy = random.choice(sounds[:])                    
         x = read(fx)[0]
         y = read(fy)[0]  
-        x = (mono_stereo(x) if len(x) == 2 else x) 
-        y = (mono_stereo(y) if len(y) == 2 else y) 
+        try:                                          
+            x = (mono_stereo(x) if x[0].size == 2 else x) 
+            y = (mono_stereo(y) if y[0].size == 2 else y) 
+        except Exception as e:
+            print("Remixing only a few seconds due to MemoryError")
+            x = (mono_stereo(x[:192000 * 60]) if x[0].size == 2 else x) 
+            y = (mono_stereo(y[:192000 * 60]) if y[0].size == 2 else y) 
         fx = fx.split('/')[-1].split('.')[0]+'.json'                                  
         fy = fy.split('/')[-1].split('.')[0]+'.json'                                   
         fx = np.where(files == fx)[0]                     
@@ -840,7 +895,12 @@ class MusicEmotionStateMachine(object):
         interv = hfc_onsets(np.float32(not_happy_x))
         steps = overlapped_intervals(interv)
         output = librosa.effects.remix(not_happy_x, steps[::-1], align_zeros = True)
-        output = librosa.effects.pitch_shift(output, sr = 44100, n_steps = 3)
+        n_steps = extract_tonal_shift(song) #based on maximum value of Harmonic Pitch Class Profile mean values of 12 bins we know where to shift
+        try:
+            output = librosa.effects.pitch_shift(output, sr = 44100, n_steps = n_steps)           
+        except Exception as e:
+            print("Remixing only a few seconds due to MemoryError")
+            output = librosa.effects.pitch_shift(output[:1920000], sr = 44100, n_steps = n_steps) #remix only fewer seconds
         remix_filename = files_dir+'/emotions/remixes/not happy/'+str(time.strftime("%Y%m%d-%H:%M:%S"))+'multitag_remix'
         write_file(remix_filename, 44100, output)
         subprocess.call(["ffplay", "-nodisp", "-autoexit", remix_filename+'.ogg'])
@@ -853,8 +913,13 @@ class MusicEmotionStateMachine(object):
         fy = random.choice(sounds[:])                    
         x = read(fx)[0]  
         y = read(fy)[0]  
-        x = (mono_stereo(x) if len(x) == 2 else x) 
-        y = (mono_stereo(y) if len(y) == 2 else y) 
+        try:                                          
+            x = (mono_stereo(x) if x[0].size == 2 else x) 
+            y = (mono_stereo(y) if y[0].size == 2 else y) 
+        except Exception as e:
+            print("Remixing only a few seconds due to MemoryError")
+            x = (mono_stereo(x[:192000 * 60]) if x[0].size == 2 else x) 
+            y = (mono_stereo(y[:192000 * 60]) if y[0].size == 2 else y) 
         fx = fx.split('/')[-1].split('.')[0]+'.json'                            
         fy = fy.split('/')[-1].split('.')[0]+'.json'                                
         fx = np.where(files == fx)[0]                    
@@ -872,7 +937,12 @@ class MusicEmotionStateMachine(object):
         interv = song.bpm()[1]
         steps = overlapped_intervals(interv)
         output = librosa.effects.remix(not_sad_x, steps[::-1], align_zeros = True)
-        output = librosa.effects.pitch_shift(output, sr = 44100, n_steps = 4)
+        n_steps = extract_tonal_shift(song) #based on maximum value of Harmonic Pitch Class Profile mean values of 12 bins we know where to shift
+        try:
+            output = librosa.effects.pitch_shift(output, sr = 44100, n_steps = n_steps)           
+        except Exception as e:
+            print("Remixing only a few seconds due to MemoryError")
+            output = librosa.effects.pitch_shift(output[:1920000], sr = 44100, n_steps = n_steps) #remix only fewer seconds
         remix_filename = files_dir+'/emotions/remixes/not sad/'+str(time.strftime("%Y%m%d-%H:%M:%S"))+'multitag_remix'
         write_file(remix_filename, 44100, np.float32(output))
         subprocess.call(["ffplay", "-nodisp", "-autoexit", remix_filename+'.ogg'])
@@ -885,8 +955,13 @@ class MusicEmotionStateMachine(object):
         fy = random.choice(sounds[:])                    
         x = read(fx)[0] 
         y = read(fy)[0]
-        x = (mono_stereo(x) if len(x) == 2 else x) 
-        y = (mono_stereo(y) if len(y) == 2 else y)   
+        try:                                          
+            x = (mono_stereo(x) if x[0].size == 2 else x) 
+            y = (mono_stereo(y) if y[0].size == 2 else y) 
+        except Exception as e:
+            print("Remixing only a few seconds due to MemoryError")
+            x = (mono_stereo(x[:192000 * 60]) if x[0].size == 2 else x) 
+            y = (mono_stereo(y[:192000 * 60]) if y[0].size == 2 else y) 
         fx = fx.split('/')[-1].split('.')[0]+'.json'                                 
         fy = fy.split('/')[-1].split('.')[0]+'.json'                                  
         fx = np.where(files == fx)[0]                      
@@ -901,7 +976,12 @@ class MusicEmotionStateMachine(object):
         interv = hfc_onsets(np.float32(stft_morph))
         steps = overlapped_intervals(interv)
         output = librosa.effects.remix(stft_morph, steps[::-1], align_zeros = False)
-        output = librosa.effects.pitch_shift(output, sr = 44100, n_steps = 4)
+        n_steps = extract_tonal_shift(song) #based on maximum value of Harmonic Pitch Class Profile mean values of 12 bins we know where to shift
+        try:
+            output = librosa.effects.pitch_shift(output, sr = 44100, n_steps = n_steps)           
+        except Exception as e:
+            print("Remixing only a few seconds due to MemoryError")
+            output = librosa.effects.pitch_shift(output[:1920000], sr = 44100, n_steps = n_steps) #remix only fewer seconds
         remix_filename = files_dir+'/emotions/remixes/not angry/'+str(time.strftime("%Y%m%d-%H:%M:%S"))+'multitag_remix'
         write_file(remix_filename, 44100, output)
         subprocess.call(["ffplay", "-nodisp", "-autoexit", remix_filename+'.ogg'])
@@ -914,8 +994,13 @@ class MusicEmotionStateMachine(object):
         fy = random.choice(sounds[:])                    
         x = read(fx)[0]  
         y = read(fy)[0]
-        x = (mono_stereo(x) if len(x) == 2 else x) 
-        y = (mono_stereo(y) if len(y) == 2 else y)  
+        try:                                          
+            x = (mono_stereo(x) if x[0].size == 2 else x) 
+            y = (mono_stereo(y) if y[0].size == 2 else y) 
+        except Exception as e:
+            print("Remixing only a few seconds due to MemoryError")
+            x = (mono_stereo(x[:192000 * 60]) if x[0].size == 2 else x) 
+            y = (mono_stereo(y[:192000 * 60]) if y[0].size == 2 else y) 
         fx = fx.split('/')[-1].split('.')[0]+'.json'                                
         fy = fy.split('/')[-1].split('.')[0]+'.json'                       
         fx = np.where(files == fx)[0]                     
@@ -932,7 +1017,12 @@ class MusicEmotionStateMachine(object):
         interv = song.bpm()[1]
         steps = overlapped_intervals(interv)
         output = librosa.effects.remix(stft_morph, steps[::-1], align_zeros = False)
-        output = librosa.effects.pitch_shift(output, sr = 44100, n_steps = 3)
+        n_steps = extract_tonal_shift(song) #based on maximum value of Harmonic Pitch Class Profile mean values of 12 bins we know where to shift
+        try:
+            output = librosa.effects.pitch_shift(output, sr = 44100, n_steps = n_steps)           
+        except Exception as e:
+            print("Remixing only a few seconds due to MemoryError")
+            output = librosa.effects.pitch_shift(output[:1920000], sr = 44100, n_steps = n_steps) #remix only fewer seconds
         remix_filename = files_dir+'/emotions/remixes/not relaxed/'+str(time.strftime("%Y%m%d-%H:%M:%S"))+'multitag_remix'
         write_file(remix_filename, 44100, np.float32(output))
         subprocess.call(["ffplay", "-nodisp", "-autoexit", remix_filename+'.ogg'])
@@ -1005,23 +1095,13 @@ def main():
                 del features                 
                 labels = KMeans_clusters(fscaled)
                 layers = svm_layers()
-                permute = [('linear', 'poly'),                      
-                            ('linear', 'sigmoid'),                       
-                            ('poly', 'sigmoid')]   
+                permute = list(permutations(['linear', 'poly', 'rbf', 'sigmoid'], 2))
                 layers.layer_computation(fscaled, labels, permute)
                                        
                 labl = layers.best_labels()
                 layers.attention() 
-                
-                permute = [('linear', 'poly'),
-                            ('linear', 'rbf'),                      
-                            ('linear', 'sigmoid'),                       
-                            ('rbf', 'linear'),
-                            ('sigmoid', 'linear'),
-                            ('sigmoid', 'poly'),
-                            ('sigmoid', 'rbf')] 
 
-                layers.layer_computation(layers.attention_dataset, labl, permute)
+                layers.layer_computation(MinMaxScaler().fit_transform(layers.attention_dataset), labl, permute)
                 labl = layers.best_labels()
                 layers.attention() 
 
@@ -1038,8 +1118,11 @@ def main():
                 labl = read_good_labels(sys.argv[2])
                 labl = labl[0][1:]
 
-            if 's' in sys.argv[4] or 'r' in sys.argv[4]:                                        
-                msvm = main_svm(fx, labl, 1./0.001, 0.001, 1./fx.shape[1], ['linear', 'poly'], output_dir) 
+            if 's' in sys.argv[4] or 'r' in sys.argv[4]: 
+                try:                          
+                    msvm = main_svm(fx, labl, 1./0.001, 0.001, 1./fx.shape[1], ['linear', 'rbf'], output_dir) #linear-poly linear-rbf 0.001 or 0.33 can be good parameters too               
+                except Exception as e:        
+                    msvm = main_svm(fx, labl, 1./0.001, 0.001, 1./fx.shape[1], ['linear', 'poly'], output_dir) #linear-poly linear-rbf 0.001 or 0.33 can be good parameters too                                       
                 try:                          
                     tags_dir                  
                 except Exception as e:        
