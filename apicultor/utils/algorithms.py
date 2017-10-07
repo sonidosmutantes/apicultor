@@ -520,7 +520,7 @@ class MIR:
             if b_pow_sum == 0 or a_pow_sum == 0:                                                                            
                 centroid = 0                                                
             else:                                                                   
-                centroid = (np.sqrt(b_pow_sum) / np.sqrt(a_pow_sum)) * (self.fs/np.pi)
+                centroid = (np.sqrt(b_pow_sum) / np.sqrt(a_pow_sum)) * (44100/np.pi)
         return centroid
 
     def contrast(self):
@@ -593,7 +593,7 @@ class MIR:
         rval = self.magnitude_spectrum[self.peaks_locations + 1]
         iploc = self.peaks_locations + 0.5 * (lval- rval) / (lval - 2 * val + rval)
         self.magnitudes = val - 0.25 * (lval - rval) * (iploc - self.peaks_locations)
-        self.frequencies = (self.fs/2) * iploc / self.N 
+        self.frequencies = (self.fs) * iploc / self.N 
         bound = np.where(self.frequencies < 5000) #only get frequencies lower than 5000 Hz
         self.magnitudes = self.magnitudes[bound][:100] #we use only 100 magnitudes and frequencies
         self.frequencies = self.frequencies[bound][:100]
@@ -879,7 +879,7 @@ class sonify(MIR):
             self.ats.append(self.attack_time)
         starts = starts[np.where(self.ats < np.mean(self.ats))]
         self.ats = np.array(self.ats)[np.where(self.ats < np.mean(self.ats))]
-        attacks = np.int64((np.array(self.ats) * self.fs) + starts)
+        attacks = np.int64((np.array(self.ats) * 44100) + starts)
         self.attacks = self.create_clicks(attacks) 
         self.hfcs /= max(self.hfcs)
         fir = firwin(11, 1.0 / 8, window = "hamming")  
@@ -887,3 +887,67 @@ class sonify(MIR):
         self.climb_hills()
         self.hfc_locs = np.array([i for i, x in enumerate(self.Filtered) if x > 0]) * self.H
         self.hfc_locs = self.create_clicks(self.hfc_locs)
+        
+def hpcp(song):
+    def add_contribution(freq, mag, bounded_hpcp):
+        for i in range(len(harmonic_peaks)):
+            f = freq * pow(2., -harmonic_peaks[i][0] / 12.0)
+            hw = harmonic_peaks[i][1]
+            pcpSize = bounded_hpcp.size
+            resolution = pcpSize / 12
+            pcpBinF = np.log2(f / ref_freq) * pcpSize
+            leftBin = int(np.ceil(pcpBinF - resolution * M / 2.0))
+            rightBin = int((np.floor(pcpBinF + resolution * M / 2.0)))
+            assert(rightBin-leftBin >= 0)
+            for j in range(leftBin, rightBin+1):
+                distance = abs(pcpBinF - j)/resolution
+                normalizedDistance = distance/M
+                w = np.cos(np.pi*normalizedDistance)
+                w *= w
+                iwrapped = j % pcpSize
+                if (iwrapped < 0):
+                    iwrapped += pcpSize
+                bounded_hpcp[iwrapped] += w * pow(mag,2) * hw * hw
+        return bounded_hpcp
+    precision = 0.00001
+    M = 1 #one semitone as a window size M of value 1
+    ref_freq = 440 #Hz
+    nh = 12
+    min_freq = 40
+    max_freq = 5000
+    split_freq = 500
+    hpcp_LO = np.zeros(12)
+    hpcp_HIGH = np.zeros(12)
+    harmonic_peaks = np.vstack((np.zeros(12), np.zeros(12))).T
+    size = 12
+    hpcps = np.zeros(size)
+    for i in range(nh):
+        semitone = 12.0 * np.log2(i+1.0)
+        ow = max(1.0 , ( semitone /12.0)*0.5)
+        while (semitone >= 12.0-precision):
+            semitone -= 12.0
+        for j in range(1, len(harmonic_peaks)-1):
+            if (harmonic_peaks[j][0] > semitone-precision and harmonic_peaks[j][0] < semitone+precision):
+                break
+        if (harmonic_peaks[i][0] == harmonic_peaks[-1][0] and harmonic_peaks[i][1] == harmonic_peaks[-1][1] and i != 0 and i != (nh -1)):
+            harmonic_peaks[i][0] = semitone
+            harmonic_peaks[i][1] = 1/ow
+        else:
+            harmonic_peaks[i][1] += (1.0 / ow)
+    for i in range(song.frequencies.size):
+        if song.frequencies[i] >= min_freq and song.frequencies[i] <= max_freq:
+            if not np.any(song.frequencies < 500):
+                pass
+            else:
+                if song.frequencies[i] < split_freq:
+                    hpcp_LO = add_contribution(song.frequencies[i], song.magnitudes[i], hpcp_LO)
+            if song.frequencies[i] > split_freq:
+                hpcp_HIGH = add_contribution(song.frequencies[i], song.magnitudes[i], hpcp_HIGH)
+    if np.any(song.frequencies < 500):
+        hpcp_LO /= hpcp_LO.max()
+    else:
+        hpcp_LO = np.zeros(12)
+    hpcp_HIGH /= hpcp_HIGH.max()
+    for i in range(len(hpcps)):
+        hpcps[i] = hpcp_LO[i] + hpcp_HIGH[i]
+    return hpcps
