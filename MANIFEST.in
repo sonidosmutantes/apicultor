@@ -2,22 +2,15 @@ include apicultor/doc/API.md
 include apicultor/doc/Apicultor_chain.png
 include apicultor/doc/API-Documentation.html
 include apicultor/doc/InstrNubeTI_repr.png
-include "apicultor/doc/JAMTEC 2017- Presentación Instrumento basado en la nube y tecnologías de la información.pdf"
+include apicultor/doc/JAMTEC2017-PresentaciónInstrumentobasadoenlanubeytecnologíasdelainformación.pdf
 include apicultor/doc/MáquinaDeEstadosMIRAmbientesSonorosRedPanal.pdf
 include apicultor/doc/update_flask_api_doc.sh
-include apicultor/examples/supercollider/playing_magfreeze.scd
-include apicultor/examples/supercollider/freeze_osc.scd
-include apicultor/examples/supercollider/live_coding.sc
-include apicultor/examples/supercollider/midi_control.scd
-include apicultor/examples/supercollider/osc_control.scd
-include apicultor/examples/supercollider/rest_api.scd
-include apicultor/examples/supercollider/synths.scd
-include apicultor/examples/supercollider/examples/arduino_sampler.scd
-include apicultor/examples/supercollider/examples/magfreeze.scd
-include apicultor/examples/supercollider/examples/osc_server_and_player.sc
-include apicultor/examples/supercollider/examples/playing_server_midi.scd
-include apicultor/examples/supercollider/examples/playmp3list_envelope.sc
-include apicultor/examples/supercollider/examples/simple_sampler.sc
+include apicultor/supercollider/live_coding.sc
+include apicultor/supercollider/setup_performance.sc
+include apicultor/supercollider/examples/magfreeze.sc
+include apicultor/supercollider/examples/magfreeze.sc
+include apicultor/supercollider/examples/osc_server_and_player.sc
+include apicultor/supercollider/examples/playmp3list_envelope.sc
 include apicultor/helper/download-test-data.sh
 include apicultor/state_machine/composition1.json
 include apicultor/state_machine/composition1_diagram.js
@@ -30,5 +23,3 @@ include apicultor/utils/run_state.sh
 include apicultor/utils/run_state_machine.sh
 include apicultor/utils/run_tests.sh
 include apicultor/utils/soundwork.sh
-
-
