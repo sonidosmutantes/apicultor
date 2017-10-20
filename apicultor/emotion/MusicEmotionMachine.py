@@ -1,6 +1,17 @@
 #! /usr/bin/env python3
 # -*- coding: utf-8 -*-
 
+"""Music emotion labels:
+    Psychologically based:
+        0: angry
+        1: sad
+        2: relaxed
+        3: happy 
+    Musically based:
+        0: acoustic
+        1: electronic
+        2: party"""
+
 from ..utils.dj import *
 from ..machine_learning.cross_validation import *
 from ..gradients.descent import SGD
@@ -27,6 +38,7 @@ from sklearn.preprocessing import LabelEncoder as le
 from sklearn.preprocessing import MinMaxScaler
 from sklearn.decomposition.pca import PCA as pca
 from sklearn.cluster import KMeans
+from sklearn.neighbors import KNeighborsClassifier
 from random import *
 from sklearn.utils.extmath import safe_sparse_dot as ssd
 from librosa.core import stft
@@ -116,14 +128,14 @@ def feature_scaling(f):
     """    
     return MinMaxScaler().fit_transform(sc().fit(f).transform(f))
 
-def KMeans_clusters(fscaled):
+def KMeans_clusters(fscaled, k):
     """
     KMeans clustering for features                                                           
     :param fscaled: scaled features                                                                                         
     :returns:                                                                                                         
       - labels: classes         
     """
-    labels = (KMeans(init = pca(n_components = 4).fit(fscaled).components_, n_clusters=4, n_init=1, precompute_distances = True, random_state = 0, n_jobs = -1).fit(fscaled).labels_)
+    labels = (KMeans(init = pca(n_components = k).fit(fscaled).components_, n_clusters=k, n_init=1, precompute_distances = True, random_state = 0, n_jobs = -1).fit(fscaled).labels_)
     return labels
 
 class deep_support_vector_machines(object):
@@ -644,20 +656,20 @@ class main_svm(deep_support_vector_machines):
         array = pandas.DataFrame(self.decision)
         array.to_csv(self.output_dir + '/data.csv') 
 
-    def save_classes(self, files):
+    def save_classes(self, files, fname):
         """
         Save the emotions of each sound in a text file so you can use it in applications           
         """ 
         array = pandas.DataFrame(self.neg_and_pos(files))
-        array.to_csv(self.output_dir + '/files_classes.csv')            
+        array.to_csv(self.output_dir + '/'+fname+'files_classes.csv')            
 
-def extract_tonal_shift(song): 
+def extract_tonal_shift(song, nbins): 
     hpcps = []
     for frame in song.FrameGenerator():
         song.window()
         song.Spectrum()
         song.spectral_peaks()
-        hpcps.append(hpcp(song))
+        hpcps.append(hpcp(song, nbins))
     return np.mean(hpcps, axis=0).argmax()
 
 #create emotions directory in data dir if multitag classification has been performed
@@ -689,7 +701,17 @@ def emotions_data_dir(files_dir):
         os.makedirs(files_dir+'/emotions/remixes/not angry')
     if not os.path.exists(files_dir+'/emotions/remixes/not relaxed'):
         os.makedirs(files_dir+'/emotions/remixes/not relaxed')
-
+    if not os.path.exists(files_dir+'/emotions/party'):
+        os.makedirs(files_dir+'/emotions/party')
+    if not os.path.exists(files_dir+'/emotions/electronic'):
+        os.makedirs(files_dir+'/emotions/electronic')
+    if not os.path.exists(files_dir+'/emotions/not party'):
+        os.makedirs(files_dir+'/emotions/not party')
+    if not os.path.exists(files_dir+'/emotions/not electronic'):
+        os.makedirs(files_dir+'/emotions/not electronic')
+    if not os.path.exists(files_dir+'/emotions/remixes/not acoustic'):
+        os.makedirs(files_dir+'/emotions/remixes/not acoustic')
+        
 #look for all downloaded audio
 tags_dirs = lambda files_dir: [os.path.join(files_dir,dirs) for dirs in next(os.walk(os.path.abspath(files_dir)))[1] if not os.path.join(files_dir, dirs) == files_dir +'/descriptores']
 
@@ -711,9 +733,9 @@ def multitag_emotions_dir(tags_dirs, files_dir, generator):
     """                                                                                         
     files_format = ['.mp3', '.ogg', '.undefined', '.wav', '.mid', '.wma', '.amr']
     
-    emotions_folder = ["/emotions/angry/", "/emotions/sad", "/emotions/relaxed", "/emotions/happy"]
+    emotions_folder = ["/emotions/angry/", "/emotions/sad", "/emotions/relaxed", "/emotions/happy", "/emotions/party", "/emotions/electronic", "/emotions/relaxed"]
     
-    emotions = ["anger", "sadness", "relaxation", "happiness"]                                                                 
+    emotions = ["anger", "sadness", "relaxation", "happiness", "party", "electronic", "acoustic"]                                                                 
 
     for t, c in list(generator):
         for tag in tags_dirs:
@@ -734,30 +756,54 @@ class MusicEmotionStateMachine(object):
         self.states = ['angry','sad','relaxed','happy','not angry','not sad', 'not relaxed','not happy']
         self.name = name
         self.state = lambda: random.choice(self.states)
-    def sad_music_remix(self, neg_arous_dir, files, decisions, files_dir, harmonic = None):
-        for subdirs, dirs, sounds in os.walk(neg_arous_dir):   
-            fx = random.choice(sounds[::-1])                    
-            fy = random.choice(sounds[:])                      
-        x = read(neg_arous_dir + '/' + fx)[0]  
-        y = read(neg_arous_dir + '/' + fy)[0] 
+    def sad_music_remix(self, files, labels, filesb, labelsb, decisions, files_dir, harmonic = None):
+        if harmonic is False or None:                          
+            search_files = files[np.where(labels == 1)]                                                        
+        else:
+            search_files = files[np.where(labels == 2)]
+        for i in range(len(search_files)):
+             search_files[i] = search_files[i].split('.')[0]
+        i = 0
+        lab_files = []
+        for tag in tags_dirs:
+             for f in (list(os.walk(tag, topdown = False)))[-1][-1]:
+                 if f.split('.')[0] in search_files:   
+                     lab_files.append(os.path.join(tag, f))  
+                     break        
+        fx = random.choice(lab_files[::-1])
+        music_emotion = labelsb[np.where(fx.split('/')[2].split('.')[0]+'.json' == filesb)][0]
+        music_emotion_matching = [i.split('.')[0] for i in filesb[np.where(labelsb == music_emotion)]]
+        emotion_matching = []
+        for i in search_files:
+            if i in music_emotion_matching: #we're filtering the search based on similar emotions (ie. if the file is sad and electronic then we remix it with another sad electronic file)
+                emotion_matching.append(i)
+        lab_files = []
+        for tag in tags_dirs:
+             for f in (list(os.walk(tag, topdown = False)))[-1][-1]:
+                 if f.split('.')[0] in search_files:   
+                     lab_files.append(os.path.join(tag, f))  
+                     break 
+        fy = random.choice(lab_files) 
+        x = read(fx)[0]  
+        y = read(fy)[0] 
         try:                                          
             x = (mono_stereo(x) if x[0].size == 2 else x) 
             y = (mono_stereo(y) if y[0].size == 2 else y) 
         except Exception as e:
             print("Remixing only a few seconds due to MemoryError")
             x = (mono_stereo(x[:192000 * 60]) if x[0].size == 2 else x) 
-            y = (mono_stereo(y[:192000 * 60]) if y[0].size == 2 else y) 
-        fx = fx.split('.')[0]+'.json'                                  
-        fy = fy.split('.')[0]+'.json'                                 
-        fx = np.where(files == fx)[0]                       
-        fy = np.where(files == fy)[0]         
+            y = (mono_stereo(y[:192000 * 60]) if y[0].size == 2 else y)                            
+        fx = fx.split('/')[2].split('.')[0]+'.json'                                 
+        fy = fy.split('/')[2].split('.')[0]+'.json'
+        fx = np.where(files == fx)[0]                      
+        fy = np.where(files == fy)[0]      
         if harmonic is False or None:                          
             dec_x = get_coordinate(fx, 1, decisions)                                                        
             dec_y = get_coordinate(fy, 1, decisions)
         else:
             dec_x = get_coordinate(fx, 2, decisions)
             dec_y = get_coordinate(fy, 2, decisions)
-        x = source_separation(x, 4)[0]  
+        x = source_separation(x[:192000*10], 4)[0]  
         x = scratch_music(x, dec_x)                            
         y = scratch_music(y, dec_y)                           
         x, y = same_time(x,y)                                                                       
@@ -765,13 +811,13 @@ class MusicEmotionStateMachine(object):
         negative_arousal_x = np.array(negative_arousal_samples).sum(axis=0)                                                           
         negative_arousal_x = 0.5*negative_arousal_x/negative_arousal_x.max()                                                              
         if harmonic is True:                                   
-            return librosa.decompose.hpss(librosa.stft(negative_arousal_x), margin = (1.0, 5.0))[0]                 
+            return librosa.istft(librosa.decompose.hpss(librosa.stft(negative_arousal_x), margin = (1.0, 5.0))[0])                 
         if harmonic is False or harmonic is None:
             interv = hfc_onsets(np.float32(negative_arousal_x))
             steps = overlapped_intervals(interv)
             output = librosa.effects.remix(negative_arousal_x, steps[::-1], align_zeros = False)
             song = sonify(output, 44100)
-            n_steps = extract_tonal_shift(song) #based on maximum value of Harmonic Pitch Class Profile mean values of 12 bins we know where to shift
+            n_steps = extract_tonal_shift(song, 12) #based on maximum value of Harmonic Pitch Class Profile mean values of 12 bins we know where to shift
             try:
                 output = librosa.effects.pitch_shift(output, sr = 44100, n_steps = n_steps)           
             except Exception as e:
@@ -780,12 +826,36 @@ class MusicEmotionStateMachine(object):
             remix_filename = files_dir+'/emotions/remixes/sad/'+str(time.strftime("%Y%m%d-%H:%M:%S"))+'multitag_remix' 
             write_file(remix_filename, 44100, output)
             subprocess.call(["ffplay", "-nodisp", "-autoexit", remix_filename+'.ogg']) 
-    def happy_music_remix(self, pos_arous_dir, files, decisions, files_dir, harmonic = None):
-        for subdirs, dirs, sounds in os.walk(pos_arous_dir):   
-            fx = random.choice(sounds[::-1])                    
-            fy = random.choice(sounds[:])                      
-        x = read(pos_arous_dir + '/' + fx)[0]  
-        y = read(pos_arous_dir + '/' + fy)[0] 
+    def happy_music_remix(self, files, labels, filesb, labelsb, decisions, files_dir, harmonic = None):
+        if harmonic is False or None:                          
+            search_files = files[np.where(labels == 0)]                                                        
+        else:
+            search_files = files[np.where(labels == 3)]
+        for i in range(len(search_files)):
+             search_files[i] = search_files[i].split('.')[0]
+        i = 0
+        lab_files = []
+        for tag in tags_dirs:
+             for f in (list(os.walk(tag, topdown = False)))[-1][-1]:
+                 if f.split('.')[0] in search_files:   
+                     lab_files.append(os.path.join(tag, f))  
+                     break        
+        fx = random.choice(lab_files[::-1])
+        music_emotion = labelsb[np.where(fx.split('/')[2].split('.')[0]+'.json' == filesb)][0]
+        music_emotion_matching = [i.split('.')[0] for i in filesb[np.where(labelsb == music_emotion)]]
+        emotion_matching = []
+        for i in search_files:
+            if i in music_emotion_matching: #we're filtering the search based on similar emotions (ie. if the file is sad and electronic then we remix it with another sad electronic file)
+                emotion_matching.append(i)
+        lab_files = []
+        for tag in tags_dirs:
+             for f in (list(os.walk(tag, topdown = False)))[-1][-1]:
+                 if f.split('.')[0] in search_files:   
+                     lab_files.append(os.path.join(tag, f))  
+                     break 
+        fy = random.choice(lab_files) 
+        x = read(fx)[0]  
+        y = read(fy)[0] 
         try:                                          
             x = (mono_stereo(x) if x[0].size == 2 else x) 
             y = (mono_stereo(y) if y[0].size == 2 else y) 
@@ -793,8 +863,8 @@ class MusicEmotionStateMachine(object):
             print("Remixing only a few seconds due to MemoryError")
             x = (mono_stereo(x[:192000 * 60]) if x[0].size == 2 else x) 
             y = (mono_stereo(y[:192000 * 60]) if y[0].size == 2 else y) 
-        fx = fx.split('.')[0]+'.json'                                  
-        fy = fy.split('.')[0]+'.json'                                  
+        fx = fx.split('/')[2].split('.')[0]+'.json'                                 
+        fy = fy.split('/')[2].split('.')[0]+'.json'                                  
         fx = np.where(files == fx)[0]                      
         fy = np.where(files == fy)[0]                
         if harmonic is False or None:                          
@@ -803,7 +873,7 @@ class MusicEmotionStateMachine(object):
         else:
             dec_x = get_coordinate(fx, 0, decisions)
             dec_y = get_coordinate(fy, 0, decisions)
-        x = source_separation(x, 4)[0] 
+        x = source_separation(x[:192000*10], 4)[0] 
         x = scratch_music(x, dec_x)                            
         try:
             y = scratch_music(y, dec_y)
@@ -818,7 +888,7 @@ class MusicEmotionStateMachine(object):
         positive_arousal_x = np.sum(np.vstack(positive_arousal_samples), axis=0) 
         positive_arousal_x = 0.5*positive_arousal_x/positive_arousal_x.max()
         if harmonic is True:
-            return librosa.decompose.hpss(librosa.stft(positive_arousal_x), margin = (1.0, 5.0))[0]  
+            return librosa.istft(librosa.decompose.hpss(librosa.stft(positive_arousal_x), margin = (1.0, 5.0))[0])  
         if harmonic is False or harmonic is None:
             song = sonify(positive_arousal_x, 44100)
             song.mel_bands_global()
@@ -834,12 +904,14 @@ class MusicEmotionStateMachine(object):
             remix_filename = files_dir+'/emotions/remixes/happy/'+str(time.strftime("%Y%m%d-%H:%M:%S"))+'multitag_remix'
             write_file(remix_filename, 44100, np.float32(output))
             subprocess.call(["ffplay", "-nodisp", "-autoexit", remix_filename+'.ogg'])
-    def relaxed_music_remix(self, neg_arous_dir, files, decisions, files_dir):
-        relaxed_harmonic = self.sad_music_remix(neg_arous_dir, files, decisions, files_dir, harmonic = True)
+    def relaxed_music_remix(self, neg_arous_dir, files, labels, filesb, labelsb, decisions, files_dir):
+        relaxed_harmonic = self.sad_music_remix(files, labels, filesb, labelsb, decisions, files_dir, harmonic = True)
         interv = hfc_onsets(np.float32(relaxed_harmonic))
         steps = overlapped_intervals(interv)
         output = librosa.effects.remix(relaxed_harmonic, steps[::-1], align_zeros = True)
-        n_steps = extract_tonal_shift(song) #based on maximum value of Harmonic Pitch Class Profile mean values of 12 bins we know where to shift
+        if output.size < 512:                                                                                                 
+            raise IndexError("Resulting signal is too short")
+        n_steps = extract_tonal_shift(song, 12) #based on maximum value of Harmonic Pitch Class Profile mean values of 12 bins we know where to shift
         try:
             output = librosa.effects.pitch_shift(output, sr = 44100, n_steps = n_steps)           
         except Exception as e:
@@ -848,13 +920,15 @@ class MusicEmotionStateMachine(object):
         remix_filename = files_dir+'/emotions/remixes/relaxed/'+str(time.strftime("%Y%m%d-%H:%M:%S"))+'multitag_remix'
         write_file(remix_filename, 44100, output)
         subprocess.call(["ffplay", "-nodisp", "-autoexit", remix_filename+'.ogg'])
-    def angry_music_remix(self, pos_arous_dir, files, decisions, files_dir):
-        angry_harmonic = self.happy_music_remix(pos_arous_dir, files, decisions, files_dir, harmonic = True)
+    def angry_music_remix(self, files, labels, filesb, labelsb, decisions, files_dir):
+        angry_harmonic = librosa.istft(self.happy_music_remix(files, labels, filesb, labelsb, decisions, files_dir, harmonic = True))
         song = sonify(angry_harmonic, 44100)
         song.mel_bands_global()
         interv = song.bpm()[1]
         steps = overlapped_intervals(interv)
         output = librosa.effects.remix(angry_harmonic, steps, align_zeros = True)
+        if output.size < 512:
+            raise IndexError("Resulting signal is too short")
         n_steps = extract_tonal_shift(song) #based on maximum value of Harmonic Pitch Class Profile mean values of 12 bins we know where to shift
         try:
             output = librosa.effects.pitch_shift(output, sr = 44100, n_steps = n_steps)           
@@ -864,29 +938,56 @@ class MusicEmotionStateMachine(object):
         remix_filename = files_dir+'/emotions/remixes/angry/'+str(time.strftime("%Y%m%d-%H:%M:%S"))+'multitag_remix'
         write_file(remix_filename, 44100, np.float32(output))
         subprocess.call(["ffplay", "-nodisp", "-autoexit", remix_filename+'.ogg'])
-    def not_happy_music_remix(self, neg_arous_dir, files, decisions, files_dir):
-        sounds = []
-        for i in range(len(neg_arous_dir)):
-            for subdirs, dirs, s in os.walk(neg_arous_dir[i]):                                  
-                sounds.append(subdirs + '/' + random.choice(s))
-        fx = random.choice(sounds[::-1])
-        fy = random.choice(sounds[:])                    
-        x = read(fx)[0]
-        y = read(fy)[0]  
+    def not_happy_music_remix(self, files, labels, filesb, labelsb, decisions, files_dir):
+        search_files = files[np.where(labels != 3)]
+        for i in range(len(search_files)):
+             search_files[i] = search_files[i].split('.')[0]
+        i = 0
+        lab_files = []
+        for tag in tags_dirs:
+             for f in (list(os.walk(tag, topdown = False)))[-1][-1]:
+                 if f.split('.')[0] in search_files:   
+                     lab_files.append(os.path.join(tag, f))  
+                     break        
+        fx = random.choice(lab_files)
+        music_emotion = labelsb[np.where(fx.split('/')[2].split('.')[0]+'.json' == filesb)][0]
+        music_emotion_matching = [i.split('.')[0] for i in filesb[np.where(labelsb == music_emotion)]]
+        emotion_matching = []
+        for i in search_files:
+            if i in music_emotion_matching: #we're filtering the search based on similar emotions (ie. if the file is sad and electronic then we remix it with another sad electronic file)
+                emotion_matching.append(i)
+        lab_files = []
+        for tag in tags_dirs:
+             for f in (list(os.walk(tag, topdown = False)))[-1][-1]:
+                 if f.split('.')[0] in search_files:   
+                     lab_files.append(os.path.join(tag, f))  
+                     break 
+        fy = random.choice(lab_files) 
+        x = read(fx)[0]  
+        y = read(fy)[0] 
         try:                                          
             x = (mono_stereo(x) if x[0].size == 2 else x) 
             y = (mono_stereo(y) if y[0].size == 2 else y) 
         except Exception as e:
             print("Remixing only a few seconds due to MemoryError")
             x = (mono_stereo(x[:192000 * 60]) if x[0].size == 2 else x) 
-            y = (mono_stereo(y[:192000 * 60]) if y[0].size == 2 else y) 
-        fx = fx.split('/')[-1].split('.')[0]+'.json'                                  
-        fy = fy.split('/')[-1].split('.')[0]+'.json'                                   
-        fx = np.where(files == fx)[0]                     
-        fy = np.where(files == fy)[0]                
+            y = (mono_stereo(y[:192000 * 60]) if y[0].size == 2 else y)                                                 
+        x = read(fx)[0]  
+        y = read(fy)[0] 
+        fx = fx.split('/')[2].split('.')[0]+'.json'                                 
+        fy = fy.split('/')[2].split('.')[0]+'.json' 
+        try:                                          
+            x = (mono_stereo(x) if x[0].size == 2 else x) 
+            y = (mono_stereo(y) if y[0].size == 2 else y) 
+        except Exception as e:
+            print("Remixing only a few seconds due to MemoryError")
+            x = (mono_stereo(x[:192000 * 60]) if x[0].size == 2 else x) 
+            y = (mono_stereo(y[:192000 * 60]) if y[0].size == 2 else y)                                
+        fx = np.where(files == fx)[0]                    
+        fy = np.where(files == fy)[0]             
         dec_x = get_coordinate(fx, choice(list(range(3))), decisions)               
         dec_y = get_coordinate(fy, choice(list(range(3))), decisions)
-        x = source_separation(x, 4)[0] 
+        x = source_separation(x[:192000*10], 4)[0] 
         x = scratch_music(x, dec_x)                            
         y = scratch_music(y, dec_y)
         x, y = same_time(x, y)
@@ -895,7 +996,9 @@ class MusicEmotionStateMachine(object):
         interv = hfc_onsets(np.float32(not_happy_x))
         steps = overlapped_intervals(interv)
         output = librosa.effects.remix(not_happy_x, steps[::-1], align_zeros = True)
-        n_steps = extract_tonal_shift(song) #based on maximum value of Harmonic Pitch Class Profile mean values of 12 bins we know where to shift
+        if output.size < 512:                                                                                                 
+            raise IndexError("Resulting signal is too short")
+        n_steps = extract_tonal_shift(song, 12) #based on maximum value of Harmonic Pitch Class Profile mean values of 12 bins we know where to shift
         try:
             output = librosa.effects.pitch_shift(output, sr = 44100, n_steps = n_steps)           
         except Exception as e:
@@ -904,29 +1007,56 @@ class MusicEmotionStateMachine(object):
         remix_filename = files_dir+'/emotions/remixes/not happy/'+str(time.strftime("%Y%m%d-%H:%M:%S"))+'multitag_remix'
         write_file(remix_filename, 44100, output)
         subprocess.call(["ffplay", "-nodisp", "-autoexit", remix_filename+'.ogg'])
-    def not_sad_music_remix(self, pos_arous_dir, files, decisions, files_dir):
-        sounds = []
-        for i in range(len(pos_arous_dir)):
-            for subdirs, dirs, s in os.walk(pos_arous_dir[i]):                                  
-                sounds.append(subdirs + '/' + random.choice(s))
-        fx = random.choice(sounds[::-1])
-        fy = random.choice(sounds[:])                    
+    def not_sad_music_remix(self, files, labels, filesb, labelsb, decisions, files_dir):
+        search_files = files[np.where(labels != 1)]
+        for i in range(len(search_files)):
+             search_files[i] = search_files[i].split('.')[0]
+        i = 0
+        lab_files = []
+        for tag in tags_dirs:
+             for f in (list(os.walk(tag, topdown = False)))[-1][-1]:
+                 if f.split('.')[0] in search_files:   
+                     lab_files.append(os.path.join(tag, f))  
+                     break        
+        fx = random.choice(lab_files)
+        music_emotion = labelsb[np.where(fx.split('/')[2].split('.')[0]+'.json' == filesb)][0]
+        music_emotion_matching = [i.split('.')[0] for i in filesb[np.where(labelsb == music_emotion)]]
+        emotion_matching = []
+        for i in search_files:
+            if i in music_emotion_matching: #we're filtering the search based on similar emotions (ie. if the file is sad and electronic then we remix it with another sad electronic file)
+                emotion_matching.append(i)
+        lab_files = []
+        for tag in tags_dirs:
+             for f in (list(os.walk(tag, topdown = False)))[-1][-1]:
+                 if f.split('.')[0] in search_files:   
+                     lab_files.append(os.path.join(tag, f))  
+                     break 
+        fy = random.choice(lab_files) 
         x = read(fx)[0]  
-        y = read(fy)[0]  
+        y = read(fy)[0] 
         try:                                          
             x = (mono_stereo(x) if x[0].size == 2 else x) 
             y = (mono_stereo(y) if y[0].size == 2 else y) 
         except Exception as e:
             print("Remixing only a few seconds due to MemoryError")
             x = (mono_stereo(x[:192000 * 60]) if x[0].size == 2 else x) 
-            y = (mono_stereo(y[:192000 * 60]) if y[0].size == 2 else y) 
-        fx = fx.split('/')[-1].split('.')[0]+'.json'                            
-        fy = fy.split('/')[-1].split('.')[0]+'.json'                                
+            y = (mono_stereo(y[:192000 * 60]) if y[0].size == 2 else y)                                                 
+        x = read(fx)[0]  
+        y = read(fy)[0] 
+        fx = fx.split('/')[2].split('.')[0]+'.json'                                 
+        fy = fy.split('/')[2].split('.')[0]+'.json' 
+        try:                                          
+            x = (mono_stereo(x) if x[0].size == 2 else x) 
+            y = (mono_stereo(y) if y[0].size == 2 else y) 
+        except Exception as e:
+            print("Remixing only a few seconds due to MemoryError")
+            x = (mono_stereo(x[:192000 * 60]) if x[0].size == 2 else x) 
+            y = (mono_stereo(y[:192000 * 60]) if y[0].size == 2 else y)                                
         fx = np.where(files == fx)[0]                    
         fy = np.where(files == fy)[0]             
         dec_x = get_coordinate(fx, choice([0,2,3]), decisions)               
         dec_y = get_coordinate(fy, choice([0,2,3]), decisions)
-        x = source_separation(x, 4)[0] 
+        x = source_separation(x[:192000*10], 4)[0] 
         x = scratch_music(x, dec_x)                            
         y = scratch_music(y, dec_y)
         x, y = same_time(x,y)
@@ -937,7 +1067,9 @@ class MusicEmotionStateMachine(object):
         interv = song.bpm()[1]
         steps = overlapped_intervals(interv)
         output = librosa.effects.remix(not_sad_x, steps[::-1], align_zeros = True)
-        n_steps = extract_tonal_shift(song) #based on maximum value of Harmonic Pitch Class Profile mean values of 12 bins we know where to shift
+        if output.size < 512:
+            raise IndexError("Resulting signal is too short")
+        n_steps = extract_tonal_shift(song, 12) #based on maximum value of Harmonic Pitch Class Profile mean values of 12 bins we know where to shift
         try:
             output = librosa.effects.pitch_shift(output, sr = 44100, n_steps = n_steps)           
         except Exception as e:
@@ -946,29 +1078,47 @@ class MusicEmotionStateMachine(object):
         remix_filename = files_dir+'/emotions/remixes/not sad/'+str(time.strftime("%Y%m%d-%H:%M:%S"))+'multitag_remix'
         write_file(remix_filename, 44100, np.float32(output))
         subprocess.call(["ffplay", "-nodisp", "-autoexit", remix_filename+'.ogg'])
-    def not_angry_music_remix(self, neg_arous_dir, files, decisions, files_dir):
-        sounds = []
-        for i in range(len(neg_arous_dir)):
-            for subdirs, dirs, s in os.walk(neg_arous_dir[i]):                                  
-                sounds.append(subdirs + '/' + random.choice(s))
-        fx = random.choice(sounds[::-1])
-        fy = random.choice(sounds[:])                    
-        x = read(fx)[0] 
-        y = read(fy)[0]
+    def not_angry_music_remix(self, files, labels, filesb, labelsb, decisions, files_dir):
+        search_files = files[np.where(labels != 0)]
+        for i in range(len(search_files)):
+             search_files[i] = search_files[i].split('.')[0]
+        i = 0
+        lab_files = []
+        for tag in tags_dirs:
+             for f in (list(os.walk(tag, topdown = False)))[-1][-1]:
+                 if f.split('.')[0] in search_files:   
+                     lab_files.append(os.path.join(tag, f))  
+                     break        
+        fx = random.choice(lab_files)
+        music_emotion = labelsb[np.where(fx.split('/')[2].split('.')[0]+'.json' == filesb)][0]
+        music_emotion_matching = [i.split('.')[0] for i in filesb[np.where(labelsb == music_emotion)]]
+        emotion_matching = []
+        for i in search_files:
+            if i in music_emotion_matching: #we're filtering the search based on similar emotions (ie. if the file is sad and electronic then we remix it with another sad electronic file)
+                emotion_matching.append(i)
+        lab_files = []
+        for tag in tags_dirs:
+             for f in (list(os.walk(tag, topdown = False)))[-1][-1]:
+                 if f.split('.')[0] in search_files:   
+                     lab_files.append(os.path.join(tag, f))  
+                     break 
+        fy = random.choice(lab_files) 
+        x = read(fx)[0]  
+        y = read(fy)[0] 
         try:                                          
             x = (mono_stereo(x) if x[0].size == 2 else x) 
             y = (mono_stereo(y) if y[0].size == 2 else y) 
         except Exception as e:
             print("Remixing only a few seconds due to MemoryError")
             x = (mono_stereo(x[:192000 * 60]) if x[0].size == 2 else x) 
-            y = (mono_stereo(y[:192000 * 60]) if y[0].size == 2 else y) 
-        fx = fx.split('/')[-1].split('.')[0]+'.json'                                 
-        fy = fy.split('/')[-1].split('.')[0]+'.json'                                  
-        fx = np.where(files == fx)[0]                      
-        fy = np.where(files == fy)[0]              
+            y = (mono_stereo(y[:192000 * 60]) if y[0].size == 2 else y)                                                 
+        fx = fx.split('/')[2].split('.')[0]+'.json'                                 
+        fy = fy.split('/')[2].split('.')[0]+'.json'                               
+        fx = np.where(files == fx)[0]                    
+        fy = np.where(files == fy)[0]               
         dec_x = get_coordinate(fx, choice(list(range(1,3))), decisions)               
         dec_y = get_coordinate(fy, choice(list(range(1,3))), decisions)
-        x = source_separation(x, 4)[0] 
+        x = source_separation(x[:192000*10], 4)[0] 
         x = scratch_music(x, dec_x)                            
         y = scratch_music(y, dec_y)
         x, y = same_time(x,y)
@@ -976,6 +1126,8 @@ class MusicEmotionStateMachine(object):
         interv = hfc_onsets(np.float32(stft_morph))
         steps = overlapped_intervals(interv)
         output = librosa.effects.remix(stft_morph, steps[::-1], align_zeros = False)
+        if output.size < 512:                                                                                                 
+            raise IndexError("Resulting signal is too short")
         n_steps = extract_tonal_shift(song) #based on maximum value of Harmonic Pitch Class Profile mean values of 12 bins we know where to shift
         try:
             output = librosa.effects.pitch_shift(output, sr = 44100, n_steps = n_steps)           
@@ -985,29 +1137,56 @@ class MusicEmotionStateMachine(object):
         remix_filename = files_dir+'/emotions/remixes/not angry/'+str(time.strftime("%Y%m%d-%H:%M:%S"))+'multitag_remix'
         write_file(remix_filename, 44100, output)
         subprocess.call(["ffplay", "-nodisp", "-autoexit", remix_filename+'.ogg'])
-    def not_relaxed_music_remix(self, pos_arous_dir, files, decisions, files_dir):
-        sounds = []
-        for i in range(len(pos_arous_dir)):
-            for subdirs, dirs, s in os.walk(pos_arous_dir[i]):                                  
-                sounds.append(subdirs + '/' + random.choice(s))
-        fx = random.choice(sounds[::-1])
-        fy = random.choice(sounds[:])                    
+    def not_relaxed_music_remix(self, files, labels, filesb, labelsb, decisions, files_dir):
+        search_files = files[np.where(labels != 2)]
+        for i in range(len(search_files)):
+             search_files[i] = search_files[i].split('.')[0]
+        i = 0
+        lab_files = []
+        for tag in tags_dirs:
+             for f in (list(os.walk(tag, topdown = False)))[-1][-1]:
+                 if f.split('.')[0] in search_files:   
+                     lab_files.append(os.path.join(tag, f))  
+                     break        
+        fx = random.choice(lab_files)
+        music_emotion = labelsb[np.where(fx.split('/')[2].split('.')[0]+'.json' == filesb)][0]
+        music_emotion_matching = [i.split('.')[0] for i in filesb[np.where(labelsb == music_emotion)]]
+        emotion_matching = []
+        for i in search_files:
+            if i in music_emotion_matching: #we're filtering the search based on similar emotions (ie. if the file is sad and electronic then we remix it with another sad electronic file)
+                emotion_matching.append(i)
+        lab_files = []
+        for tag in tags_dirs:
+             for f in (list(os.walk(tag, topdown = False)))[-1][-1]:
+                 if f.split('.')[0] in search_files:   
+                     lab_files.append(os.path.join(tag, f))  
+                     break 
+        fy = random.choice(lab_files) 
         x = read(fx)[0]  
-        y = read(fy)[0]
+        y = read(fy)[0] 
         try:                                          
             x = (mono_stereo(x) if x[0].size == 2 else x) 
             y = (mono_stereo(y) if y[0].size == 2 else y) 
         except Exception as e:
             print("Remixing only a few seconds due to MemoryError")
             x = (mono_stereo(x[:192000 * 60]) if x[0].size == 2 else x) 
-            y = (mono_stereo(y[:192000 * 60]) if y[0].size == 2 else y) 
-        fx = fx.split('/')[-1].split('.')[0]+'.json'                                
-        fy = fy.split('/')[-1].split('.')[0]+'.json'                       
-        fx = np.where(files == fx)[0]                     
-        fy = np.where(files == fy)[0]         
+            y = (mono_stereo(y[:192000 * 60]) if y[0].size == 2 else y)                                                 
+        x = read(fx)[0]  
+        y = read(fy)[0] 
+        fx = fx.split('/')[2].split('.')[0]+'.json'                                 
+        fy = fy.split('/')[2].split('.')[0]+'.json' 
+        try:                                          
+            x = (mono_stereo(x) if x[0].size == 2 else x) 
+            y = (mono_stereo(y) if y[0].size == 2 else y) 
+        except Exception as e:
+            print("Remixing only a few seconds due to MemoryError")
+            x = (mono_stereo(x[:192000 * 60]) if x[0].size == 2 else x) 
+            y = (mono_stereo(y[:192000 * 60]) if y[0].size == 2 else y)                                
+        fx = np.where(files == fx)[0]                    
+        fy = np.where(files == fy)[0]        
         dec_x = get_coordinate(fx, choice([0,1,3]), decisions)               
         dec_y = get_coordinate(fy, choice([0,1,3]), decisions)
-        x = source_separation(x, 4)[0] 
+        x = source_separation(x[:192000*10], 4)[0] 
         x = scratch_music(x, dec_x)                            
         y = scratch_music(y, dec_y)
         x, y = same_time(x,y)
@@ -1017,6 +1196,8 @@ class MusicEmotionStateMachine(object):
         interv = song.bpm()[1]
         steps = overlapped_intervals(interv)
         output = librosa.effects.remix(stft_morph, steps[::-1], align_zeros = False)
+        if output.size < 512:                                                                                                 
+            raise IndexError("Resulting signal is too short")
         n_steps = extract_tonal_shift(song) #based on maximum value of Harmonic Pitch Class Profile mean values of 12 bins we know where to shift
         try:
             output = librosa.effects.pitch_shift(output, sr = 44100, n_steps = n_steps)           
@@ -1026,50 +1207,484 @@ class MusicEmotionStateMachine(object):
         remix_filename = files_dir+'/emotions/remixes/not relaxed/'+str(time.strftime("%Y%m%d-%H:%M:%S"))+'multitag_remix'
         write_file(remix_filename, 44100, np.float32(output))
         subprocess.call(["ffplay", "-nodisp", "-autoexit", remix_filename+'.ogg'])
-    def remix(self, files, decisions, files_dir):
+    def acoustic_music_remix(self, files, labels, filesb, labelsb, decisions, files_dir):
+        search_files = filesb[np.where(labelsb == 0)]
+        for i in range(len(search_files)):
+             search_files[i] = search_files[i].split('.')[0]
+        i = 0
+        lab_files = []
+        for tag in tags_dirs:
+             for f in (list(os.walk(tag, topdown = False)))[-1][-1]:
+                 if f.split('.')[0] in search_files:   
+                     lab_files.append(os.path.join(tag, f))  
+                     break        
+        fx = random.choice(lab_files[::-1])
+        music_emotion = labels[np.where(fx.split('/')[2].split('.')[0]+'.json' == files)][0]
+        music_emotion_matching = [i.split('.')[0] for i in files[np.where(labels == music_emotion)]]
+        emotion_matching = []
+        for i in search_files:
+            if i in music_emotion_matching: #we're filtering the search based on similar emotions (ie. if the file is sad and electronic then we remix it with another sad electronic file)
+                emotion_matching.append(i)
+        lab_files = []
+        for tag in tags_dirs:
+             for f in (list(os.walk(tag, topdown = False)))[-1][-1]:
+                 if f.split('.')[0] in search_files:   
+                     lab_files.append(os.path.join(tag, f))  
+                     break 
+        fy = random.choice(lab_files) 
+        x = read(fx)[0]  
+        y = read(fy)[0] 
+        try:                                          
+            x = (mono_stereo(x) if x[0].size == 2 else x) 
+            y = (mono_stereo(y) if y[0].size == 2 else y) 
+        except Exception as e:
+            print("Remixing only a few seconds due to MemoryError")
+            x = (mono_stereo(x[:192000 * 60]) if x[0].size == 2 else x) 
+            y = (mono_stereo(y[:192000 * 60]) if y[0].size == 2 else y)                            
+        fx = fx.split('/')[2].split('.')[0]+'.json'                                 
+        fy = fy.split('/')[2].split('.')[0]+'.json'
+        fx = np.where(files == fx)[0]                      
+        fy = np.where(files == fy)[0]      
+        dec_x = get_coordinate(fx, music_emotion, decisions)
+        dec_y = get_coordinate(fy, music_emotion, decisions)
+        x = source_separation(x[:192000*10], 4)[0]  
+        x = scratch_music(x, dec_x)                            
+        y = scratch_music(y, dec_y)                           
+        x, y = same_time(x,y)                                                                       
+        negative_arousal_samples = [i/i.max() for i in (x,y)]                                                                       
+        negative_arousal_x = np.array(negative_arousal_samples).sum(axis=0)                                                           
+        negative_arousal_x = 0.5*negative_arousal_x/negative_arousal_x.max()
+        interv = hfc_onsets(np.float32(negative_arousal_x))
+        steps = overlapped_intervals(interv)
+        output = librosa.effects.remix(negative_arousal_x, steps[::-1], align_zeros = False)
+        song = sonify(output, 44100)
+        n_steps = extract_tonal_shift(song, 12) #based on maximum value of Harmonic Pitch Class Profile mean values of 12 bins we know where to shift
+        try:
+            output = librosa.effects.pitch_shift(output, sr = 44100, n_steps = n_steps)           
+        except Exception as e:
+            print("Remixing only a few seconds due to MemoryError")
+            output = librosa.effects.pitch_shift(output[:1920000], sr = 44100, n_steps = n_steps) #remix only fewer seconds
+        remix_filename = files_dir+'/emotions/remixes/sad/'+str(time.strftime("%Y%m%d-%H:%M:%S"))+'multitag_remix' 
+        write_file(remix_filename, 44100, output)
+        subprocess.call(["ffplay", "-nodisp", "-autoexit", remix_filename+'.ogg']) 
+    def electronic_music_remix(self, files, labels, filesb, labelsb, decisions, files_dir):
+        search_files = filesb[np.where(labelsb == 1)]
+        for i in range(len(search_files)):
+             search_files[i] = search_files[i].split('.')[0]
+        i = 0
+        lab_files = []
+        for tag in tags_dirs:
+             for f in (list(os.walk(tag, topdown = False)))[-1][-1]:
+                 if f.split('.')[0] in search_files:   
+                     lab_files.append(os.path.join(tag, f))  
+                     break        
+        fx = random.choice(lab_files[::-1])
+        music_emotion = labels[np.where(fx.split('/')[2].split('.')[0]+'.json' == files)][0]
+        music_emotion_matching = [i.split('.')[0] for i in files[np.where(labels == music_emotion)]]
+        emotion_matching = []
+        for i in search_files:
+            if i in music_emotion_matching: #we're filtering the search based on similar emotions (ie. if the file is sad and electronic then we remix it with another sad electronic file)
+                emotion_matching.append(i)
+        lab_files = []
+        for tag in tags_dirs:
+             for f in (list(os.walk(tag, topdown = False)))[-1][-1]:
+                 if f.split('.')[0] in search_files:   
+                     lab_files.append(os.path.join(tag, f))  
+                     break 
+        fy = random.choice(lab_files) 
+        x = read(fx)[0]  
+        y = read(fy)[0] 
+        try:                                          
+            x = (mono_stereo(x) if x[0].size == 2 else x) 
+            y = (mono_stereo(y) if y[0].size == 2 else y) 
+        except Exception as e:
+            print("Remixing only a few seconds due to MemoryError")
+            x = (mono_stereo(x[:192000 * 60]) if x[0].size == 2 else x) 
+            y = (mono_stereo(y[:192000 * 60]) if y[0].size == 2 else y) 
+        fx = fx.split('/')[2].split('.')[0]+'.json'                                 
+        fy = fy.split('/')[2].split('.')[0]+'.json'                                  
+        fx = np.where(files == fx)[0]                      
+        fy = np.where(files == fy)[0]                
+        dec_x = get_coordinate(fx, music_emotion, decisions)
+        dec_y = get_coordinate(fy, music_emotion, decisions)
+        x = source_separation(x[:192000*10], 4)[0]  
+        try:
+            x = scratch_music(x, dec_x)
+        except Exception as e:
+            print("A sound with too much 0s has been found and you wouldn't scratch it")                           
+        try:
+            y = scratch_music(y, dec_y)
+            x, y = same_time(x,y)
+        except Exception as e:
+            print('A memory error has ocurred during scratching, more snippets to be optimized')
+        if x.size < y.size:
+            y = y[:x.size]
+        else:
+            x = x[:y.size]
+        positive_arousal_samples = [i/i.max() for i in (x,y)]  
+        positive_arousal_x = np.sum(np.vstack(positive_arousal_samples), axis=0) 
+        positive_arousal_x = 0.5*positive_arousal_x/positive_arousal_x.max()
+        song = sonify(positive_arousal_x, 44100)
+        song.mel_bands_global()
+        interv = song.bpm()[1]
+        steps = overlapped_intervals(np.int32(interv * 44100))
+        output = librosa.effects.remix(positive_arousal_x, steps, align_zeros = False)
+        if output.size < 512:                                                                                                 
+            raise IndexError("Resulting signal is too short")
+        n_steps = extract_tonal_shift(song, 12) #based on maximum value of Harmonic Pitch Class Profile mean values of 12 bins we know where to shift
+        try:
+            output = librosa.effects.pitch_shift(output, sr = 44100, n_steps = n_steps)           
+        except Exception as e:
+            print("Remixing only a few seconds due to MemoryError")
+            output = librosa.effects.pitch_shift(output[:1920000], sr = 44100, n_steps = n_steps) #remix only fewer seconds
+        remix_filename = files_dir+'/emotions/remixes/happy/'+str(time.strftime("%Y%m%d-%H:%M:%S"))+'multitag_remix'
+        write_file(remix_filename, 44100, np.float32(output))
+        subprocess.call(["ffplay", "-nodisp", "-autoexit", remix_filename+'.ogg'])
+    def party_music_remix(self, files, labels, filesb, labelsb, decisions, files_dir):
+        search_files = filesb[np.where(labelsb == 2)]
+        for i in range(len(search_files)):
+             search_files[i] = search_files[i].split('.')[0]
+        i = 0
+        lab_files = []
+        for tag in tags_dirs:
+             for f in (list(os.walk(tag, topdown = False)))[-1][-1]:
+                 if f.split('.')[0] in search_files:   
+                     lab_files.append(os.path.join(tag, f))  
+                     break        
+        fx = random.choice(lab_files[::-1])
+        music_emotion = labels[np.where(fx.split('/')[2].split('.')[0]+'.json' == files)][0]
+        music_emotion_matching = [i.split('.')[0] for i in files[np.where(labels == music_emotion)]]
+        emotion_matching = []
+        for i in search_files:
+            if i in music_emotion_matching: #we're filtering the search based on similar emotions (ie. if the file is sad and electronic then we remix it with another sad electronic file)
+                emotion_matching.append(i)
+        lab_files = []
+        for tag in tags_dirs:
+             for f in (list(os.walk(tag, topdown = False)))[-1][-1]:
+                 if f.split('.')[0] in search_files:   
+                     lab_files.append(os.path.join(tag, f))  
+                     break 
+        fy = random.choice(lab_files) 
+        x = read(fx)[0]  
+        y = read(fy)[0] 
+        try:                                          
+            x = (mono_stereo(x) if x[0].size == 2 else x) 
+            y = (mono_stereo(y) if y[0].size == 2 else y) 
+        except Exception as e:
+            print("Remixing only a few seconds due to MemoryError")
+            x = (mono_stereo(x[:192000 * 60]) if x[0].size == 2 else x) 
+            y = (mono_stereo(y[:192000 * 60]) if y[0].size == 2 else y) 
+        fx = fx.split('/')[2].split('.')[0]+'.json'                                 
+        fy = fy.split('/')[2].split('.')[0]+'.json'                                  
+        fx = np.where(files == fx)[0]                      
+        fy = np.where(files == fy)[0]                
+        dec_x = get_coordinate(fx, music_emotion, decisions)
+        dec_y = get_coordinate(fy, music_emotion, decisions)
+        x = source_separation(x[:192000*10], 4)[0] 
+        x = scratch_music(x, dec_x)                            
+        try:
+            y = scratch_music(y, dec_y)
+            x, y = same_time(x,y)
+        except Exception as e:
+            print('A memory error has ocurred during scratching, more snippets to be optimized')
+        if x.size < y.size:
+            y = y[:x.size]
+        else:
+            x = x[:y.size]
+        positive_arousal_samples = [i/i.max() for i in (x,y)]  
+        positive_arousal_x = np.sum(np.vstack(positive_arousal_samples), axis=0) 
+        positive_arousal_x = 0.5*positive_arousal_x/positive_arousal_x.max()
+        song = sonify(positive_arousal_x, 44100)
+        song.mel_bands_global()
+        interv = song.bpm()[1]
+        steps = overlapped_intervals(np.int32(interv * 44100))
+        output = librosa.effects.remix(positive_arousal_x, steps, align_zeros = False)
+        if output.size < 512:
+            raise IndexError("Resulting signal is too short")
+        n_steps = extract_tonal_shift(song, 12) #based on maximum value of Harmonic Pitch Class Profile mean values of 12 bins we know where to shift
+        try:
+            output = librosa.effects.pitch_shift(output, sr = 44100, n_steps = n_steps)           
+        except Exception as e:
+            print("Remixing only a few seconds due to MemoryError")
+            output = librosa.effects.pitch_shift(output[:1920000], sr = 44100, n_steps = n_steps) #remix only fewer seconds
+        remix_filename = files_dir+'/emotions/remixes/happy/'+str(time.strftime("%Y%m%d-%H:%M:%S"))+'multitag_remix'
+        write_file(remix_filename, 44100, np.float32(output))
+        subprocess.call(["ffplay", "-nodisp", "-autoexit", remix_filename+'.ogg'])
+    def not_acoustic_music_remix(self, files, labels, filesb, labelsb, decisions, files_dir):
+        search_files = filesb[np.where(labelsb != 0)]
+        for i in range(len(search_files)):
+             search_files[i] = search_files[i].split('.')[0]
+        i = 0
+        lab_files = []
+        for tag in tags_dirs:
+             for f in (list(os.walk(tag, topdown = False)))[-1][-1]:
+                 if f.split('.')[0] in search_files:   
+                     lab_files.append(os.path.join(tag, f))  
+                     break        
+        fx = random.choice(lab_files[::-1])
+        music_emotion = labels[np.where(fx.split('/')[2].split('.')[0]+'.json' == files)][0]
+        music_emotion_matching = [i.split('.')[0] for i in files[np.where(labels == music_emotion)]]
+        emotion_matching = []
+        for i in search_files:
+            if i in music_emotion_matching: #we're filtering the search based on similar emotions (ie. if the file is sad and electronic then we remix it with another sad electronic file)
+                emotion_matching.append(i)
+        lab_files = []
+        for tag in tags_dirs:
+             for f in (list(os.walk(tag, topdown = False)))[-1][-1]:
+                 if f.split('.')[0] in search_files:   
+                     lab_files.append(os.path.join(tag, f))  
+                     break 
+        fy = random.choice(lab_files) 
+        x = read(fx)[0]  
+        y = read(fy)[0] 
+        try:                                          
+            x = (mono_stereo(x) if x[0].size == 2 else x) 
+            y = (mono_stereo(y) if y[0].size == 2 else y) 
+        except Exception as e:
+            print("Remixing only a few seconds due to MemoryError")
+            x = (mono_stereo(x[:192000 * 60]) if x[0].size == 2 else x) 
+            y = (mono_stereo(y[:192000 * 60]) if y[0].size == 2 else y)                            
+        fx = fx.split('/')[2].split('.')[0]+'.json'                                 
+        fy = fy.split('/')[2].split('.')[0]+'.json'
+        fx = np.where(files == fx)[0]                      
+        fy = np.where(files == fy)[0]      
+        dec_x = get_coordinate(fx, music_emotion, decisions)
+        dec_y = get_coordinate(fy, music_emotion, decisions)
+        x = source_separation(x[:192000*10], 4)[0]  
+        x = scratch_music(x, dec_x)                            
+        y = scratch_music(y, dec_y)                           
+        x, y = same_time(x,y)                                                                       
+        negative_arousal_samples = [i/i.max() for i in (x,y)]                                                                       
+        negative_arousal_x = np.array(negative_arousal_samples).sum(axis=0)                                                           
+        negative_arousal_x = 0.5*negative_arousal_x/negative_arousal_x.max()
+        interv = hfc_onsets(np.float32(negative_arousal_x))
+        steps = overlapped_intervals(interv)
+        output = librosa.effects.remix(negative_arousal_x, steps[::-1], align_zeros = False)
+        if output.size < 512:
+            raise IndexError("Resulting signal is too short")
+        song = sonify(output, 44100)
+        n_steps = extract_tonal_shift(song, 12) #based on maximum value of Harmonic Pitch Class Profile mean values of 12 bins we know where to shift
+        try:
+            output = librosa.effects.pitch_shift(output, sr = 44100, n_steps = n_steps)           
+        except Exception as e:
+            print("Remixing only a few seconds due to MemoryError")
+            output = librosa.effects.pitch_shift(output[:1920000], sr = 44100, n_steps = n_steps) #remix only fewer seconds
+        remix_filename = files_dir+'/emotions/remixes/sad/'+str(time.strftime("%Y%m%d-%H:%M:%S"))+'multitag_remix' 
+        write_file(remix_filename, 44100, output)
+        subprocess.call(["ffplay", "-nodisp", "-autoexit", remix_filename+'.ogg']) 
+    def not_electronic_music_remix(self, files, labels, filesb, labelsb, decisions, files_dir):
+        search_files = filesb[np.where(labelsb != 1)]
+        for i in range(len(search_files)):
+             search_files[i] = search_files[i].split('.')[0]
+        i = 0
+        lab_files = []
+        for tag in tags_dirs:
+             for f in (list(os.walk(tag, topdown = False)))[-1][-1]:
+                 if f.split('.')[0] in search_files:   
+                     lab_files.append(os.path.join(tag, f))  
+                     break        
+        fx = random.choice(lab_files[::-1])
+        music_emotion = labels[np.where(fx.split('/')[2].split('.')[0]+'.json' == files)][0]
+        music_emotion_matching = [i.split('.')[0] for i in files[np.where(labels == music_emotion)]]
+        emotion_matching = []
+        for i in search_files:
+            if i in music_emotion_matching: #we're filtering the search based on similar emotions (ie. if the file is sad and electronic then we remix it with another sad electronic file)
+                emotion_matching.append(i)
+        lab_files = []
+        for tag in tags_dirs:
+             for f in (list(os.walk(tag, topdown = False)))[-1][-1]:
+                 if f.split('.')[0] in search_files:   
+                     lab_files.append(os.path.join(tag, f))  
+                     break 
+        fy = random.choice(lab_files) 
+        x = read(fx)[0]  
+        y = read(fy)[0] 
+        try:                                          
+            x = (mono_stereo(x) if x[0].size == 2 else x) 
+            y = (mono_stereo(y) if y[0].size == 2 else y) 
+        except Exception as e:
+            print("Remixing only a few seconds due to MemoryError")
+            x = (mono_stereo(x[:192000 * 60]) if x[0].size == 2 else x) 
+            y = (mono_stereo(y[:192000 * 60]) if y[0].size == 2 else y) 
+        fx = fx.split('/')[2].split('.')[0]+'.json'                                 
+        fy = fy.split('/')[2].split('.')[0]+'.json'                                  
+        fx = np.where(files == fx)[0]                      
+        fy = np.where(files == fy)[0]                
+        dec_x = get_coordinate(fx, music_emotion, decisions)
+        dec_y = get_coordinate(fy, music_emotion, decisions)
+        x = source_separation(x[:192000*10], 4)[0] 
+        x = scratch_music(x, dec_x)                            
+        try:
+            y = scratch_music(y, dec_y)
+            x, y = same_time(x,y)
+        except Exception as e:
+            print('A memory error has ocurred during scratching, more snippets to be optimized')
+        if x.size < y.size:
+            y = y[:x.size]
+        else:
+            x = x[:y.size]
+        positive_arousal_samples = [i/i.max() for i in (x,y)]  
+        positive_arousal_x = np.sum(np.vstack(positive_arousal_samples), axis=0) 
+        positive_arousal_x = 0.5*positive_arousal_x/positive_arousal_x.max()
+        song = sonify(positive_arousal_x, 44100)
+        song.mel_bands_global()
+        interv = song.bpm()[1]
+        steps = overlapped_intervals(np.int32(interv * 44100))
+        output = librosa.effects.remix(positive_arousal_x, steps, align_zeros = False)
+        if output.size < 512:
+            raise IndexError("Resulting signal is too short")
+        n_steps = extract_tonal_shift(song, 12) #based on maximum value of Harmonic Pitch Class Profile mean values of 12 bins we know where to shift
+        try:
+            output = librosa.effects.pitch_shift(output, sr = 44100, n_steps = n_steps)           
+        except Exception as e:
+            print("Remixing only a few seconds due to MemoryError")
+            output = librosa.effects.pitch_shift(output[:1920000], sr = 44100, n_steps = n_steps) #remix only fewer seconds
+        remix_filename = files_dir+'/emotions/remixes/happy/'+str(time.strftime("%Y%m%d-%H:%M:%S"))+'multitag_remix'
+        write_file(remix_filename, 44100, np.float32(output))
+        subprocess.call(["ffplay", "-nodisp", "-autoexit", remix_filename+'.ogg'])
+    def not_party_music_remix(self, files, labels, filesb, labelsb, decisions, files_dir):
+        search_files = filesb[np.where(labelsb != 2)]
+        for i in range(len(search_files)):
+             search_files[i] = search_files[i].split('.')[0]
+        i = 0
+        lab_files = []
+        for tag in tags_dirs:
+             for f in (list(os.walk(tag, topdown = False)))[-1][-1]:
+                 if f.split('.')[0] in search_files:   
+                     lab_files.append(os.path.join(tag, f))  
+                     break        
+        fx = random.choice(lab_files[::-1])
+        music_emotion = labels[np.where(fx.split('/')[2].split('.')[0]+'.json' == files)][0]
+        music_emotion_matching = [i.split('.')[0] for i in files[np.where(labels == music_emotion)]]
+        emotion_matching = []
+        for i in search_files:
+            if i in music_emotion_matching: #we're filtering the search based on similar emotions (ie. if the file is sad and electronic then we remix it with another sad electronic file)
+                emotion_matching.append(i)
+        lab_files = []
+        for tag in tags_dirs:
+             for f in (list(os.walk(tag, topdown = False)))[-1][-1]:
+                 if f.split('.')[0] in search_files:   
+                     lab_files.append(os.path.join(tag, f))  
+                     break 
+        fy = random.choice(lab_files) 
+        x = read(fx)[0]  
+        y = read(fy)[0] 
+        try:                                          
+            x = (mono_stereo(x) if x[0].size == 2 else x) 
+            y = (mono_stereo(y) if y[0].size == 2 else y) 
+        except Exception as e:
+            print("Remixing only a few seconds due to MemoryError")
+            x = (mono_stereo(x[:192000 * 60]) if x[0].size == 2 else x) 
+            y = (mono_stereo(y[:192000 * 60]) if y[0].size == 2 else y) 
+        fx = fx.split('/')[2].split('.')[0]+'.json'                                 
+        fy = fy.split('/')[2].split('.')[0]+'.json'                                  
+        fx = np.where(files == fx)[0]                      
+        fy = np.where(files == fy)[0]                
+        dec_x = get_coordinate(fx, music_emotion, decisions)
+        dec_y = get_coordinate(fy, music_emotion, decisions)
+        x = source_separation(x[:192000*10], 4)[0] 
+        x = scratch_music(x, dec_x)                            
+        try:
+            y = scratch_music(y, dec_y)
+            x, y = same_time(x,y)
+        except Exception as e:
+            print('A memory error has ocurred during scratching, more snippets to be optimized')
+        if x.size < y.size:
+            y = y[:x.size]
+        else:
+            x = x[:y.size]
+        positive_arousal_samples = [i/i.max() for i in (x,y)]  
+        positive_arousal_x = np.sum(np.vstack(positive_arousal_samples), axis=0) 
+        positive_arousal_x = 0.5*positive_arousal_x/positive_arousal_x.max()
+        song = sonify(positive_arousal_x, 44100)
+        song.mel_bands_global()
+        interv = song.bpm()[1]
+        steps = overlapped_intervals(np.int32(interv * 44100))
+        output = librosa.effects.remix(positive_arousal_x, steps, align_zeros = False)
+        if output.size < 512:
+            raise IndexError("Resulting signal is too short")
+        n_steps = extract_tonal_shift(song, 12) #based on maximum value of Harmonic Pitch Class Profile mean values of 12 bins we know where to shift
+        try:
+            output = librosa.effects.pitch_shift(output, sr = 44100, n_steps = n_steps)           
+        except Exception as e:
+            print("Remixing only a few seconds due to MemoryError")
+            output = librosa.effects.pitch_shift(output[:1920000], sr = 44100, n_steps = n_steps) #remix only fewer seconds
+        remix_filename = files_dir+'/emotions/remixes/happy/'+str(time.strftime("%Y%m%d-%H:%M:%S"))+'multitag_remix'
+        write_file(remix_filename, 44100, np.float32(output))
+        subprocess.call(["ffplay", "-nodisp", "-autoexit", remix_filename+'.ogg'])
+    def remix(self, files, labels, filesb, labelsb, decisions, files_dir):
         while True:
             state = self.state()            
             if state == 'happy':                             
                 print("ENTERING STATE " + state.upper())                                  
-                self.happy_music_remix(files_dir+'/emotions/happy', files, decisions, files_dir, harmonic = None)
+                self.happy_music_remix(files, labels, filesb, labelsb, decisions, files_dir, harmonic = None)
                 print("ENTERED STATE " + state.upper()) 
                 print("EXITING STATE " + state.upper())                        
             if state == 'sad':                       
                 print("ENTERING STATE " + state.upper())                                   
-                self.sad_music_remix(files_dir+'/emotions/sad', files, decisions, files_dir, harmonic = None)
+                self.sad_music_remix(files, labels, filesb, labelsb, decisions, files_dir, harmonic = None)
                 print("ENTERED STATE " + state.upper()) 
                 print("EXITING STATE " + state.upper()) 
             if state == 'angry':                             
                 print("ENTERING STATE " + state.upper())                                  
-                self.angry_music_remix(files_dir+'/emotions/angry', files, decisions, files_dir)
+                self.angry_music_remix(files, labels, filesb, labelsb, decisions, files_dir)
                 print("ENTERED STATE " + state.upper()) 
                 print("EXITING STATE " + state.upper()) 
             if state == 'relaxed':                           
                 print("ENTERING STATE " + state.upper())                                  
-                self.relaxed_music_remix(files_dir+'/emotions/relaxed', files, decisions, files_dir)
+                self.relaxed_music_remix(files, labels, filesb, labelsb, decisions, files_dir)
                 print("ENTERED STATE " + state.upper()) 
                 print("EXITING STATE " + state.upper()) 
             if state == 'not happy':                         
                 print("ENTERING STATE " + state.upper())                                  
-                self.not_happy_music_remix([files_dir+'/emotions/sad', files_dir+'/emotions/angry', files_dir+'/emotions/relaxed'], files, decisions, files_dir)
+                self.not_happy_music_remix(files, labels, filesb, labelsb, decisions, files_dir)
                 print("ENTERED STATE " + state.upper()) 
                 print("EXITING STATE " + state.upper()) 
             if state == 'not sad':                           
                 print("ENTERING STATE " + state.upper())                                  
-                self.not_sad_music_remix([files_dir+'/emotions/happy', files_dir+'/emotions/angry', files_dir+'/emotions/relaxed'], files, decisions, files_dir)
+                self.not_sad_music_remix(files, labels, filesb, labelsb, decisions, files_dir)
                 print("ENTERED STATE " + state.upper()) 
                 print("EXITING STATE " + state.upper()) 
             if state == 'not angry':                         
                 print("ENTERING STATE " + state.upper())                                  
-                self.not_angry_music_remix([files_dir+'/emotions/happy', files_dir+'/emotions/sad', files_dir+'/emotions/relaxed'], files, decisions, files_dir)
+                self.not_angry_music_remix(files, labels, filesb, labelsb, decisions, files_dir)
                 print("ENTERED STATE " + state.upper()) 
                 print("EXITING STATE " + state.upper()) 
             if state == 'not relaxed':                       
                 print("ENTERING STATE " + state.upper())                                 
-                self.not_relaxed_music_remix([files_dir+'/emotions/happy', files_dir+'/emotions/sad', files_dir+'/emotions/angry'], files, decisions, files_dir)
+                self.not_relaxed_music_remix(files, labels, filesb, labelsb, decisions, files_dir)
                 print("ENTERED STATE " + state.upper()) 
                 print("EXITING STATE " + state.upper()) 
-                            
+            if state == 'party':                             
+                print("ENTERING STATE " + state.upper())                                  
+                self.party_music_remix(files, labels, filesb, labelsb, decisions, files_dir)
+                print("ENTERED STATE " + state.upper()) 
+                print("EXITING STATE " + state.upper())                        
+            if state == 'electronic':                       
+                print("ENTERING STATE " + state.upper())                                   
+                self.electronic_music_remix(files, labels, filesb, labelsb, decisions, files_dir)
+                print("ENTERED STATE " + state.upper()) 
+                print("EXITING STATE " + state.upper()) 
+            if state == 'acoustic':                             
+                print("ENTERING STATE " + state.upper())                                  
+                self.acoustic_music_remix(files, labels, filesb, labelsb, decisions, files_dir)
+                print("ENTERED STATE " + state.upper()) 
+                print("EXITING STATE " + state.upper()) 
+            if state == 'not party':                           
+                print("ENTERING STATE " + state.upper())                                  
+                self.not_party_music_remix(files, labels, filesb, labelsb, decisions, files_dir)
+                print("ENTERED STATE " + state.upper()) 
+                print("EXITING STATE " + state.upper()) 
+            if state == 'not electronic':                         
+                print("ENTERING STATE " + state.upper())                                  
+                self.not_electronic_music_remix(files, labels, filesb, labelsb, decisions, files_dir)
+                print("ENTERED STATE " + state.upper()) 
+                print("EXITING STATE " + state.upper()) 
+            if state == 'not acoustic':                           
+                print("ENTERING STATE " + state.upper())                                  
+                self.not_acoustic_music_remix(files, labels, filesb, labelsb, decisions, files_dir)
+                print("ENTERED STATE " + state.upper()) 
+                print("EXITING STATE " + state.upper())                            
 
 Usage = "./MusicEmotionMachine.py [FILES_DIR] [OUTPUT_DIR] [MULTITAG PROBLEM FalseNone/True] [TRANSITION a/r/s]"
 
@@ -1091,9 +1706,11 @@ def main():
                 files = descriptors_and_keys(tags_dir, True)._files  
                 features = descriptors_and_keys(tags_dir, True)._features
                 fscaled = feature_scaling(features)
+                fscaled = np.delete(fscaled, -4, 1) #don't use duration for emotion classification, keep it for genre classification
                 print (len(fscaled))
                 del features                 
-                labels = KMeans_clusters(fscaled)
+                labels = KMeans_clusters(fscaled, 4)
+                #human emotion
                 layers = svm_layers()
                 permute = list(permutations(['linear', 'poly', 'rbf', 'sigmoid'], 2))
                 layers.layer_computation(fscaled, labels, permute)
@@ -1101,10 +1718,13 @@ def main():
                 labl = layers.best_labels()
                 layers.attention() 
 
-                layers.layer_computation(MinMaxScaler().fit_transform(layers.attention_dataset), labl, permute)
+                try:
+                    layers.layer_computation(layers.attention_dataset, labl, permute)
+                except Exception as e:
+                    layers.layer_computation(MinMaxScaler().fit_transform(layers.attention_dataset), labl, permute)
+                    
                 labl = layers.best_labels()
                 layers.attention() 
-
                 layers.store_attention(files, sys.argv[2])
 
                 fx = layers.attention_dataset  
@@ -1120,24 +1740,30 @@ def main():
 
             if 's' in sys.argv[4] or 'r' in sys.argv[4]: 
                 try:                          
-                    msvm = main_svm(fx, labl, 1./0.001, 0.001, 1./fx.shape[1], ['linear', 'rbf'], output_dir) #linear-poly linear-rbf 0.001 or 0.33 can be good parameters too               
+                    msvm = main_svm(fx, labl, 1./0.33, 0.33, 1./fx.shape[1], ['linear', 'rbf'], output_dir) #linear-poly linear-rbf 0.001 or 0.33 can be good parameters too               
                 except Exception as e:        
-                    msvm = main_svm(fx, labl, 1./0.001, 0.001, 1./fx.shape[1], ['linear', 'poly'], output_dir) #linear-poly linear-rbf 0.001 or 0.33 can be good parameters too                                       
+                    msvm = main_svm(fx, labl, 1./0.33, 0.33, 1./fx.shape[1], ['linear', 'poly'], output_dir) #linear-poly linear-rbf 0.001 or 0.33 can be good parameters too                                       
                 try:                          
                     tags_dir                  
                 except Exception as e:        
                     tags_dir = tags_dirs(files_dir)
-                msvm.save_decisions()         
-                msvm.save_classes(files)          
-                emotions_data_dir(files_dir)                                   
-                multitag_emotions_dir(tags_dir, files_dir, msvm.neg_and_pos(files))
+                music_emotion = KNeighborsClassifier().fit(fx,KMeans_clusters(fx, 3)).predict(fx) #using the attention from psychological emotion we can know music emotion 
+                music_emotion = msvm.predictions(fx, music_emotion) #we can use human emotion to recognize emotion (happy music with party mood, and any other combination)
+                msvm.save_decisions()        
+                msvm.save_classes(files, 'psychological_emotion')  
+                msvm.n_class = 3
+                msvm._labels = music_emotion
+                msvm.save_classes(files, 'music_emotion')        
+                emotions_data_dir(files_dir)
 
         if (sys.argv[3] in ('None')) or (sys.argv[3] in ('False')): 
             files_dir = sys.argv[1]
-            data_dir = sys.argv[2]    
-            files, labels, decisions = read_file(data_dir+'/files_classes.csv', data_dir)  
+            data_dir = sys.argv[2]
+            tags_dirs = tags_dirs(files_dir)    
+            files, labels, decisions = read_file(data_dir+'/psychological_emotionfiles_classes.csv', data_dir)
+            filesb, labelsb, decisionsb = read_file(data_dir+'/music_emotionfiles_classes.csv', data_dir)  
             me = MusicEmotionStateMachine("Johnny", files_dir) #calling Johnny        
-            me.remix(files, decisions, files_dir)
+            me.remix(files, labels, filesb, labelsb, decisions, files_dir)
     except Exception as e:                     
         logger.exception(e)
 
