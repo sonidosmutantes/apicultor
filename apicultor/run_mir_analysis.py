@@ -9,6 +9,7 @@ import logging
 from .utils.algorithms import *
 from soundfile import read
 from collections import defaultdict, OrderedDict
+from .sonification.Sonification import hfc_onsets
 
 logging.basicConfig(level=logging.DEBUG)
 logger = logging.getLogger(__name__)  
@@ -26,7 +27,13 @@ descriptors = [
                 'sfx.logattacktime',  
                 'sfx.inharmonicity', 
                 'rhythm.bpm',
-                'metadata.duration'
+                'metadata.duration',
+                'lowlevel.spectral_flux',
+                'lowlevel.zero_crossing_rate',
+                'rhythm.onsets_hfc',
+                'rhythm.onsets_flux',
+                'highlevel.chords_sequence',
+                'highlevel.danceability'
                 ]
 
 def process_file(inputSoundFile, tag_dir, input_filename):
@@ -39,9 +46,19 @@ def process_file(inputSoundFile, tag_dir, input_filename):
     json_output = descriptors_dir + '/' + os.path.splitext(input_filename)[0] + ".json"
                               
     if os.path.exists(json_output) is True:                         
-           raise IOError(".json already saved")
+        pending_descriptions = []
+        for i in descriptors:                                         
+            if not i+'.mean' in list(json.load(open(json_output,'r')).keys()):
+                pending_descriptions.append(i)
+        if pending_descriptions == []:                                         
+            raise IOError(".json already saved")
     if os.path.exists(json_output) is False:                         
            pass
+
+    try:
+        pending_descriptions
+    except Exception as e:
+        pending_descriptions = []
 
     input_signal, sampleRate = read(inputSoundFile)
 
@@ -70,31 +87,31 @@ def process_file(inputSoundFile, tag_dir, input_filename):
         namespace = 'loudness'
         desc_name = namespace + '.level'
         retrieve.Loudness()
-        if desc_name in descriptors:
+        if (desc_name in descriptors and os.path.exists(json_output) is False) or (pending_descriptions != [] and desc_name in pending_descriptions):
             pool[desc_name].append(retrieve.loudness)
 
         #low level
         namespace = 'lowlevel'
 
         desc_name = namespace + '.spectral_centroid'
-        if desc_name in descriptors:
+        if (desc_name in descriptors and os.path.exists(json_output) is False) or (pending_descriptions != [] and desc_name in pending_descriptions):
             c = retrieve.centroid()
             pool[desc_name].append(c)
 
         desc_name = namespace + '.spectral_contrast'
-        if desc_name in descriptors:
+        if (desc_name in descriptors and os.path.exists(json_output) is False) or (pending_descriptions != [] and desc_name in pending_descriptions):
             eighth_contrast = retrieve.contrast()
             pool[desc_name].append(eighth_contrast[0])
             pool[namespace + '.spectral_valleys'].append(eighth_contrast[1])
 
         desc_name = namespace + '.mfcc'
-        if desc_name in descriptors:
+        if (desc_name in descriptors and os.path.exists(json_output) is False) or (pending_descriptions != [] and desc_name in pending_descriptions):
             retrieve.MFCC_seq()
             pool[desc_name].append(retrieve.mfcc_seq)
             pool[desc_name+'_bands'].append(retrieve.mel_bands)
 
         desc_name = namespace + '.hfc'
-        if desc_name in descriptors:
+        if (desc_name in descriptors and os.path.exists(json_output) is False) or (pending_descriptions != [] and desc_name in pending_descriptions):
             pool[desc_name].append(retrieve.hfc())
 
         # dissonance
@@ -102,52 +119,115 @@ def process_file(inputSoundFile, tag_dir, input_filename):
         retrieve.fundamental_frequency()
         retrieve.harmonic_peaks()
         desc_name = namespace + '.dissonance'
-        if desc_name in descriptors:
+        if (desc_name in descriptors and os.path.exists(json_output) is False) or (pending_descriptions != [] and desc_name in pending_descriptions):
             pool[desc_name].append(retrieve.dissonance())
 
         retrieve.Envelope()
         retrieve.AttackTime()
         desc_name = 'sfx.logattacktime'
-        if desc_name in descriptors:
+        if (desc_name in descriptors and os.path.exists(json_output) is False) or (pending_descriptions != [] and desc_name in pending_descriptions):
             pool[desc_name].append(retrieve.attack_time)
 
         #inharmonicity
         desc_name = 'sfx.inharmonicity'
-        if desc_name in descriptors: 
+        if (desc_name in descriptors and os.path.exists(json_output) is False) or (pending_descriptions != [] and desc_name in pending_descriptions): 
             try:
                 pool[desc_name].append(retrieve.inharmonicity())
             except IndexError:
                 pool[desc_name].append(1.0) #we say its 1.0 simply because there's only one harmonic peak, meaning other peaks easily depart
 
-        i += 1
-        print ("Processing Frame " + str(i))
+        if (desc_name in descriptors and os.path.exists(json_output) is False) or (pending_descriptions != [] and desc_name in pending_descriptions): 
+            pass
+        else: 
+            i += 1
+            print ("Processing Frame " + str(i))            
 
     #bpm
     namespace = 'rhythm'
     desc_name = namespace + '.bpm'
-    if desc_name in descriptors:
+    if (desc_name in descriptors and os.path.exists(json_output) is False) or (pending_descriptions != [] and desc_name in pending_descriptions):
         retrieve.onsets_strength()
         retrieve.bpm()
         pool[desc_name].append(retrieve.tempo)
         pool['rhythm.bpm_ticks'].append(retrieve.ticks / retrieve.M)
 
+    #zero crossing rate
+    namespace = 'lowlevel'
+    desc_name = namespace + '.zero_crossing_rate'
+    if (desc_name in descriptors and os.path.exists(json_output) is False) or (pending_descriptions != [] and desc_name in pending_descriptions):
+        zcr = retrieve.zcr()
+        pool[desc_name].append(zcr)
+
+    #spectral flux
+    namespace = 'lowlevel'
+    desc_name = namespace + '.spectral_flux'
+    if (desc_name in descriptors and os.path.exists(json_output) is False) or (pending_descriptions != [] and desc_name in pending_descriptions):
+        try:
+            retrieve.mel_dbs
+            pool[desc_name].append(np.mean(retrieve.flux(retrieve.mel_dbs)))
+        except Exception as e:
+            retrieve.mel_bands_global()
+            pool[desc_name].append(np.mean(retrieve.flux(retrieve.mel_dbs)))
+
+    #onsets by flux
+    namespace = 'rhythm'
+    desc_name = namespace + '.onsets_flux'
+    if (desc_name in descriptors and os.path.exists(json_output) is False) or (pending_descriptions != [] and desc_name in pending_descriptions):
+        try:
+            retrieve.mel_dbs
+            retrieve.onsets_by_flux()
+            pool[desc_name].append(np.mean(retrieve.onsets_indexes / retrieve.fs))
+        except Exception as e:
+            pool[desc_name].append(np.mean(retrieve.onsets_indexes / retrieve.fs))
+            
+    #onsets by high frequency content
+    namespace = 'rhythm'
+    desc_name = namespace + '.onsets_hfc'
+    if (desc_name in descriptors and os.path.exists(json_output) is False) or (pending_descriptions != [] and desc_name in pending_descriptions):
+        pool[desc_name].append(np.mean(hfc_onsets(retrieve.signal) / retrieve.fs))            
+
+    #danceability
+    namespace = 'highlevel'
+    desc_name = namespace + '.danceability'
+    if (desc_name in descriptors and os.path.exists(json_output) is False) or (pending_descriptions != [] and desc_name in pending_descriptions):
+        pool[desc_name].append(danceability(retrieve.signal, retrieve.fs))        
+
+    #chords sequence
+    namespace = 'highlevel'
+    desc_name = namespace + '.chords_sequence'
+    retrieve.audio_signal_spectrum = [] #empty the buffers to make chord analysis
+    if (desc_name in descriptors and os.path.exists(json_output) is False) or (pending_descriptions != [] and desc_name in pending_descriptions):
+        pool[desc_name].append(chord_sequence(retrieve)) 
+
     #duration
     namespace = 'metadata'
     desc_name = namespace + '.duration'
-    if desc_name in descriptors:
+    if (desc_name in descriptors and os.path.exists(json_output) is False) or (pending_descriptions != [] and desc_name in pending_descriptions):
         pool[desc_name].append(retrieve.duration)
-
-    #end of frame computation
 
     print("Obtaining mean values")
 
-    sorted_keys = ["lowlevel.dissonance", "lowlevel.mfcc_bands", "sfx.inharmonicity", "rhythm.bpm", "lowlevel.spectral_contrast", "lowlevel.spectral_centroid", "rhythm.bpm_ticks", "lowlevel.mfcc", "loudness.level", "metadata.duration","lowlevel.spectral_valleys", "sfx.logattacktime", "lowlevel.hfc"] #sort the keys correctly to prevent bad scaling
+    sorted_keys = ["lowlevel.dissonance", "lowlevel.mfcc_bands", "sfx.inharmonicity", "rhythm.bpm", "lowlevel.spectral_contrast", "lowlevel.spectral_centroid", "rhythm.bpm_ticks", "lowlevel.mfcc", "loudness.level", "metadata.duration","lowlevel.spectral_valleys", "sfx.logattacktime", "lowlevel.hfc", 'lowlevel.spectral_flux','lowlevel.zero_crossing_rate','rhythm.onsets_hfc','rhythm.onsets_flux','highlevel.danceability','highlevel.chords_sequence'] #sort the keys correctly to prevent bad scaling
 
-    pool_stats = OrderedDict((k+'.mean', np.mean(pool.get(k)).real) for k in sorted_keys)
+    keys = []
+    for k in sorted_keys:
+        try:                                                
+            keys.append((k+'.mean', np.mean(pool.get(k)).real))
+        except Exception as e:    
+            keys.append((k+'.mean', pool.get(k)))              
+    pool_stats = OrderedDict(keys)
+
     print (pool_stats)
 
-    with open(json_output, 'w') as outfile:
-         json.dump(pool_stats, outfile) #write to file
+    if not os.path.exists(json_output):    
+        with open(json_output, 'w') as outfile:       
+            json.dump(pool_stats, outfile) #write to file 
+    else:
+        with open(json_output) as outfile:     
+            data = json.load(outfile) 
+            data.update(pool_stats)
+        with open(json_output, 'w') as outfile:
+            outfile.write(json.dumps(pool_stats, indent = 2)) 
 
     print(json_output) 
 #()    
