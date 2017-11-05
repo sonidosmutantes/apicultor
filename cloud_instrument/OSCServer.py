@@ -61,6 +61,14 @@ class OSCServer(liblo.ServerThread):
         print("Update reverb. Wet: %f"%wet)
         self.audio_server.set_reverb_wet(wet)
 
+    @make_method("/set_voices", 'ff')
+    def update_set_voices_callback(self, path, args):
+        voice = int(args[0])
+        status = int(args[1])
+        if status==1:
+            print("Update Voice %i. Status: %i"%(voice,status))
+            self.audio_server.set_enabled_voice(voice)
+
     @make_method("/retrieve", 'i')
     def retrieve_button_callback(self, path, args):
         state = args[0]

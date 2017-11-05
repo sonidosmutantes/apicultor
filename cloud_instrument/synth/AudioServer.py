@@ -30,8 +30,12 @@ class AudioServer:
         "spectral_centroid.mean": "lowlevel.spectral_centroid.mean",
         "spectral_complexity.mean": "lowlevel.spectral_complexity.mean"
     }
-    def retrieve_new_sample(self, mir_state):
 
+    def set_enabled_voice(self, voice):
+        self.enabled_voice = voice
+    #()
+
+    def retrieve_new_sample(self, mir_state):
 #         #FIXME: needs two descriptors? duration and other?
 #         # duration always have a number (minor equal) < value
 #         new_state["sfx.duration"] = "* TO %s"%new_state["sfx.duration"]
@@ -69,6 +73,6 @@ class AudioServer:
         
         if os.path.exists( file_chosen ) and os.path.getsize(file_chosen)>1000:
             self.logging.debug(file_chosen+" by "+ author + " - id: "+str(sound_id)+"\n")
-            self.vocoderplayfile(file_chosen)
-
+            self.playfile(file_chosen)
+    #()
 #class

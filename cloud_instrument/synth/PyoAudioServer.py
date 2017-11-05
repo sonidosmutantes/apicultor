@@ -190,4 +190,8 @@ class PyoAudioServer(AudioServer):
     #TODO: chequear si se usa
     # def set_ramp_time():
     #     pos.time = porta.get()
+
+    def playfile(self, new_file, dry_value=1., loop_status=True):
+        self.vocoderplayfile(new_file)
+    #()
 #class
