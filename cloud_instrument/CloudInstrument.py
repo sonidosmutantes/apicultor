@@ -2,8 +2,21 @@
 # -*- coding: utf-8 -*-
 
 """
-Recibe mensajes por OSC para definir un estado sonoro en base a descriptores MIR
-Sintetiza sonido utilizando Pyo
+This program receives osc messages to define a sound state based in MIR descriptors like HFC, BPM, duration, spectral centroid and others.
+
+* Realtime synthesis using Pyo engine or via Supercollider
+* OSC messages to set MIR state are received in port 9001 (by default) or can be set in the config file
+* API Setup: Freesound, custom, redpanal
+* Configuration file: .config.json 
+
+Example of config file:
+{ 
+  "api": "freesound",
+  "Freesound.org": [
+      { "API_KEY": ""
+      }
+   ]
+}
 """
 
 from __future__ import print_function
@@ -14,11 +27,11 @@ import json
 import signal
 import logging
 
-# import urllib2
-# from random import random
-from enum import Enum
-# from math import pow
 
+sys.path.append(os.path.join(os.path.dirname(os.path.realpath('__file__')), '../'))
+
+# import urllib2
+from enum import Enum
 from OSCServer import *
 from synth.PyoAudioServer import PyoAudioServer
 from mir.db.FreesoundDB import FreesoundDB
@@ -26,7 +39,7 @@ from mir.db.RedPanalDB import RedPanalDB
 from mir.MIRState import MIRState
 # from control.MIDI import MIDI # TODO: make it optional (less dependencies)
 
-	
+
 class ErrorCode(Enum):
 	OK = 0
 	NO_CONFIG = 1
@@ -42,7 +55,7 @@ def signal_handler(signal, frame):
 	sys.exit(ErrorCode.OK.value)
 signal.signal(signal.SIGINT, signal_handler)
 
-Usage = "./.py [state.json]"
+Usage = "./CloudInstument.py"
 if __name__ == '__main__':
 	logging.basicConfig(filename='instrumento_nube.log',level=logging.DEBUG)
 	# TODO: add timestamp
@@ -93,24 +106,25 @@ if __name__ == '__main__':
 	except:
 		pass
 
-	# # JSON composition file (default)
-	# json_data = ""
-	# try:
-	# 	logging.debug("Composition json file load and init")
-	# 	json_comp_file = sys.argv[1] 
-	# 	json_data = json.load( open(json_comp_file,'r') )
-	# 	logging.debug( json_data )
-	# except Exception, e:
-	# 	logging.error(e)
-	# 	logging.error("JSON composition file error.")
-	# 	#WARNING: bad realtime practice (check if it is writing file. Instead, add to a memory buffer and write before exit
-	# 	# logging.debug("Starting MIR state machine")
-	# 	try:
-	# 		logging.debug("Starting MIR state machine: "+json_comp_file+"\n")
-	# 	except:
-	# 		pass
-	# 	# sys.exit(ErrorCode.BAD_ARGUMENTS.value) #not required
-
+"""
+  Load an automatic JSON composition file (default)
+	json_data = ""
+	try:
+		logging.debug("Composition json file load and init")
+		json_comp_file = sys.argv[1] 
+		json_data = json.load( open(json_comp_file,'r') )
+		logging.debug( json_data )
+	except Exception, e:
+		logging.error(e)
+		logging.error("JSON composition file error.")
+		#WARNING: bad realtime practice (check if it is writing file. Instead, add to a memory buffer and write before exit
+		# logging.debug("Starting MIR state machine")
+		try:
+			logging.debug("Starting MIR state machine: "+json_comp_file+"\n")
+		except:
+			pass
+		# sys.exit(ErrorCode.BAD_ARGUMENTS.value) #not required
+"""
 
 	# OSC server, listening on configured port (9001 by default)
 	try:
