@@ -64,7 +64,7 @@ class SupercolliderServer(AudioServer):
         msg = OSC.OSCMessage()
         msg.setAddress("/playfreeze") # (file,voice_number)
         msg.append( "%s/%s"%(os.environ["PWD"],new_file) )
-        msg.append( self.enabled_voice )
+        msg.append( self.enabled_voice-1) #convert to [0..7] range
 
         try:
             osc_client.send(msg)

@@ -4,10 +4,14 @@
 //s.options.sampleRate= 48000;
 s.boot; //start server
 
+//Test msg
+~netaddr = NetAddr("127.0.0.1", 57120);
+//~netaddr.sendMsg("/playfreeze", "/Users/hordia/git/mutantes/apicultor/cloud_instrument/BREATHE_IN_2.wav",0); // (method, file_path, voice_number)
+
 s.waitForBoot {
 
-	~bufferinstances = [];
-	~synthInstances = [];
+	~bufferinstances = Array.newClear(8);
+	~synthInstances = Array.newClear(8);
 
 	//freeze
 	SynthDef(\mutantefreeze, { arg out=0, bufnum=0, point=0, vol=1, fftwidth=4096, pan=0, startPos=0;
@@ -40,18 +44,53 @@ s.waitForBoot {
 			var new_file, voice_number;
 
 			new_file = msg[1].asString;
-			voice_number = msg[2].asString;
-			~bufferinstances.add(  Buffer.read(s, new_file) );
+			voice_number = msg[2].asInt;
 			("Voice number: "+voice_number).postln;
 			( "New sound received " + new_file ).postln;
 
-			~synthInstances.add(Synth(\mutantefreeze, [\bufnum, b.bufnum, \out, 0, \vol, 1]))
+			~bufferinstances[voice_number] = Buffer.read(s, new_file);
+
+			~synthInstances[voice_number] = Synth(\mutantefreeze, [\bufnum, ~bufferinstances[voice_number].bufnum, \out, 0, \vol, 1])
 		},
 
 		'/playfreeze'
 	);
+//x.free;
+
+	////////////////
+	//MIDI controller
+	////////////////
 
 	~mpkmidimix = AkaiMidiMix(); //también hace el midi connect All
+
+	/////////////////////////////////////
+// MIDI out
+
+~default_channel = 0;
+~midi_device_set_color = MIDIOut.newByName("MIDI Mix", "MIDI Mix");
+~button_light = {
+	|button_arg, onoff_arg|
+	~midi_device_set_color.noteOn(~default_channel, button_arg, onoff_arg);
+};
+
+//Turn off all the buttons light
+~mpkmidimix.recpads.do {|pad, i|
+	~button_light.value(pad.note, 0); //off
+};
+~mpkmidimix.mutepads.do {|pad, i|
+	~button_light.value(pad.note, 0); //off
+};
+
+~button_blink = {
+   |button_arg|
+	a = Task({
+   ~button_light.value(button_arg, 1);
+	0.2.wait;
+   ~button_light.value(button_arg, 0);
+	});
+	a.start;
+};
+/////////////////////////////////////
 
 	//master sound server volume (SuperCollider in DB)
 	v = s.volume;
@@ -78,7 +117,7 @@ s.waitForBoot {
 
 
 	~granularAmount = [50,50,50,50,50,50,50,50]; //default values
-	~granular_voladjust = 4;
+	~granular_voladjust = 10;
 	~mpkmidimix.mutepads.do {|pad, i|
 		pad.onPress = {|val|
 			"Granular synth Pad %\n".postf(i+1);
@@ -109,5 +148,4 @@ s.waitForBoot {
 		slider.onChange = {|val| ~synthInstances[i].set(\vol, val.linlin(0,127,0,~maxvol))};
 	};
 } //end of waitForBoot
-
 
