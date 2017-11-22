@@ -1,15 +1,36 @@
 //Address and port
 //NetAddr.localAddr //check '127.0.0.1', 57120
 
-//s.options.sampleRate= 48000;
+s.options.sampleRate= 48000; //traktor 2
 s.boot; //start server
 
 //Test msg
-~netaddr = NetAddr("127.0.0.1", 57120);
+//~netaddr = NetAddr("127.0.0.1", 57120);
 //~netaddr.sendMsg("/playfreeze", "/Users/hordia/git/mutantes/apicultor/cloud_instrument/BREATHE_IN_2.wav",0); // (method, file_path, voice_number)
 
-s.waitForBoot {
+//pre-perfo
+/*
+~v1 = "/Users/hordia/git/mutantes/apicultor/cloud_instrument/BREATHE_IN_2.wav";
+//TODO: build in one line with a script
+~netaddr.sendMsg("/playfreeze", ~v1, 0);
+~netaddr.sendMsg("/playfreeze", ~v2, 1);
+~netaddr.sendMsg("/playfreeze", ~v3, 2);
+~netaddr.sendMsg("/playfreeze", ~v4, 3);
+~netaddr.sendMsg("/playfreeze", ~v5, 4);
+~netaddr.sendMsg("/playfreeze", ~v6, 5);
+~netaddr.sendMsg("/playfreeze", ~v7, 6);
+~netaddr.sendMsg("/playfreeze", ~v8, 7);
+*/
+/*
+Voice with explanation about API-Culture and sound from the Cloud...
+~mir_voice  = Buffer.read(s, "/Users/hordia/git/experimental-session/audio-demo-only-voice.wav");
+~voice = Synth(\mutantefreeze, [\bufnum, ~mir_voice.bufnum, \out, 0, \vol, 1])
+~voice.set(\point, 0); //off
+~voice.set(\point, 1); //on
+*/
 
+//TODO: there is not "channel" or voice setted by default
+s.waitForBoot {
 	~bufferinstances = Array.newClear(8);
 	~synthInstances = Array.newClear(8);
 
@@ -19,8 +40,6 @@ s.waitForBoot {
 		in = PlayBuf.ar(1, bufnum, BufRateScale.kr(bufnum),loop: 1);
 		chain = FFT(LocalBuf(4096), in);
 		chain = PV_MagFreeze(chain, point);
-
-		//Out.ar(out, vol * IFFT(chain).dup);
 
 		//with PAN
 		sig = Splay.ar(vol * IFFT(chain).dup);
@@ -48,8 +67,10 @@ s.waitForBoot {
 			("Voice number: "+voice_number).postln;
 			( "New sound received " + new_file ).postln;
 
+			~bufferinstances[voice_number].free;
 			~bufferinstances[voice_number] = Buffer.read(s, new_file);
 
+			~synthInstances[voice_number].free;
 			~synthInstances[voice_number] = Synth(\mutantefreeze, [\bufnum, ~bufferinstances[voice_number].bufnum, \out, 0, \vol, 1])
 		},
 
@@ -116,6 +137,7 @@ s.waitForBoot {
 	};
 
 
+
 	~granularAmount = [50,50,50,50,50,50,50,50]; //default values
 	~granular_voladjust = 10;
 	~mpkmidimix.mutepads.do {|pad, i|
@@ -147,5 +169,11 @@ s.waitForBoot {
 	~mpkmidimix.sliders.do {|slider, i|
 		slider.onChange = {|val| ~synthInstances[i].set(\vol, val.linlin(0,127,0,~maxvol))};
 	};
+
+	//Knobs --> mutantefreeze_synth PAN
+	~mpkmidimix.knobsC.do {|knob, i|
+		knob.onChange = {|val| ~synthInstances[i].set(\pan, val.linlin(0,127,-1,1))};
+	};
+
 } //end of waitForBoot
 
