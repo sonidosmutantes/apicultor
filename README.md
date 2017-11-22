@@ -14,7 +14,7 @@ Spanish version: [README_es.md](README_es.md)
 
 See [cloud_instrument/README.md](cloud_instrument/README.md)
 
-Interactive DEMO: [https://www.youtube.com/watch?v=2sMsKvfZKGA](https://www.youtube.com/watch?v=2sMsKvfZKGA) 
+Interactive __DEMO__: [https://www.youtube.com/watch?v=2sMsKvfZKGA](https://www.youtube.com/watch?v=2sMsKvfZKGA) 
 
 ![](doc/retrieve_ui.png)
 
@@ -27,9 +27,15 @@ Interdisciplinary performances based on sounds of the web platform [Redpanal.org
 
 ## Proofs of concept:
 
-* [APICultor + No Input + Granular synthesis performance](https://soundcloud.com/hern-n-ordiales/hard-glitch-trip).
+* [APICultor + No Input + Granular synthesis live performance](https://soundcloud.com/sonidosmutantes/apicultor-no-input).
 
-* [Proyecto de reciclado de sonidos libres de la web en RedPanal.org](http://redpanal.org/p/reciclado-de-samples/) (sonido + referencia al original).
+* Compositions & recycled samples
+  * [API-Cultor compositions](http://redpanal.org/p/apicultor/)
+  * [Proyecto de reciclado de sonidos libres de la web en RedPanal.org](http://redpanal.org/p/reciclado-de-samples/) (sonido + referencia al original).
+
+* Música generativa con máquina de estados MIR y sonidos libres de Freesound.org: 
+  * "[Feature Thinking](https://soundcloud.com/hern-n-ordiales/feature-thinking)" (con sonidos libres Creative Commons de Freesound.org) by hordia.
+  * State Machine @ CASo (Centro de Arte Sonoro) https://www.youtube.com/watch?v=sG1YUc8PQV4
 
 * Performances en vivo utilizando estas herramientas:
   * Jam con guitarras + fx chain y sintes analógicos: [Perfo mutante en La Siesta del Fauno](https://soundcloud.com/hern-n-ordiales/perfo-mutante-mobile)
@@ -37,10 +43,6 @@ Interdisciplinary performances based on sounds of the web platform [Redpanal.org
 [http://redpanal.org/a/banda-de-mutantes-cierre-taller/](http://redpanal.org/a/banda-de-mutantes-cierre-taller/)
   * La Noche de los Museos La Casa del Bicentenario: [Performance 29/10/2016](http://redpanal.org/a/performance-casa-tomada/) [Con visuales 3D (Blender game engine)](https://www.youtube.com/watch?v=eKcvkgtJIEo) ) **Reseña**: [enjambrebit-y-la-banda-de-mutantes/](http://blog.enjambrelab.com.ar/enjambrebit-y-la-banda-de-mutantes/)
 
-* Música generativa con máquina de estados MIR y sonidos libres de Freesound.org: 
-  * "[Feature Thinking](https://soundcloud.com/hern-n-ordiales/feature-thinking)" (con sonidos libres Creative Commons de Freesound.org) by hordia.
-  * State Machine @ CASo (Centro de Arte Sonoro) https://www.youtube.com/watch?v=sG1YUc8PQV4
-  
 * Remixes que toman audios libres de [RedPanal.org](http://redpanal.org/) para categorizarlos según diferentes tipos de emociones. Luego se elige una y se sincronizan las pistas, cambiando las tonalidades. De ser posible se separan de fuentes dentro de las mismas (by Mars Crop)
   * [Beats intro jazz](http://redpanal.org/a/sm-beats-remix/)
   * [Bass & DJ] (http://redpanal.org/a/sm-bass-guitar-plays-with-dj/)
@@ -66,17 +68,7 @@ Interdisciplinary performances based on sounds of the web platform [Redpanal.org
 
 Tested under Linux, Mac OS (>10.11) and Windows 10.
 
-Debian, Ubuntu 15.04 and 16.04 (and .10). And [Docker](docker.md) images.
+Debian, Ubuntu 15.04 and 16.04 (and .10). And [Docker](module/docker.md) images.
 Raspian @ Raspberry Pi
 
 See [INSTALL.md](INSTALL.md)
-
-## Docker
-
-See [docker](docker.md) and [Dockerfile](Dockerfile.md).
-
-API listening in port 5000:
-```
-$ docker build -t apicultor_v0.9 .
-$ docker run -p 5000:5000 --name apicultor  -it --net="host"  apicultor_v0.9
-```
