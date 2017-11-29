@@ -1,16 +1,16 @@
 //Address and port
 //NetAddr.localAddr //check '127.0.0.1', 57120
 
-s.options.sampleRate= 48000; //traktor 2
+//s.options.sampleRate= 48000; //traktor 2
 s.boot; //start server
 
 //Test msg
 //~netaddr = NetAddr("127.0.0.1", 57120);
-//~netaddr.sendMsg("/playfreeze", "/Users/hordia/git/mutantes/apicultor/cloud_instrument/BREATHE_IN_2.wav",0); // (method, file_path, voice_number)
+//~netaddr.sendMsg("/playfreeze", "/Users/hordia/samples/freesound-sessions/BREATHE_IN_2.wav",0); // (method, file_path, voice_number)
 
 //pre-perfo
 /*
-~v1 = "/Users/hordia/git/mutantes/apicultor/cloud_instrument/BREATHE_IN_2.wav";
+~v1 = "/Users/hordia/samples/freesound-sessions/BREATHE_IN_2.wav";
 //TODO: build in one line with a script
 ~netaddr.sendMsg("/playfreeze", ~v1, 0);
 ~netaddr.sendMsg("/playfreeze", ~v2, 1);
@@ -21,9 +21,10 @@ s.boot; //start server
 ~netaddr.sendMsg("/playfreeze", ~v7, 6);
 ~netaddr.sendMsg("/playfreeze", ~v8, 7);
 */
+
 /*
 Voice with explanation about API-Culture and sound from the Cloud...
-~mir_voice  = Buffer.read(s, "/Users/hordia/git/experimental-session/audio-demo-only-voice.wav");
+~mir_voice  = Buffer.read(s, "/Users/hordia/samples/speech-sounds-from-the-cloud.wav");
 ~voice = Synth(\mutantefreeze, [\bufnum, ~mir_voice.bufnum, \out, 0, \vol, 1])
 ~voice.set(\point, 0); //off
 ~voice.set(\point, 1); //on

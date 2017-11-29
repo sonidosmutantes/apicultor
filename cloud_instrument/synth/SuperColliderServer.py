@@ -55,12 +55,10 @@ class SupercolliderServer(AudioServer):
         # OSC Client (i.e. send OSC to SuperCollider)
         osc_client = OSC.OSCClient()
 
-        # Virtual Box: Network device config not in bridge or NAT mode
-        # Select 'Network host-only adapter' (Name=vboxnet0)
-        # sc_IP = '192.168.56.1' # Remote server is the host of the VM
         osc_client.connect( ( self.sc_IP, self.sc_Port ) )
 
-        print("\tPlaying %s/%s"%(os.environ["PWD"],new_file))
+        #TODO: write to $DATE_performance.log
+        print("\n\n***\n\t (sending OSC) Playing %s/%s\n\n"%(os.environ["PWD"],new_file))
         msg = OSC.OSCMessage()
         msg.setAddress("/playfreeze") # (file,voice_number)
         msg.append( "%s/%s"%(os.environ["PWD"],new_file) )
