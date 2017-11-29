@@ -78,7 +78,7 @@ s.waitForBoot {
 		'/playfreeze'
 	);
 //x.free;
-
+/*
 	////////////////
 	//MIDI controller
 	////////////////
@@ -175,6 +175,6 @@ s.waitForBoot {
 	~mpkmidimix.knobsC.do {|knob, i|
 		knob.onChange = {|val| ~synthInstances[i].set(\pan, val.linlin(0,127,-1,1))};
 	};
-
+*/
 } //end of waitForBoot
 

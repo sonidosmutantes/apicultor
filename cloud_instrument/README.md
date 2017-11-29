@@ -13,7 +13,7 @@
 
 * If you are going to use SuperCollider run synth/osc_server_and_player.scd first
 * Run ./CloudInstrument.py
-* Run OpenStageControl with ui/nube_sinte_simple.js
+* Run OpenStageControl with ui/apicultor.js (sending OSC to localhost and 9001 port)
 * Tweak controlls and press the righ button to make the search on Cloud
 
 
