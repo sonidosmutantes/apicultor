@@ -1,26 +1,40 @@
+/*
 //Address and port
-//NetAddr.localAddr //check '127.0.0.1', 57120
+NetAddr.localAddr //check '127.0.0.1', 57120
+*/
 
-
+/*
+// .wav record
 thisProcess.platform.recordingsDir//locate folder
 s.recHeaderFormat;//request default format
 s.recHeaderFormat = "wav";
 //s.recHeaderFormat = "aiff";
 s.record;
-
-
 s.stopRecording;
-//s.quit;
 */
-s.options.sampleRate= 48000; //traktor 2
+
+//s.options.sampleRate= 48000; //traktor 2
 s.boot; //start server
 
-//Test msg
-//~netaddr = NetAddr("127.0.0.1", 57120);
-//~netaddr.sendMsg("/playfreeze", "/Users/hordia/samples/freesound-sessions/BREATHE_IN_2.wav",0); // (method, file_path, voice_number)
+/*
+*/
+// control sending OSC to supercollider service
+~netaddr = NetAddr("127.0.0.1", 57120)
+//hardcoded file
+~netaddr.sendMsg("/playfreeze", "/Users/hordia/samples/freesound-sessions/BREATHE_IN_2.wav",0); // (method, file_path, voice_number)
+
+
+// control sending OSC to apicultor server
+~apicultorsrv = NetAddr("127.0.0.1", 9001)
+~apicultorsrv.sendMsg("/set_voices", 2, 1); //voice 2, en on (1)
+~apicultorsrv.sendMsg("/mir/spectral_centroid/mean", 4082);
+~apicultorsrv.sendMsg("/mir/duration", 7.5);
+~apicultorsrv.sendMsg("/mir/pitch_centroid/mean", 0.78);
+~apicultorsrv.sendMsg("/retrieve"); //get a new sound
+
 
 //pre-perfo
-/*
+
 ~v1 = "/Users/hordia/samples/freesound-sessions/BREATHE_IN_2.wav";
 //TODO: build in one line with a script
 ~netaddr.sendMsg("/playfreeze", ~v1, 0);
@@ -40,6 +54,9 @@ Voice with explanation about API-Culture and sound from the Cloud...
 ~voice.set(\point, 0); //off
 ~voice.set(\point, 1); //on
 */
+
+
+
 
 //TODO: there is not "channel" or voice setted by default
 s.waitForBoot {
