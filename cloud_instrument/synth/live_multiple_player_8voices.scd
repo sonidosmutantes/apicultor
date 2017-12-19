@@ -33,6 +33,7 @@ s.boot; //start server
 ~apicultorsrv.sendMsg("/mir/pitch_centroid/mean", 0.78);
 ~apicultorsrv.sendMsg("/retrieve", 1); //get a new sound
 
+	 ~synthInstances[i].set(\point, 1);
 
 //pre-perfo
 
@@ -141,6 +142,7 @@ s.waitForBoot {
 	});
 	a.start;
 };
+
 /////////////////////////////////////
 
 	//master sound server volume (SuperCollider in DB)
