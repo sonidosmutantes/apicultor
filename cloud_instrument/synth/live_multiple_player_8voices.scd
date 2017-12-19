@@ -26,11 +26,12 @@ s.boot; //start server
 
 // control sending OSC to apicultor server
 ~apicultorsrv = NetAddr("127.0.0.1", 9001)
-~apicultorsrv.sendMsg("/set_voices", 2, 1); //voice 2, en on (1)
-~apicultorsrv.sendMsg("/mir/spectral_centroid/mean", 4082);
-~apicultorsrv.sendMsg("/mir/duration", 7.5);
+~apicultorsrv.sendMsg("/set_voices", 3, 1); //voice 2, en on (1)
+~apicultorsrv.sendMsg("/mir/spectral_centroid/mean", 900);
+~apicultorsrv.sendMsg("/mir/spectral_complexity/mean", 0.12);
+~apicultorsrv.sendMsg("/mir/duration", 3.4);
 ~apicultorsrv.sendMsg("/mir/pitch_centroid/mean", 0.78);
-~apicultorsrv.sendMsg("/retrieve"); //get a new sound
+~apicultorsrv.sendMsg("/retrieve", 1); //get a new sound
 
 
 //pre-perfo
