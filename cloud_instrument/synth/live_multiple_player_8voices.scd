@@ -1,7 +1,9 @@
 /*
-//Address and port
-NetAddr.localAddr //check '127.0.0.1', 57120
+    Sounds from the web (using API-Cultor) by hordia
 */
+
+//s.options.sampleRate= 48000; //traktor 2
+s.boot; //start server
 
 /*
 // .wav record
@@ -13,30 +15,113 @@ s.record;
 s.stopRecording;
 */
 
-//s.options.sampleRate= 48000; //traktor 2
-s.boot; //start server
-
 /*
 */
 // control sending OSC to supercollider service
+//OSC address and port
+//NetAddr.localAddr //check '127.0.0.1', 57120
 ~netaddr = NetAddr("127.0.0.1", 57120)
-//hardcoded file
-~netaddr.sendMsg("/playfreeze", "/Users/hordia/samples/freesound-sessions/BREATHE_IN_2.wav",0); // (method, file_path, voice_number)
-
+~voice_number = 0; // [0..7]
+~hardcoded_file = "/Users/hordia/samples/freesound-sessions/BREATHE_IN_2.wav";
+~netaddr.sendMsg("/playfreeze", ~hardcoded_file,~voice_number); // (method, file_path, voice_number)
 
 // control sending OSC to apicultor server
-~apicultorsrv = NetAddr("127.0.0.1", 9001)
-~apicultorsrv.sendMsg("/set_voices", 3, 1); //voice 2, en on (1)
+~apicultorsrv = NetAddr("127.0.0.1", 9001);
+
+~voice = 2;
+~apicultorsrv.sendMsg("/set_voices", ~voice, 1); //voice 2, en on (1)
 ~apicultorsrv.sendMsg("/mir/spectral_centroid/mean", 900);
 ~apicultorsrv.sendMsg("/mir/spectral_complexity/mean", 0.12);
-~apicultorsrv.sendMsg("/mir/duration", 3.4);
+~apicultorsrv.sendMsg("/mir/duration", 3.4); //tip: misma duración, mantengo tempo
 ~apicultorsrv.sendMsg("/mir/pitch_centroid/mean", 0.78);
 ~apicultorsrv.sendMsg("/retrieve", 1); //get a new sound
 
-	 ~synthInstances[i].set(\point, 1);
+//controls and effects
+~voice = 3;
+//freeze [on/off]
+~synthInstances[~voice-1].set(\point, 1); //on
+~synthInstances[~voice-1].set(\point, 0); //off
+*/
+
+
+/*
+*/
+//task duration yield
+(
+    var dur;
+    var max = 4;
+    var amount = 100;
+    dur = Pseq([max, max/2, 1, 0.5, 0.5, 1, 1, max, max/2, max/3], amount).asStream;
+
+    r = Task({
+	var delta;
+	while {
+	    	delta = dur.next;
+    		delta.notNil
+	} {
+    		"Duration: "++delta.postln;
+    		~synthInstances[~voice-1].set(\vol, delta);
+    		delta.yield;
+	}
+    }).play(quant: TempoClock.default.beats + 1.0);
+)
+*/
+
+/*
+e = Env([800,300,400,500,200], [1,1,1,1], \exp); // 4 segments
+e = Env([0,-1,-0.5,0,1], [1,1,1,1], \sine).plot; // sine
+e = Env.new([0,1,0], [0.5, 1]).plot;
+*/
+//pan control
+(
+		// reset then play again
+		//e = Env([800,300,400,500,200], [1,1,1,1], \exp); // 4 segments
+        e = Env([0,-1,-0.5,0,1], [1,1,1,1], \sine);
+		~synthInstances[~voice-1].set(\pan, e.asArray);
+		//~synthInstances[~voice-1]..set(\t_gate, 1);
+)
+
+// granular synth
+//~bufferinstances[~voice].bufnum.postln;
+~voice = 2;
+{
+		100.do{ arg j;
+			var timeprop = (j/199.0)**3;
+			Synth(\sfgrain,[\bufnum, ~bufferinstances[~voice].bufnum, \startPos,rrand(0.0,timeprop),\amp, exprand(0.005,0.1), \pan, 1.0.rand2]);
+			rrand((timeprop*0.1).max(0.01),timeprop*0.4).wait
+		};
+}.fork
+
+//task granular trigger
+(
+    var dur;
+    var max = 10;
+    var amount = 1;
+    dur = Pseq([max, max/2, max/5, 0, 0, max/4, max/3, max, max/2, max/3], amount).asStream;
+
+    r = Task({
+	var delta;
+	while {
+	    	delta = dur.next;
+    		delta.notNil
+	} {
+    		"Duration: "++delta.postln;
+    		//~synthInstances[~voice-1].set(\vol, delta);
+		{
+			100.do{ arg j;
+			var timeprop = (j/199.0)**3;
+			Synth(\sfgrain,[\bufnum, ~bufferinstances[~voice].bufnum, \startPos,rrand(0.0,timeprop),\amp, exprand(0.005,0.1), \pan, 1.0.rand2]);
+			rrand((timeprop*0.1).max(0.01),timeprop*0.4).wait
+			};
+		}.fork;
+
+    		delta.yield;
+	}
+    }).play(quant: TempoClock.default.beats + 1.0);
+)
 
 //pre-perfo
-
+/*
 ~v1 = "/Users/hordia/samples/freesound-sessions/BREATHE_IN_2.wav";
 //TODO: build in one line with a script
 ~netaddr.sendMsg("/playfreeze", ~v1, 0);
@@ -57,10 +142,6 @@ Voice with explanation about API-Culture and sound from the Cloud...
 ~voice.set(\point, 1); //on
 */
 
-
-
-
-//TODO: there is not "channel" or voice setted by default
 s.waitForBoot {
 	~bufferinstances = Array.newClear(8);
 	~synthInstances = Array.newClear(8);
