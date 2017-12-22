@@ -23,7 +23,7 @@ class AudioServer:
 
     freesound_desc_conv = {
         "content": "content",
-        "bpm": "BPM",
+        "bpm": "rhythm.bpm",
         "duration": "sfx.duration",
         "inharmonicity.mean": "sfx.inharmonicity.mean",
         "hfc.mean": "lowlevel.hfc.mean",

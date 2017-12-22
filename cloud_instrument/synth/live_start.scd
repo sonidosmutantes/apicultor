@@ -5,7 +5,12 @@
 */
 
 s.options.sampleRate= 48000; //traktor 2
+//TODO: probar salida simultánea headphones + MAIN
+
+
 s.boot; //start server
+
+
 
 /*
 // .wav record
@@ -21,8 +26,8 @@ s.waitForBoot {
 	~bufferinstances = Array.newClear(8);
 	~synthInstances = Array.newClear(8);
 
-	//freeze
-	SynthDef(\mutantefreeze, { arg out=0, bufnum=0, point=0, vol=1, fftwidth=4096, pan=0, startPos=0;
+	//freeze ----> initial vol = 0
+	SynthDef(\mutantefreeze, { arg out=0, bufnum=0, point=0, vol=0, fftwidth=4096, pan=0, startPos=0;
 		var in, chain, sig;
 		in = PlayBuf.ar(1, bufnum, BufRateScale.kr(bufnum),loop: 1);
 		chain = FFT(LocalBuf(4096), in);
@@ -58,7 +63,7 @@ s.waitForBoot {
 			~bufferinstances[voice_number] = Buffer.read(s, new_file);
 
 			~synthInstances[voice_number].free;
-			~synthInstances[voice_number] = Synth(\mutantefreeze, [\bufnum, ~bufferinstances[voice_number].bufnum, \out, 0, \vol, 1])
+			~synthInstances[voice_number] = Synth(\mutantefreeze, [\bufnum, ~bufferinstances[voice_number].bufnum, \out, 0, \vol, 0])
 		},
 
 		'/playfreeze'

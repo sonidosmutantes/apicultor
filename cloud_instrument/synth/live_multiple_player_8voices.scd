@@ -21,13 +21,16 @@
 // cloud_instrument$ python CloudInstrument.py
 ~apicultorsrv = NetAddr("127.0.0.1", 9001);
 
-~voice = 2;
+~voice = 4; // [1..8]
 ~apicultorsrv.sendMsg("/set_voices", ~voice, 1); //voice 2, en on (1)
-~apicultorsrv.sendMsg("/mir/spectral_centroid/mean", 900);
-~apicultorsrv.sendMsg("/mir/spectral_complexity/mean", 0.12);
-~apicultorsrv.sendMsg("/mir/duration", 3.4); //tip: misma duración, mantengo tempo
-~apicultorsrv.sendMsg("/mir/pitch_centroid/mean", 0.78);
+~apicultorsrv.sendMsg("/mir/spectral_centroid/mean", 100);
+~apicultorsrv.sendMsg("/mir/spectral_complexity/mean", 0.4);
+~apicultorsrv.sendMsg("/mir/duration", 3.4); //tip: misma duración, /mantengo tempo/
+~apicultorsrv.sendMsg("/mir/pitch_centroid/mean", 0.28);
 ~apicultorsrv.sendMsg("/retrieve", 1); //get a new sound
+
+~apicultorsrv.sendMsg("/mir/duration", 10); // <10
+~apicultorsrv.sendMsg("/mir/BPM", 110);
 
 //controls and effects
 ~voice = 2;

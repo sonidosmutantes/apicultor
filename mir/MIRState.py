@@ -3,7 +3,7 @@ class MIRState:
     desc = dict() # MIR Descriptors
     enabled_descriptors = [
         "duration",
-        "BPM",
+        "bpm",
         "hfc.mean",
         "spectral_complexity.mean",
         "spectral_centroid.mean",
@@ -13,7 +13,7 @@ class MIRState:
 
     default_sign = {
         "duration": "<",
-        "BPM": "<",
+        "bpm": "<",
         "hfc.mean": "=",
         "spectral_complexity.mean": "=",
         "spectral_centroid.mean": "=",
