@@ -22,8 +22,11 @@ See [cloud_instrument/README.md](cloud_instrument/README.md)
 
 Interactive __DEMO__: [https://www.youtube.com/watch?v=2sMsKvfZKGA](https://www.youtube.com/watch?v=2sMsKvfZKGA) 
 
-![](doc/retrieve_ui.png)
+### UI MIR mode
+![](doc/modo-mir.png)
 
+### UI Synth mode
+![](doc/modo-synth.png)
 
 ## Performances
 
