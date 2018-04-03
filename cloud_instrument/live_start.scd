@@ -4,12 +4,16 @@
     init & setup
 */
 
-s.options.sampleRate= 48000; //traktor 2
+//s.options.sampleRate= 48000; //traktor 2
 //TODO: probar salida simultánea headphones + MAIN
 
 
-s.boot; //start server
+//ver estos sonidos: (low fre
+// (sending OSC) Playing /Users/hordia/git/mutantes/apicultor/cloud_instrument/Intro Boom.wav
+//	 (sending OSC) Playing /Users/hordia/git/mutantes/apicultor/cloud_instrument/GanjiraLo08.wav
 
+
+s.boot; //start server
 
 
 /*
@@ -63,7 +67,7 @@ s.waitForBoot {
 			~bufferinstances[voice_number] = Buffer.read(s, new_file);
 
 			~synthInstances[voice_number].free;
-			~synthInstances[voice_number] = Synth(\mutantefreeze, [\bufnum, ~bufferinstances[voice_number].bufnum, \out, 0, \vol, 0])
+			~synthInstances[voice_number] = Synth(\mutantefreeze, [\bufnum, ~bufferinstances[voice_number].bufnum, \out, 0, \vol, 0.5])
 		},
 
 		'/playfreeze'
