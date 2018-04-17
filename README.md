@@ -23,6 +23,12 @@ See [cloud_instrument/README.md](cloud_instrument/README.md)
 
 Interactive __DEMO__: [https://www.youtube.com/watch?v=2sMsKvfZKGA](https://www.youtube.com/watch?v=2sMsKvfZKGA) 
 
+## Physical version design
+
+![](doc/yaeltex-pre-print-front.png)
+[Yaeltex](https://yaeltex.com/en) custom MIDI controllers
+
+## Open Stage Control User Interface version
 ### UI MIR mode
 ![](doc/modo-mir.png)
 
