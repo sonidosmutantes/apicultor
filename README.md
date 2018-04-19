@@ -4,7 +4,7 @@
 * Cloud Instrument mention in [ArCiTec prize, Technology applied to Arts](https://arcitec.frba.utn.edu.ar/tecnologia-aplicada-al-arte/) (2018).
 * Publication: [Sound recycling from public databases](https://www.researchgate.net/publication/317388443_Sound_recycling_from_public_databases) @ [Audio Mostly](http://audiomostly.com) 2017 
 * "Forgotten pieces from unknown people" and "Dialectic in suspense" constructed using APICultor, were showed in [NIPS 2017 Art Gallery](http://nips4creativity.com/music/) (Machine Learning for Creativity and Design, Long Beach, California, USA)
-* "Sound recycling from public databases" was presented at [Technarte Los Angeles 2017](http://www.technarte.org/speakers/).
+* "Sound recycling from public databases" was presented at [Technarte Los Angeles 2017](http://www.technarte.org/losangeles-2017-program/).
 * Recycled sounds: [Sound miniatures](http://redpanal.org/p/reciclado-de-samples/)
 
 APICultor born to realize interdisciplinary performances based on sounds of the web platform [http://redpanal.org](http://redpanal.org). The system is also useful to use with any other sound database on the internet or even running it locally.
