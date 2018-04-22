@@ -23,10 +23,14 @@ Extrae miel de [RedPanal](http://redpanal.org)  con técnicas de Music Informati
 
 ![](doc/retrieve_ui.png)
 
-## Physical version design
+## Diseño de Controlador MIDI Custom
 
 ![](doc/yaeltex-pre-print-front.png)
 [Yaeltex](https://yaeltex.com/en) custom MIDI controllers
+
+![](custom_controller/controller.jpg)
+
+Con un sintetizador en SuperCollider corriendo en una Raspberry pi + placa de sonido externa.
 
 ## Open Stage Control User Interface version
 ### UI MIR mode

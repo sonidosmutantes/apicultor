@@ -23,10 +23,14 @@ See [cloud_instrument/README.md](cloud_instrument/README.md)
 
 Interactive __DEMO__: [https://www.youtube.com/watch?v=2sMsKvfZKGA](https://www.youtube.com/watch?v=2sMsKvfZKGA) 
 
-## Physical version design
+## Custom MIDI Controller design
 
 ![](doc/yaeltex-pre-print-front.png)
 [Yaeltex](https://yaeltex.com/en) custom MIDI controllers
+
+![](custom_controller/controller.jpg)
+
+With a SuperCollider synth running in a raspberry pi + external sound card.
 
 ## Open Stage Control User Interface version
 ### UI MIR mode
