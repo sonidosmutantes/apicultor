@@ -30,7 +30,7 @@ Interactive __DEMO__: [https://www.youtube.com/watch?v=2sMsKvfZKGA](https://www.
 
 ![](custom_controller/controller.jpg)
 
-With a SuperCollider synth running in a raspberry pi + external sound card.
+With a SuperCollider synthesizer/effects processor running in a Raspberry pi, plus an external sound card for high fidelity.
 
 ## Open Stage Control User Interface version
 ### UI MIR mode
