@@ -1,3 +1,4 @@
+
 # [Pyo](http://ajaxsoundstudio.com/software/pyo/): dedicated Python module for digital signal processing
 
       $ sudo apt-get install python-dev libjack-jackd2-dev libportmidi-dev portaudio19-dev liblo-dev libsndfile-dev python-dev python-tk python-imaging-tk python-wxgtk2.8
@@ -72,3 +73,9 @@ http://haypo-notes.readthedocs.io/python.html#build-a-python-wheel-package-on-wi
 # ffmpeg (wav conversion)
 
     $ sudo apt-get install ffmpeg
+
+# (optional) Add custom MIDI external controller defs
+
+Add custom classes to manage MIDI devices
+
+    $ sudo cp Extensions/* /usr/local/share/SuperCollider/Extensions 
