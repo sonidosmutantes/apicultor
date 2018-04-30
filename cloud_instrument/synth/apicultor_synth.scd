@@ -84,8 +84,8 @@ SynthDef(\sfgrain, {arg bufnum=0, pan=0.0, startPos=0.0, amp=0.1, dur=0.04;
 /////////////////////////////////
 //External controller config
 //WARNING: se rompe si no esta el controlador presente/conectado
-"akai_midimix_to_osc.scd".loadRelative; // AKAI MIDIMix Controller
-//"yaeltex_midi_to_osc".loadRelative; // Yaeltex custom MIDI controller
+"ui/akai_midimix_to_osc.scd".loadRelative; // AKAI MIDIMix Controller
+//"ui/yaeltex_midi_to_osc".loadRelative; // Yaeltex custom MIDI controller
 /////////////////////////////////
 
 

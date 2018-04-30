@@ -280,7 +280,7 @@
 ~mpkmidimix.mutepads[7].onPress = {
 	~osc_server_SuperCollider.sendMsg(~mir_reset, 1);
 	~button_blink.value(~mpkmidimix.mutepads[7].note);
-}
+};
 
 //RecArm5:: Triggers grain synth
 ~mpkmidimix.recpads[4].onPress = {
