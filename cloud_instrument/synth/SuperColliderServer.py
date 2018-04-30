@@ -1,5 +1,5 @@
 import platform
-from AudioServer import AudioServer 
+from AudioServer import AudioServer
 
 import os
 import OSC
@@ -12,7 +12,7 @@ class SupercolliderServer(AudioServer):
     # pyo_server = None
 
     def __init__(self):
-        # TODO: implement MIDI support        
+        # TODO: implement MIDI support
         # notes = Notein(poly=10, scale=1, mul=.5)
         # p = Port(notes['velocity'], .001, .5)
         pass
@@ -60,7 +60,7 @@ class SupercolliderServer(AudioServer):
         #TODO: write to $DATE_performance.log
         print("\n\n***\n\t (sending OSC) Playing %s/%s\n\n"%(os.environ["PWD"],new_file))
         msg = OSC.OSCMessage()
-        msg.setAddress("/playfreeze") # (file,voice_number)
+        msg.setAddress("/playnewsound") # (file,voice_number)
         msg.append( "%s/%s"%(os.environ["PWD"],new_file) )
         msg.append( self.enabled_voice-1) #convert to [0..7] range
 
