@@ -43,11 +43,11 @@ class SupercolliderServer(AudioServer):
         raise NotImplementedError
     #()
 
-    def playfile(self, new_file, dry_value=1., loop_status=True):
-        self.freeze_playfile(new_file)
+    def playfile(self, new_file, metadata, dry_value=1., loop_status=True):
+        self.freeze_playfile(new_file, metadata)
     #()
 
-    def freeze_playfile(self, new_file, dry_value=1., loop_status=True):
+    def freeze_playfile(self, new_file, metadata, dry_value=1., loop_status=True):
         """
             default synth (freeze)
         """
@@ -63,6 +63,7 @@ class SupercolliderServer(AudioServer):
         msg.setAddress("/playnewsound") # (file,voice_number)
         msg.append( "%s/%s"%(os.environ["PWD"],new_file) )
         msg.append( self.enabled_voice-1) #convert to [0..7] range
+        msg.append( metadata )
 
         try:
             osc_client.send(msg)

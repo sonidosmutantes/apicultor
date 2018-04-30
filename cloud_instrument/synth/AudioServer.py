@@ -20,13 +20,17 @@ class AudioServer:
     def vocoderplayfile(self):
         """ Simil vocoder effect """
         raise NotImplementedError
-
+    def playfile(self, new_file, metadata, dry_value=1., loop_status=True):
+        raise NotImplementedError
+        
     freesound_desc_conv = {
         "content": "content",
         "bpm": "rhythm.bpm",
         "duration": "sfx.duration",
         "inharmonicity.mean": "sfx.inharmonicity.mean",
         "hfc.mean": "lowlevel.hfc.mean",
+        "pitch.mean": "lowlevel.pitch.mean",
+        "pitch_centroid.mean": "sfx.pitch_centroid.mean",
         "spectral_centroid.mean": "lowlevel.spectral_centroid.mean",
         "spectral_complexity.mean": "lowlevel.spectral_complexity.mean"
     }
@@ -46,7 +50,7 @@ class AudioServer:
             try:
                 new_desc = self.freesound_desc_conv[desc] #TODO: make options for different api's (or reimplent in derived class)
             except:
-                print("Falta key!") #FIXME
+                print("MIR key is missing in the conversion dict (freesound API translation)") #FIXME
             if enabled==1:
                 value = mir_state.desc[desc]
                 sign = mir_state.sign[desc]
@@ -72,7 +76,8 @@ class AudioServer:
         # time.sleep(3) #wait for ffmpeg conversion . FIXME: wait process completion in get_one_by_mir() method
         
         if os.path.exists( file_chosen ) and os.path.getsize(file_chosen)>1000:
-            self.logging.debug(file_chosen+" by "+ author + " - id: "+str(sound_id)+"\n")
-            self.playfile(file_chosen)
+            metadata = file_chosen+" by "+ author + " - id: "+str(sound_id);
+            self.logging.debug(metadata+"\n")
+            self.playfile(file_chosen, metadata)
     #()
 #class

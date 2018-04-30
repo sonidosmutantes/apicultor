@@ -8,7 +8,11 @@ class MIRState:
         "spectral_complexity.mean",
         "spectral_centroid.mean",
         "pitch_centroid.mean",
-        "inharmonicity.mean"
+        "pitch.mean",
+        "inharmonicity.mean",
+        "dissonance.mean",
+        "pitch_salience.mean",
+        "chords_strength.mean",
     ]
 
     default_sign = {
@@ -18,7 +22,11 @@ class MIRState:
         "spectral_complexity.mean": "=",
         "spectral_centroid.mean": "=",
         "pitch_centroid.mean": "=",
-        "inharmonicity.mean": "="
+        "pitch.mean": "=", #TODO: add a range of tolerance
+        "inharmonicity.mean": "=",
+        "dissonance.mean": "<",
+        "pitch_salience.mean": "<",
+        "chords_strength.mean": "<",
     }
 
     def __init__(self):
@@ -33,9 +41,14 @@ class MIRState:
     #()
 
     def set_desc(self, name, value):
+        if name=='reset' and value==1:
+            self.reset_descriptors_dict()
+            print( "MIR State now is clean")
+            return
+
         if name not in self.available_descriptors:
             raise NotImplementedError
-
+            
         if '.' not in name:
             self.desc[name] = value
             if name not in self.enabled: #TODO: check this inicialization
@@ -86,6 +99,11 @@ class MIRState:
                 self.sign[name] = sign
                 if self.debug:
                     print("modificator: %s"%sign)
+    #()
+
+    def reset_descriptors_dict(self):
+        self.enabled = dict()
+        self.desc = dict()
     #()
 
     def get_descriptors_values(self):

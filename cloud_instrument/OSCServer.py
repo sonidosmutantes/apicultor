@@ -77,6 +77,12 @@ class OSCServer(liblo.ServerThread):
         if state==1:
             self.audio_server.retrieve_new_sample( self.state )
 
+    #General chat messages
+    @make_method("/chat", 's')
+    def chat_callback(self, path, args):
+        print("Chat message: %s"%args[0])
+    #()
+
     #MIR descriptors methods
     @make_method(None, 'f') # /mir/*
     def mir_fallback(self, path, args):
