@@ -80,13 +80,17 @@ class FreesoundDB(MirDbApi):
     #()
 
     def get_one_by_mir(self, mir_state):
-        sounds_list = self.search_by_mir(mir_state)
-        sound = sounds_list[ random.randint(0,len(sounds_list)-1) ]
-        print("File chosen: "+sound.name+ " - ID: "+ str(sound.id) )
-        self.download_by_id(sound.id)
-        # Convert to wav FIXME: use internal tool, or resolve better avconv vs ffmpeg issue
-        subprocess.call("%s -i \"%s\" \"%s.wav\" -y"%(self.av_conv, sound.name, os.path.splitext(sound.name)[0]), shell=True)
-        return os.path.splitext(sound.name)[0]+".wav", sound.username, sound.id
+        try:
+            sounds_list = self.search_by_mir(mir_state)
+            sound = sounds_list[ random.randint(0,len(sounds_list)-1) ]
+            print("File chosen: "+sound.name+ " - ID: "+ str(sound.id) )
+            self.download_by_id(sound.id)
+            # Convert to wav FIXME: use internal tool, or resolve better avconv vs ffmpeg issue
+            subprocess.call("%s -i \"%s\" \"%s.wav\" -y"%(self.av_conv, sound.name, os.path.splitext(sound.name)[0]), shell=True)
+            return os.path.splitext(sound.name)[0]+".wav", sound.username, sound.id
+        except:
+            print("Error")
+            return "Error", "none", "none"
 
     def search_by_mir(self, mir_state):
         client = freesound.FreesoundClient()

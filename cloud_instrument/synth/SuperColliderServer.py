@@ -47,14 +47,35 @@ class SupercolliderServer(AudioServer):
         self.freeze_playfile(new_file, metadata)
     #()
 
+    def errorfile(self, metadata="Error"):
+        """
+        Possible errors:
+        * Internet Connection
+        * Database error
+        * No file available with those descriptors values
+        * File format or convertion error
+        * No available space error
+        * Etc
+        """
+        osc_client = OSC.OSCClient()
+        osc_client.connect( ( self.sc_IP, self.sc_Port ) )
+
+        msg = OSC.OSCMessage()
+        msg.setAddress("/errorwithnewsound")
+        msg.append( metadata )
+
+        try:
+            osc_client.send(msg)
+        except Exception,e:
+            print(e)
+    #()
+    
     def freeze_playfile(self, new_file, metadata, dry_value=1., loop_status=True):
         """
             default synth (freeze)
         """
-
         # OSC Client (i.e. send OSC to SuperCollider)
         osc_client = OSC.OSCClient()
-
         osc_client.connect( ( self.sc_IP, self.sc_Port ) )
 
         #TODO: write to $DATE_performance.log
@@ -71,5 +92,5 @@ class SupercolliderServer(AudioServer):
             print(e)
         #TODO: get duration from msg (via API)
         # time.sleep(duration)
-        #()
+    #()
 #class

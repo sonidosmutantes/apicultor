@@ -22,7 +22,9 @@ class AudioServer:
         raise NotImplementedError
     def playfile(self, new_file, metadata, dry_value=1., loop_status=True):
         raise NotImplementedError
-        
+    def errorfile(self, metadata=""):
+        raise NotImplementedError
+
     freesound_desc_conv = {
         "content": "content",
         "bpm": "rhythm.bpm",
@@ -71,7 +73,10 @@ class AudioServer:
 
         file_chosen, author, sound_id  = self.api.get_one_by_mir(new_state)
 #         #(needs to wait here?)
-        
+        if file_chosen == "Error":
+            self.errorfile()
+            return 
+
         print( os.path.getsize(file_chosen) )
         # time.sleep(3) #wait for ffmpeg conversion . FIXME: wait process completion in get_one_by_mir() method
         
