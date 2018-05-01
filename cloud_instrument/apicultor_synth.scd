@@ -12,7 +12,7 @@ https://github.com/sonidosmutantes/apicultor
 */
 
 
-s.options.sampleRate= 48000; //traktor2 etc //FIXME: ver soundblaster live! 5.1
+//s.options.samplerate= 48000; //comment this line in raspberry pi
 
 //TODO: ver multiple outputs
 s.boot; //start server
@@ -164,7 +164,7 @@ OSCdef.new(
 	{
 		arg msg;
 		var chat = msg[1].asString;
-		(chat).postln;
+		("----> APICultor msg: "++chat).postln;
 	},
 	'/chat',
 );
@@ -471,4 +471,15 @@ OSCdef.new(
 );
 
 ~osc_server_APICultorService.sendMsg("/chat", "Hello. SuperCollider is ready to rock!");
+
+////////////////////////////////////////
+//(optional) Startup sounds
+//voice1
+~bufferinstances[0]= Buffer.read(s, "/home/pi/dev/apicultor/cloud_instrument/Room Tone In An Apartment Living Room 2.wav");
+~synthInstances[0] = Synth(\mutantefreeze, [\bufnum, ~bufferinstances[0].bufnum, \out, 0, \vol, 1]);
+
+//voice 2
+~bufferinstances[1]= Buffer.read(s, "/home/pi/dev/apicultor/cloud_instrument/Ride_01-21.wav"); 
+~synthInstances[1] = Synth(\mutantefreeze, [\bufnum, ~bufferinstances[1].bufnum, \out, 0, \vol, 1]);
+////////////////////////////////////////
 } //end of waitForBoot

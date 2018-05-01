@@ -1,4 +1,4 @@
-python CloudInstrument.py &
+python CloudInstrument.py > apicultor.log &
 
 #scsynth -u  57120 &
 
