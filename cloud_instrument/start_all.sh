@@ -1,5 +1,5 @@
 python CloudInstrument.py &
 
-scsynth -u  57120 &
+#scsynth -u  57120 &
 
-sclang -D synth/apicultor_synth.scd
+sclang -D apicultor_synth.scd

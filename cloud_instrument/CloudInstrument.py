@@ -33,7 +33,7 @@ sys.path.append(os.path.join(os.path.dirname(os.path.realpath('__file__')), '../
 # import urllib2
 from enum import Enum
 from OSCServer import *
-from synth.PyoAudioServer import PyoAudioServer
+#from synth.PyoAudioServer import PyoAudioServer # disabled by now
 from synth.SuperColliderServer import SupercolliderServer
 from mir.db.FreesoundDB import FreesoundDB
 from mir.db.RedPanalDB import RedPanalDB
