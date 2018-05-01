@@ -11,18 +11,24 @@ https://github.com/sonidosmutantes/apicultor
 2. Run this SuperCollider script
 */
 
+~host = "mac";
+//~host = "raspi";
 
-s.options.sampleRate= 48000; //traktor2 etc //FIXME: ver soundblaster live! 5.1
+if( ~host=="mac", {
+	s.options.sampleRate= 48000; //mac
+}
+,{
+	s.options.sampleRate= 44100; //raspberry low latency config
+});
 
 //TODO: ver multiple outputs
 s.boot; //start server
 
+
 // (optional) Recording
 /*
 thisProcess.platform.recordingsDir//locate folder
-s.recHeaderFormat;//request default format
 s.recHeaderFormat = "wav";
-//s.recHeaderFormat = "aiff";
 s.record;
 */
 
@@ -112,6 +118,9 @@ x = OSCFunc(
 			( "Voice number: "+(voice_number+1)).postln;
 			( "New sound received " + new_file ).postln;
 
+			//FIXME: make general. This is custom for yaeltex ctrl
+			~button_light.value(~yaeltex.voices[~active_voice-1].note, 1); //voice led on
+
 			metadata = msg[3].asString; //Ej: sinbase.wav by anbo - id: 18860
 
 			~bufferinstances[voice_number].free;
@@ -164,7 +173,7 @@ OSCdef.new(
 	{
 		arg msg;
 		var chat = msg[1].asString;
-		(chat).postln;
+		("----> APICultor msg: "++chat).postln;
 	},
 	'/chat',
 );
@@ -222,6 +231,8 @@ OSCdef.new(
 			~osc_server_APICultorService.sendMsg("/retrieve", 1); //get a new sound
 			//~send_osc_all.value(~new_sound_reset, 1); // RESET MIR config?
 
+			//FIXME: make general. This is custom for yaeltex ctrl
+			~button_blink.value( ~yaeltex.voices[~active_voice-1].note );
 
 			//OpenStage UI update
 			[1,2,3,4,5,6,7,8].do{|number|
@@ -472,5 +483,16 @@ OSCdef.new(
 
 ~osc_server_APICultorService.sendMsg("/chat", "Hello. SuperCollider is ready to rock!");
 
-//Startup sounds
+////////////////////////////////////////
+	/*
+//(optional) Startup sounds
+//voice1
+~bufferinstances[0]= Buffer.read(s, "/home/pi/dev/apicultor/cloud_instrument/Room Tone In An Apartment Living Room 2.wav");
+~synthInstances[0] = Synth(\mutantefreeze, [\bufnum, ~bufferinstances[0].bufnum, \out, 0, \vol, 1]);
+
+//voice 2
+~bufferinstances[1]= Buffer.read(s, "/home/pi/dev/apicultor/cloud_instrument/Ride_01-21.wav");
+~synthInstances[1] = Synth(\mutantefreeze, [\bufnum, ~bufferinstances[1].bufnum, \out, 0, \vol, 1]);
+	*/
+////////////////////////////////////////
 } //end of waitForBoot

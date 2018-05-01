@@ -3,13 +3,15 @@
 "midi_to_osc.scd".loadRelative;
 ~yaeltex = YaeltexAPICultor(); //también hace el midi connect All
 
-//TODO: detectar donde corre. EN mac  MIDIOut.newByName("API-cultor", "API-cultor")
-// y en rapsberry pi MIDIOut.newByName("API-cultor", "API-cultor MIDI 1"); //raspberry pi
-
 // MIDI out
 ~default_channel = 0;
-//~midi_device_set_color = MIDIOut.newByName("API-cultor", "API-cultor"); //mac
-~midi_device_set_color = MIDIOut.newByName("API-cultor", "API-cultor MIDI 1"); //raspberry pi
+if( ~host=="mac", {
+	~midi_device_set_color = MIDIOut.newByName("API-cultor", "API-cultor"); //mac
+}
+,{
+	~midi_device_set_color = MIDIOut.newByName("API-cultor", "API-cultor MIDI 1"); //raspberry pi
+});
+
 
 ///////////////////////////////////////////////////////////////////////////
 // Yaeltex custom MIDI controller
@@ -183,9 +185,24 @@
 ////////////////
 // Voices
 ////////////////
+
+//midi out
 ~button_light = {
 	|button_arg, onoff_arg|
 	~midi_device_set_color.noteOn(~default_channel, button_arg, onoff_arg);
+};
+
+~button_blink = {
+   |button_arg|
+	a = Task({ //3 times blink
+		3.do { arg i;
+			~button_light.value(button_arg, 1);
+			0.3.wait;
+			~button_light.value(button_arg, 0);
+			0.3.wait;
+		}
+	});
+	a.start;
 };
 
 ~yaeltex.voices.do {|btn, i|
