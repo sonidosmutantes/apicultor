@@ -24,6 +24,8 @@ class AudioServer:
         raise NotImplementedError
     def errorfile(self, metadata=""):
         raise NotImplementedError
+    def notify_searching(self, msg="Hi"):
+        raise NotImplementedError
 
     freesound_desc_conv = {
         "content": "content",
@@ -46,6 +48,7 @@ class AudioServer:
 #         # duration always have a number (minor equal) < value
 #         new_state["sfx.duration"] = "* TO %s"%new_state["sfx.duration"]
         print(mir_state.enabled)
+        self.notify_searching("Searching in the Cloud...")
         new_state = dict()
         for desc,enabled in mir_state.enabled.items():
             print("desc: %s"%desc)

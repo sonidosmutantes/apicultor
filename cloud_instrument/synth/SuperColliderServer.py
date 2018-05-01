@@ -46,6 +46,20 @@ class SupercolliderServer(AudioServer):
     def playfile(self, new_file, metadata, dry_value=1., loop_status=True):
         self.freeze_playfile(new_file, metadata)
     #()
+    
+    def notify_searching(self, message):
+        osc_client = OSC.OSCClient()
+        osc_client.connect( ( self.sc_IP, self.sc_Port ) )
+
+        msg = OSC.OSCMessage()
+        msg.setAddress("/chat")
+        msg.append( message )
+
+        try:
+            osc_client.send(msg)
+        except Exception,e:
+            print(e)
+    #()
 
     def errorfile(self, metadata="Error"):
         """
