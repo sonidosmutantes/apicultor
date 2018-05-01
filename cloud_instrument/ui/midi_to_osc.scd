@@ -7,6 +7,30 @@
 ~osc_server_APICultorService = NetAddr.new("127.0.0.1", ~osc_port_instrument); //instrument port
 ~osc_server_SuperCollider  = NetAddr.new("127.0.0.1", NetAddr.langPort); //localhost SuperCollider port
 
+//OSCFunc.trace
+//OSCFunc.trace(false); // Turn posting off
+
+
+/////////////////////////////////////////////////////////////
+//Constants
+/////////////////////////////////////////////////////////////
+~max_voice_volume = 6;
+~delay_max = 2;
+~default_delaymix = 0.5;
+
+~max_grains_amount = 500;
+~master_volume_max = 15;
+
+//***************************************
+//Open Stage UI
+
+//Test messages
+//EDIT OpenStage UI "http://osc.ammd.net/extras/remote-control/"
+//~osc_server_OpenStage.sendMsg('/EDIT', 'BPM', '{"label":"BPM", "color":"green"}');
+//~osc_server_OpenStage.sendMsg('/EDIT', 'BPM', '{"label":"Rate", "color":"red"}');
+
+//TODO: mover esto a otro archivo separado? (es solo UI de OpenStage)
+
 //Downloaded file
 ~osc_server_OpenStage.sendMsg('/EDIT', 'soundfile', '{"value":"-", "color":"green"}');
 
@@ -15,18 +39,6 @@
 	~osc_server_OpenStage.sendMsg('/EDIT', 'led_'++(number), '{"value":"0", "label": "", "color":"green"}');
 };
 
-//NetAddr.langPort; //osc port 57120 or 57121 TODO: add auto check to configure OpenStageControll well
-//OSCFunc.trace
-//OSCFunc.trace(false); // Turn posting off
-
-//Test messages
-//EDIT OpenStage UI "http://osc.ammd.net/extras/remote-control/"
-//~osc_server_OpenStage.sendMsg('/EDIT', 'BPM', '{"label":"BPM", "color":"green"}');
-//~osc_server_OpenStage.sendMsg('/EDIT', 'BPM', '{"label":"Rate", "color":"red"}');
-
-//***************************************
-//Open Stage UI
-//TODO: mover esto a otro archivo separado? (es solo UI de OpenStage)
 ~set_mode_mir = {
 
 	//2nd row, 2nd col
@@ -99,36 +111,35 @@
 };
 
 /////////////////////////////////////////////////////////////
-//Constants
-/////////////////////////////////////////////////////////////
-~max_voice_volume = 4;
-~delay_max = 2;
-~default_delaymix = 0.5;
-
-~max_grains_amount = 500;
-
-/////////////////////////////////////////////////////////////
 //OSC service urls
 /////////////////////////////////////////////////////////////
 //mode
 ~synth_mode = "/mode/synth";
 ~mir_mode = "/mode/mir";
 
-~mir_reset = "/mir/reset";
-
+//FX & Synth
 ~fx_volume = "/fx/volume"; //linexp
 ~fx_pan = "/fx/pan";
 
 ~fx_delay = "/fx/delay";
 ~fx_delaymix = "/fx/delay/mix";
 
-~new_sound_retrieve = "/retrieve"; //TODO: change to control_x & control_y? (joystick)
-~set_voices = "/set_voices"; // + integer of the voice
+~fx_lfo = "/fx/lfo";
+~fx_rate = "/fx/rate";
 
-//~new_sound_reset = "/mir/reset"; /new
-~new_sound_reset = "/clean"; //old
-//~btn_control_retrieve = "/retrieve";
-//~btn_control_clean = "/clean";  //-> now reset
+~fx_gate = "/fx/gate";
+~fx_reverb = "/fx/reverb";
+~fx_filter = "/fx/filter";
+~fx_cutoff = "/fx/cutoff";
+~fx_ressonance = "/fx/ressonance";
+~fx_factor = "/fx/factor";
+
+~new_sound_retrieve = "/retrieve"; //TODO: change to control_x & control_y? (joystick)
+~mir_reset = "/mir/reset"; // Resets MIR state in the service
+//~new_sound_reset = "/clean"; //old
+
+
+~set_voices = "/set_voices"; //Set active voice (fx & mir) with integer of the voice as argument
 
 /*
 MIR paths
@@ -202,4 +213,14 @@ OSCdef.new(
 );
 
 
+/*
+//Monitor MIDI input (controls)
+MIDIIn.control = {arg src, chan, num, val;
+	[chan,num,val].postln;
+};
 
+//Monitor note + velocity
+MIDIFunc.noteOn({ |veloc, num, chan, src|
+	( "New note received " + num + " with vel "+veloc ).postln;
+});
+*/

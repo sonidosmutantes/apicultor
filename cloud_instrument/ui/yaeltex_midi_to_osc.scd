@@ -9,30 +9,46 @@
 ///////////////////////////////////////////////////////////////////////////
 // Yaeltex custom MIDI controller
 ///////////////////////////////////////////////////////////////////////////
+//Note: FX's sends message to osc_server_SuperCollider and MIR sends to osc_server_APICultorService
 
 // First row of 4 knobs (into the right)
 //Mode Synth
 //synthKeyValues = ["LFO", "Rate", "Gate", "Reverb", "Delay", "Tone", "Filter", "Cutoff", "Ressonance", "Factor"];
-//LFO Amount
-~yaeltex.ctls['LFO'].onChange = {|val| ("TODO: add osc function LFO amount "++val.linlin(0,127,0,1)).postln};
+//LFO (rate, not amount)
+~yaeltex.ctls['LFO'].onChange = {|val|
+	val = val.linlin(0,127,0,100).asFloat;
+	//("SYNTH: LFO "++val).postln;
+	~osc_server_SuperCollider.sendMsg(~fx_lfo, val);
+};
 
-//Rate
-~yaeltex.ctls['Rate'].onChange = {|val| ("TODO: add osc function Rate "++val.linlin(0,127,0,1)).postln};
+//Rate  (Pitch is 0..4 range)
+~yaeltex.ctls['Rate'].onChange = {|val|
+	val = val.linlin(0,127,0,4).asFloat;
+	//("SYNTH: Rate "++val).postln;
+	~osc_server_SuperCollider.sendMsg(~fx_rate, val);
+};
 
 //Mode MIR (abstract)
 //BPM
-~yaeltex.ctls['BPM'].onChange = {|val| ("TODO: add osc function BPM "++val.linlin(0,127,40,200).asInteger).postln};
+~yaeltex.ctls['BPM'].onChange = {|val|
+	val = val.linlin(0,127,40,200).asFloat;
+	("MIR: BPM "++val).postln;
+	~osc_server_APICultorService.sendMsg(~mir_bpm, val);
+};
 
 //Key
-~yaeltex.ctls['Key'].onChange = {|val| ("TODO: add osc function Key "++val.linlin(0,127,0,11).asInteger).postln};
+~yaeltex.ctls['Key'].onChange = {|val|
+	val = val.linlin(0,127,0,1).asFloat;
+	("MIR: Key (now chord strength) "++val).postln;
+	~osc_server_APICultorService.sendMsg(~mir_key, val);
+};
 
 //Master sound server PAN
-//~yaeltex.ctls['Pan'].onChange = {|val| ~send_osc_all.value(~fx_pan, val.linlin(0,127,-1,1))};
-~yaeltex.ctls['Pan'].onChange = {|val| ("TODO: add osc function PAN amount "++val.linlin(0,127,-1,1)).postln};
+~yaeltex.ctls['Pan'].onChange = {|val| ~osc_server_SuperCollider.sendMsg(~fx_pan, val.linlin(0,127,-1,1))};
 
 //Master sound server MASTER VOLUME
-//~yaeltex.ctls['Master']onChange = {|val| ~send_osc_all.value(~fx_pan, val.linlin(0,127,-1,1))};
-~yaeltex.ctls['Master'].onChange = {|val| ("TODO: add osc function Master Volume amount "++val.linlin(0,127,0,10)).postln};
+
+~yaeltex.ctls['Master'].onChange = {|val| ~osc_server_SuperCollider.sendMsg(~fx_volume, val.linlin(0,127,0,~master_volume_max ))};
 
 /////////////////////////////////////
 // 8 (knobs)
@@ -42,64 +58,126 @@
 //"Gate", "Reverb", "Delay", "Tone",
 //"Filter", "Cutoff", "Ressonance", "Factor"];
 //Gate
-~yaeltex.ctls['Gate'].onChange ={|val| ("TODO: add osc function Gate amount "++val.linlin(0,127,0.4,1.4).asInteger).postln};
+~yaeltex.ctls['Gate'].onChange ={|val|
+	val = val.linlin(0,127,0,1).asFloat;
+	//("SYNTH: Gate "++val).postln;
+	~osc_server_SuperCollider.sendMsg(~fx_gate, val);
+};
 
 //Reverb
-~yaeltex.ctls['Reverb'].onChange = {|val| ("TODO: add osc function Reverb amount "++val.linlin(0,127,0,1).asFloat).postln};
+~yaeltex.ctls['Reverb'].onChange = {|val|
+	val = val.linlin(0,127,0,1).asFloat;
+	//("SYNTH: Reverb "++val).postln;
+	~osc_server_SuperCollider.sendMsg(~fx_reverb, val);
+};
 
 //Delay
-~yaeltex.ctls['Delay'].onChange = {|val| ("TODO: add osc function Delay amount "++val.linlin(0,127,0,1).asFloat).postln};
+~yaeltex.ctls['Delay'].onChange = {|val|
+	val = val.linlin(0,127,0,~delay_max).asFloat;
+	//("SYNTH: Delay "++val).postln;
+	~osc_server_SuperCollider.sendMsg(~fx_delay, val);
+};
 
-//Tone
-~yaeltex.ctls['Tone'].onChange = {|val| ("TODO: add osc function Tone amount "++val.linlin(0,127,0,1).asFloat).postln};
+//Tone (temporary delaymix)
+~yaeltex.ctls['Tone'].onChange = {|val|
+	val = val.linlin(0,127,0,1).asFloat;
+	//("SYNTH: Tone (delaymix by now) "++val).postln;
+	~osc_server_SuperCollider.sendMsg(~fx_delaymix, val);
+};
 
 //last row
-//Filter
-~yaeltex.ctls['Filter'].onChange = {|val| ("TODO: add osc function Filter amount "++val.linlin(0,127,0,1).asFloat).postln};
+//Filter (LP/BP/HP)
+~yaeltex.ctls['Filter'].onChange = {|val|
+	val = val.linlin(0,127,0,1).asFloat;
+	if( val<0.33, { val=0 }, { if( val<0.66, {val=1}, {val=2})});
+	//("SYNTH: Filter Mode "++val).postln;
+	~osc_server_SuperCollider.sendMsg(~fx_filter, val);
+};
 
 //Cutoff
-~yaeltex.ctls['Cutoff'].onChange = {|val| ("TODO: add osc function Cutoff amount "++val.linlin(0,127,0,1).asFloat).postln};
+~yaeltex.ctls['Cutoff'].onChange = {|val|
+	val = val.linlin(0,127,0,1).asFloat;
+	//("SYNTH: Cutoff "++val).postln;
+	~osc_server_SuperCollider.sendMsg(~fx_cutoff, val);
+};
 
 //Ressonance
-~yaeltex.ctls['Ressonance'].onChange = {|val| ("TODO: add osc function Ressonance amount "++val.linlin(0,127,0,1).asFloat).postln};
+~yaeltex.ctls['Ressonance'].onChange = {|val|
+	val = val.linlin(0,127,0,1).asFloat;
+	//("SYNTH: Ressonance "++val).postln;
+	~osc_server_SuperCollider.sendMsg(~fx_ressonance, val);
+};
 
 //Factor
-~yaeltex.ctls['Factor'].onChange = {|val| ("TODO: add osc function Factor amount "++val.linlin(0,127,0,1).asFloat).postln};
+~yaeltex.ctls['Factor'].onChange = {|val|
+	val = val.linlin(0,127,0,1).asFloat;
+	//("SYNTH: Factor "++val).postln;
+	~osc_server_SuperCollider.sendMsg(~fx_factor, val);
+};
 
 //MIR
 //mirKeyValues = ["Key", "BPM",
 //"Duration", "Pitch", "Inharmonicity", "Dissonance",
 //"HFC", "PitchSalience", "SpectralCentroid", "SpectralComplexity"];
 //Duration
-~yaeltex.knobsMIR[2].onChange =  {|val| ("TODO: add osc function Duration amount "++val.linlin(0,127,0.1,5).asFloat).postln};
+~yaeltex.knobsMIR[2].onChange =  {|val|
+	val = val.linlin(0,127,0.1,5).asFloat; //TODO: define range
+	("MIR: Duration "++val).postln;
+	~osc_server_APICultorService.sendMsg(~mir_duration, val);
+};
 
 //Pitch
-~yaeltex.knobsMIR[3].onChange = {|val| ("TODO: add osc function Pitch amount "++val.linlin(0,127,0,1).asFloat).postln};
+~yaeltex.knobsMIR[3].onChange = {|val|
+	val = val.linlin(0,127,0,1).asFloat;
+	("MIR: Pitch "++val).postln;
+	~osc_server_APICultorService.sendMsg(~mir_pitch, val);
+};
 
 //Inharmonicity
-~yaeltex.knobsMIR[4].onChange = {|val| ("TODO: add osc function Inharmonicity amount "++val.linlin(0,127,0,1).asFloat).postln};
+~yaeltex.knobsMIR[4].onChange = {|val|
+	val = val.linlin(0,127,0,1).asFloat;
+	("MIR: Inharmonicity "++val).postln;
+	~osc_server_APICultorService.sendMsg(~mir_inharmonicity, val);
+};
 
 //Dissonance
-~yaeltex.knobsMIR[5].onChange = {|val| ("TODO: add osc function Dissonance amount "++val.linlin(0,127,0,1).asFloat).postln};
+~yaeltex.knobsMIR[5].onChange = {|val|
+	val = val.linlin(0,127,0,1).asFloat;
+	("MIR: Dissonance "++val).postln;
+	~osc_server_APICultorService.sendMsg(~mir_dissonance, val);
+};
 
 //HFC
-~yaeltex.knobsMIR[6].onChange = {|val| ("TODO: add osc function HFC amount "++val.linlin(0,127,0,1).asFloat).postln};
+~yaeltex.knobsMIR[6].onChange = {|val|
+	val = val.linlin(0,127,0,1).asFloat;
+	("MIR: HFC "++val).postln;
+	~osc_server_APICultorService.sendMsg(~mir_hfc, val);
+};
 
 //PitchSalience
-~yaeltex.knobsMIR[7].onChange = {|val| ("TODO: add osc function PitchSalience amount "++val.linlin(0,127,0,1).asFloat).postln};
+~yaeltex.knobsMIR[7].onChange = {|val|
+	val = val.linlin(0,127,0,1).asFloat;
+	("MIR: PitchSalience "++val).postln;
+	~osc_server_APICultorService.sendMsg(~mir_pitch_salience, val);
+};
 
 //SpectralCentroid
-~yaeltex.knobsMIR[8].onChange = {|val| ("TODO: add osc function SpectralCentroid amount "++val.linlin(0,127,0,1).asFloat).postln};
+~yaeltex.knobsMIR[8].onChange = {|val|
+	val = val.linlin(0,127,0,10000).asFloat;
+	("MIR: SpectralCentroid "++val).postln;
+	~osc_server_APICultorService.sendMsg(~mir_spectral_centroid, val);
+};
 
 //SpectralComplexity
-~yaeltex.knobsMIR[9].onChange = {|val| ("TODO: add osc function SpectralComplexity amount "++val.linlin(0,127,0,1).asFloat).postln};
-
+~yaeltex.knobsMIR[9].onChange = {|val|
+	val = val.linlin(0,127,0,1).asFloat;
+	("MIR: SpectralComplexity "++val).postln;
+	~osc_server_APICultorService.sendMsg(~mir_spectral_complexity, val);
+};
 
 ////////////////
 // Voices
 ////////////////
-
-//TODO add a refactor an implement this logic under the Yaeltex Controller Class
 
 // MIDI out
 ~default_channel = 0;
@@ -113,13 +191,13 @@
 ~yaeltex.voices.do {|btn, i|
 	btn.onPress = {
 		|val|  ("Voice"++(i+1)++" - On Press val "++val).postln;
+		~osc_server_SuperCollider.sendMsg(~set_voices, i+1);
 
-		//all voices off
 		~yaeltex.voices.do {|abtn, j|
 			if( i==j, {
 				~button_light.value( abtn.note, 1); //on
 			},
-		    {
+		    {	//all voices off
 				~button_light.value (abtn.note, 0); //off
 			});
 		};
@@ -131,6 +209,92 @@
 		|val|  ("Voice"++(i+1)++" - On Release val "++val).postln;
 		~button_light.value(btn.note, 0); //off
 	};
+};
+
+//////////////////////////////////////
+//Distance sensor -> Grains amount
+//////////////////////////////////////
+~yaeltex.distanceSensor[0].onChange = {|val|
+	~osc_server_SuperCollider.sendMsg("/synth/granular/grains/amount", val.linlin(0,127,0,~max_grains_amount) );
+};
+
+//////////////////////////////////////
+//Joysticks config
+//////////////////////////////////////
+
+//Synth MODE
+//Joystick 1 (left)  without return
+//X: PAN
+~yaeltex.ctls['joy1Synth_x'].onChange = {|val|
+//~yaeltex.joyNoReturnSynth[0].onChange = {|val|
+	//("Joystick1 (no-return) x value:"++val).postln;
+	~osc_server_SuperCollider.sendMsg(~fx_pan, val.linlin(0,127,-1,1))
+};
+//Y: VOLUME
+~yaeltex.ctls['joy1Synth_y'].onChange = {|val|
+//~yaeltex.joyNoReturnSynth[1].onChange = {|val|
+	val = val.linlin(0,127,1,0).asFloat;
+	//("Joystick1 (no-return) y value:"++val).postln;
+	~osc_server_SuperCollider.sendMsg("/voice_volume", val.linlin(0,1,0,~max_voice_volume) );
+};
+
+//Joyttick 2 (right) with-return
+//X: Trigger grains
+~yaeltex.ctls['joy2Synth_x'].onChange = {|val|
+//~yaeltex.joyReturnSynth[0].onChange = {|val|
+	val = val.linlin(0,127,0,1).asFloat;
+	//("Joystick2 (with-return) x value:"++val).postln;
+	if( val==1, { //to the rigth
+		~osc_server_SuperCollider.sendMsg("/synth/granular/trigger", 1);
+	});
+};
+//Y: Freeze ON/OFF
+~yaeltex.ctls['joy2Synth_y'].onChange = {|val|
+//~yaeltex.joyReturnSynth[1].onChange = {|val|
+	val = val.linlin(0,127,1,0).asFloat;
+	//("Joystick2 (with-return) y value:"++val).postln;
+	if( val==1, {
+		~osc_server_SuperCollider.sendMsg("/synth/freeze", 1, -1 ); //ON , -1 means active_voice
+	});
+	if( val==0, {
+		~osc_server_SuperCollider.sendMsg("/synth/freeze", 0, -1 ); //OFF , -1 means active_voice
+	});
+};
+
+
+//MIR MODE
+//Joystick 1 (left)  without return
+//X: PAN
+~yaeltex.joyNoReturnMIR[0].onChange = {|val|
+	//val = val.linlin(0,127,0,1).asFloat;
+	//("Joystick1 (no-return) x value:"++val).postln;
+	~osc_server_SuperCollider.sendMsg(~fx_pan, val.linlin(0,127,-1,1))
+};
+//Y: Volume
+~yaeltex.joyNoReturnMIR[1].onChange = {|val|
+	val = val.linlin(0,127,1,0).asFloat;
+	//("Joystick1 (no-return) y value:"++val).postln;
+	~osc_server_SuperCollider.sendMsg("/voice_volume", val.linlin(0,1,0,~max_voice_volume) );
+};
+
+//Joyttick 2 (right) with-return
+//X: Nothing
+~yaeltex.joyReturnMIR[0].onChange = {|val|
+	val = val.linlin(0,127,0,1).asFloat;
+	//("Joystick2 (with-return) x value:"++val).postln;
+	//Not immplemented
+};
+//Y: Retrieve new sound / Reset descriptors
+~yaeltex.joyReturnMIR[1].onChange = {|val|
+	val = val.linlin(0,127,1,0).asFloat;
+	//("Joystick2 (with-return) y value:"++val).postln;
+	//Freeze ON/OFF
+	if( val==1, {
+		~osc_server_SuperCollider.sendMsg(~new_sound_retrieve, 1); //sends 1
+	});
+	if( val==0, {
+		~osc_server_SuperCollider.sendMsg(~mir_reset, 1);
+	});
 };
 
 //Test scripts
@@ -147,43 +311,14 @@ MIDIClient.destinations;
 
 */
 
-
-// Monitor
-
-//Mostrar MIDI input (controls)
 /*
-MIDIIn.control = {arg src, chan, num, val;
-	[chan,num,val].postln;
-};
+MIDI Documentation
 
-//Mostrar nota + velocity
-MIDIFunc.noteOn({ |veloc, num, chan, src|
-	( "New note received " + num + " with vel "+veloc ).postln;
-});
-*/
-
-
-/*
- MIDI to OSC mapping
- Yaeltex custom MIDI controller
-*/
-~cc_distance_sensor = 38;
-~cc_bank_change = 0;
-
-/* Program Change (PC) from voices
-Example:
-         ~pc_voice_1 = 81;
-         ...
-         ~pc_voice_8 = 88;
-*/
-Array.fill(8, {arg i;  i+1}).do {|i|
-	('~pc_voice_'++i++'= 80+'++i).interpret;
-	//('~pc_voice_'++i++' = '++('~pc_voice_'++i).interpret).postln;
-};
-
-// common/general
+//Common/general
 ~cc_master = 7; //volume
 ~cc_pan = 10;
+
+~cc_distance_sensor = 38;
 
 //MIR mode
 ~cc_key = 6;
@@ -220,50 +355,4 @@ Array.fill(8, {arg i;  i+1}).do {|i|
 //general
 ~joy_control_x = 124;
 ~joy_control_y = 125;
-
-/*
-MIDIIn.control = {arg src, chan, num, val;
-	[chan,num,val].postln; //monitor
-	switch(num,
-
-		//fx
-		~cc_master,{~send_osc.value(o, p, ~fx_volume, val.linlin(0,127,0,5))}, //linexp?
-		~cc_pan,{~send_osc.value(o, p, ~fx_pan, val.linlin(0,127,-1,1))},
-
-		//MIR descriptors (mode)
-		//~cc_key = 6;
-		~cc_bpm,{~send_osc.value(o, p,~mir_bpm, val.linlin(0,127,0,200))},
-		~cc_duration,{~send_osc.value(o, p,~mir_duration, val.linlin(0,127,0,15))},
-
-		//~mir_pitch
-		//~cc_pitch = 101; //no es pitch centroid! WARNING
-		~cc_inharmonicity,{~send_osc.value(o, p,~mir_inharmonicity, val.linlin(0,127,0,1))},
-		//~cc_dissonance = 103;
-		~cc_hfc,{~send_osc.value(o, p,~mir_hfc, val.linlin(0,127,0,1))},
-		//~cc_pitch_salience = 105;
-		~cc_spectral_centroid,{~send_osc.value(o, p,~mir_spectral_centroid, val.linlin(0,127,0,10000))},
-		~cc_spectral_complexity,{~send_osc.value(o, p,~mir_spectral_complexity, val.linlin(0,127,0,1))},
-
-		//~joy_cluster_x = 120;
-		//~joy_cluster_y = 121;
-
-		//~cc_col4_knob3,{~send_osc.value(o, p,~mir_pitch_centroid, val.linlin(0,127,0,1))},
-
-		//Synth mode
-		/*
-~cc_lfo_amount = 67;
-~cc_rate = 76;
-
-~cc_gate = 65;
-~cc_reverb = 91;
-~cc_delay = 78;
-~cc_tone = 74;
-~cc_type_filter = 75;
-~cc_cutoff = 73;
-~cc_ressonance = 71;
-~cc_factor = 77
 */
-	)
-};
-*/
-

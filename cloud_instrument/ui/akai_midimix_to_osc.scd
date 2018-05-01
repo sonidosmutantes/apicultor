@@ -36,7 +36,6 @@
 	a.start;
 };
 
-
 //BANK LEFT -> MIR mode
 ~mode = 0; //0 es MIR , 1 es SYNTH
 //set up default modefa
@@ -104,12 +103,21 @@
 /////////////////////////////////////
 // Row 1 (knobs)
 /////////////////////////////////////
+//Note: FX's sends message to osc_server_SuperCollider and MIR sends to osc_server_APICultorService
 
-//LFO Amount
-~mpkmidimix.knobsA[0].onChange = {|val| ("TODO: add osc function LFO amount "++val.linlin(0,127,0,1)).postln};
+//LFO (rate, not amount)
+~mpkmidimix.knobsA[0].onChange = {|val|
+	val = val.linlin(0,127,0,100).asFloat;
+	("SYNTH: LFO amount "++val).postln;
+	~osc_server_SuperCollider.sendMsg(~fx_lfo, val);
+};
 
-//Rate
-~mpkmidimix.knobsA[1].onChange = {|val| ("TODO: add osc function Rate "++val.linlin(0,127,0,1)).postln};
+//Rate (Pitch is 0..4 range)
+~mpkmidimix.knobsA[1].onChange = {|val|
+		val = val.linlin(0,127,0,4).asFloat;
+	("SYNTH: Rate "++val).postln;
+	~osc_server_SuperCollider.sendMsg(~fx_rate, val);
+};
 
 
 //BPM
@@ -128,10 +136,10 @@
 
 
 //Master sound server PAN
-~mpkmidimix.knobsA[6].onChange = {|val| ~send_osc_all.value(~fx_pan, val.linlin(0,127,-1,1))};
+~mpkmidimix.knobsA[6].onChange = {|val| ~osc_server_SuperCollider.sendMsg(~fx_pan, val.linlin(0,127,-1,1))};
 
 //Master sound server VOLUME
-~mpkmidimix.knobsA[7].onChange = {|val| ~send_osc_all.value(~fx_volume, val.linlin(0,127,0,10))};
+~mpkmidimix.knobsA[7].onChange = {|val| ~osc_server_SuperCollider.sendMsg(~fx_volume, val.linlin(0,127,0,~master_volume_max))};
 
 /////////////////////////////////////
 // Row 2 (knobs)
@@ -139,10 +147,18 @@
 
 //Synth
 //Gate
-~mpkmidimix.knobsB[0].onChange = {|val| ("TODO: add osc function Gate amount "++val.linlin(0,127,0.4,1.4).asInteger).postln};
+~mpkmidimix.knobsB[0].onChange = {|val|
+	val = val.linlin(0,127,0,1).asFloat;
+	("SYNTH: Gate "++val).postln;
+	~osc_server_SuperCollider.sendMsg(~fx_gate, val);
+};
 
 //Reverb
-~mpkmidimix.knobsB[1].onChange = {|val| ("TODO: add osc function Reverb amount "++val.linlin(0,127,0,1).asFloat).postln};
+~mpkmidimix.knobsB[1].onChange = {|val|
+	val = val.linlin(0,127,0,1).asFloat;
+	("SYNTH: Reverb "++val).postln;
+	~osc_server_SuperCollider.sendMsg(~fx_reverb, val);
+};
 
 //Delay
 ~mpkmidimix.knobsB[2].onChange = { |val|
@@ -151,7 +167,7 @@
 	~osc_server_SuperCollider.sendMsg(~fx_delay, val);
 };
 
-//Tone
+//Tone (temporary delaymix)
 ~mpkmidimix.knobsB[3].onChange = { |val|
 	val = val.linlin(0,127,0,1).asFloat;
 	("SYNTH: Tone (delaymix by now) "++val).postln;
@@ -192,19 +208,35 @@
 /////////////////////////////////////
 // Row 3 (knobs)
 /////////////////////////////////////
-
 //Synth
-//LP/BP/HP Filter
-~mpkmidimix.knobsC[0].onChange = {|val| ("SYNTH: TODO: add osc function LP/BP/HP Filter amount "++val.linlin(0,127,0,1).asFloat).postln};
+//Filter (LP/BP/HP) -> 0,1,2
+~mpkmidimix.knobsC[0].onChange = {|val|
+	val = val.linlin(0,127,0,1).asFloat;
+	if( val<0.33, { val=0 }, { if( val<0.66, {val=1}, {val=2})});
+	("SYNTH: Filter Mode "++val).postln;
+	~osc_server_SuperCollider.sendMsg(~fx_filter, val);
+};
 
 //Cutoff
-~mpkmidimix.knobsC[1].onChange = {|val| ("SYNTH: TODO: add osc function Cutoff amount "++val.linlin(0,127,0,1).asFloat).postln};
+~mpkmidimix.knobsC[1].onChange = {|val|
+	val = val.linlin(0,127,0,1).asFloat;
+	("SYNTH: Cutoff "++val).postln;
+	~osc_server_SuperCollider.sendMsg(~fx_cutoff, val);
+};
 
 //Ressonance
-~mpkmidimix.knobsC[2].onChange = {|val| ("SYNTH: TODO: add osc function Ressonance amount "++val.linlin(0,127,0,1).asFloat).postln};
+~mpkmidimix.knobsC[2].onChange = {|val|
+	val = val.linlin(0,127,0,1).asFloat;
+	("SYNTH: Ressonance "++val).postln;
+	~osc_server_SuperCollider.sendMsg(~fx_ressonance, val);
+};
 
 //Factor
-~mpkmidimix.knobsC[3].onChange = {|val| ("SYNTH: TODO: add osc function Factor amount "++val.linlin(0,127,0,1).asFloat).postln};
+~mpkmidimix.knobsC[3].onChange = {|val|
+	val = val.linlin(0,127,0,1).asFloat;
+	("SYNTH: Factor "++val).postln;
+	~osc_server_SuperCollider.sendMsg(~fx_factor, val);
+};
 
 //MIR
 //HFC
@@ -234,8 +266,6 @@
 	("MIR: SpectralComplexity "++val).postln;
 	~osc_server_APICultorService.sendMsg(~mir_spectral_complexity, val);
 };
-
-
 
 /////////////////////////////////////
 // Row 5 (sliders)
@@ -308,103 +338,12 @@
     ~osc_server_SuperCollider.sendMsg(~fx_volume, val.linlin(0,127,0,10))
 };
 
-/////////////////////////////////////////////////////////////////////////////////////
-/////////////////////////////////////////////////////////////////////////////////////
-/////////////////////////////////////////////////////////////////////////////////////
-/////////////////////////////////////////////////////////////////////////////////////
-//OLD
-/////////////////////////////////////////////////////////////////////////////////////
 /*
-//PAN
-~mpkmidimix.knobsC.do {|knob, i|
-	//each freeze synth knob
-	knob.onChange = {|val| ~synthInstances[i].set(\pan, val.linlin(0,127,-1,1))};
-	knob.onChange = {|val| ~send_osc_all.value(~fx_pan, val.linlin(0,127,-1,1))}; //General PAN
-};
-*/
-
-
-/*
-
-//Mutante FREEZE synth ON/OFF
-	~mpkmidimix.recpads.do {|pad, i|
-		pad.onPress = {|val|
-			("REC ARM "+(i+1)).postln;
-			~tmpsynth = ~synthInstances[i];
-			~tmpsynth.get(\point, { arg value;
-				if( value >0,{ //on (0 off,  >0 on)
-					~tmpsynth.set(\point, 0);
-					("MutanteSynth"+(i+1)+": Freeze OFF").postln;
-					~button_light.value(pad.note, 0); //off
-				}, {
-					~tmpsynth.set(\point, 1);
-					("MutanteSynth"+(i+1)+": Freeze ON").postln;
-					~button_light.value(pad.note, 1); //on
-				});
-			});
-		};
-	};
-
-	//Sliders --> mutantefreeze_synth volume
-	~mpkmidimix.sliders.do {|slider, i|
-		slider.onChange = {|val| ~synthInstances[i].set(\vol, val.linlin(0,127,0,~maxvol))};
-	};
-
-//Mutante Granular SYNTH
-	~granularAmount = [50,50,50,50,50,50,50,50]; //default values
-	~granular_voladjust = 10;
-	~mpkmidimix.mutepads.do {|pad, i|
-		pad.onPress = {|val|
-			"Granular synth Pad %\n".postf(i+1);
-
-			~button_blink.value(pad.note);
-			{
-				('Granular amount '++~granularAmount[i] ).postln;
-				~granularAmount[i].do{ arg j;
-					var timeprop = (j/199.0)**3;
-					Synth(\sfgrain,[\bufnum,  ~bufferinstances[i].bufnum, \startPos,rrand(0.0,timeprop),\amp, exprand(0.005,0.1)+~granular_voladjust, \pan, 1.0.rand2]);
-					rrand((timeprop*0.1).max(0.01),timeprop*0.4).wait
-				};
-			}.fork
-		};
-	};
-
-	~mpkmidimix.knobsA.do {|knob, i|
-		//knob.onChange = {|val| ('~granular'++(i+1)++'_amount = '++ val.linlin(0,127,5,500)).interpret };
-		knob.onChange = {|val| ~granularAmount[i] = val.linlin(0,127,5,500).asInteger };
-	};
-
-
-*/
-
-/*
-~send_osc_push_on_button = {
-	|a_arg, b_arg, url_arg|
-
-    a_arg.sendMsg(url_arg, 1); //on
-    b_arg.sendMsg(url_arg, 1); //on
-
-};
-
-~send_osc_toggle_button = {
-	//push button (not toggle) sends 1 value waits 0.3 seconds and send 0 value
-	|a_arg, b_arg, url_arg|
-
-    a_arg.sendMsg(url_arg, 1); //on
-    b_arg.sendMsg(url_arg, 1); //on
-    0.3.wait;
-	a_arg.sendMsg(url_arg, 0); //off
-	b_arg.sendMsg(url_arg, 0); //off
-};
-
-
-
-/*
+ Documentation
  MIDI to OSC mapping
  AKAI MIDIMIX
- 8 canales, de izq a derecha (slides)
- TODO: hacer script python que arme todo esto!
-*/
+ 8 channels, from left to right (slides)
+
 ~cc_col1_knob1 = 16;
 ~cc_col1_knob2 = 17;
 ~cc_col1_knob3 = 18;
@@ -447,27 +386,6 @@
 
 ~cc_slider_master = 62;
 
-
-
-MIDIIn.control = {arg src, chan, num, val;
-	[chan,num,val].postln; //monitor
-	switch(num,
-		//fx
-		~cc_slider_master,{~send_osc.value(o, p, ~fx_volume, val.linlin(0,127,0,10))}, //TODO: respuesta audible logarítmica? linexp?
-		~cc_col8_knob3,{~send_osc.value(o, p, ~fx_pan, val.linlin(0,127,-1,1))},
-
-		//MIR descriptors
-		~cc_col1_knob3,{~send_osc.value(o, p,~mir_hfc, val.linlin(0,127,0,1))},
-		~cc_col2_knob3,{~send_osc.value(o, p,~mir_spectral_complexity, val.linlin(0,127,0,1))},
-		~cc_col3_knob3,{~send_osc.value(o, p,~mir_inharmonicity, val.linlin(0,127,0,1))},
-		~cc_col4_knob3,{~send_osc.value(o, p,~mir_pitch_centroid, val.linlin(0,127,0,1))},
-
-		~cc_slider1,{~send_osc.value(o, p,~mir_spectral_centroid, val.linlin(0,127,0,10000))},
-        ~cc_slider2,{~send_osc.value(o, p,~mir_duration, val.linlin(0,127,0,15))},
-		~cc_slider3,{~send_osc.value(o, p,~mir_bpm, val.linlin(0,127,0,200))},
-	)
-};
-
 ~noteon_bank_left = 25;
 ~noteon_bank_right = 26;
 ~noteon_solo_master = 27;
@@ -490,63 +408,6 @@ MIDIIn.control = {arg src, chan, num, val;
 ~noteon_recarm_6 = 18;
 ~noteon_recarm_7 = 21;
 ~noteon_recarm_8 = 24;
-
-/*
-//Enabled Buttons (deprecated) ON/OFF each MIR descriptor
-~mir_spectral_centroid_enabled = "/mir/spectral_centroid/mean/enabled";
-~mir_duration_enabled = "/mir/duration/enabled";
-~mir_bpm_enabled = "/mir/bpm/enabled";
-
-~mir_inharmonicity_enabled = "/mir/inharmonicity/mean/enabled";
-~mir_hfc_enabled = "/mir/hfc/mean/enabled";
-~mir_spectral_complexity_enabled = "/mir/spectral_complexity/mean/enabled";
-~mir_pitch_centroid_enabled = "/mir/pitch_centroid/mean/enabled";
-*/
-//button
-
-
-
-MIDIFunc.noteOn({ |veloc, num, chan, src|
-	[chan,num,veloc].postln; //monitor
-	switch(num,
-
-		//solo (master) button mapped to /retrieve new sound
-		~noteon_solo_master,{
-			~send_osc.value(o, p, ~new_sound_retrieve, 1); //sends 1
-			~send_osc_toggle_button.value(o,p);
-			"solo btn to retrieve new sound".postln;
-		},
-
-		~noteon_bank_left,{
-			//MIR mode
-			~send_osc.value(o, p,~synth_mode, 0);
-			~send_osc.value(o, p,~mir_mode, 1);
-			"MIR mode".postln;
-		},
-		~noteon_bank_right,{
-			//Synth mode
-			~send_osc.value(o, p,~synth_mode, 1);
-			~send_osc.value(o, p,~mir_mode, 0);
-			"Synth mode".postln;
-		},
-
-	    ~noteon_solo_8,{ //last mute button
-			~send_osc.value(o, p,~new_sound_reset, 1);
-		},
-
-	)
-});
 */
 
-// Monitor
-/*
-//Mostrar MIDI input (controls)
-MIDIIn.control = {arg src, chan, num, val;
-	[chan,num,val].postln;
-};
-
-//Mostrar nota + velocity
-MIDIFunc.noteOn({ |veloc, num, chan, src|
-	( "New note received " + num + " with vel "+veloc ).postln;
-});
-*/
+	

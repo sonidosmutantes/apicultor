@@ -31,24 +31,11 @@ s.waitForBoot {
 	~bufferinstances = Array.newClear(~voices_number);
 	~synthInstances = Array.newClear(~voices_number);
 
-	//Freeze synth
-	~initial_freeze_vol = 0; //on/off at start point
-/* old synth
-	SynthDef(\mutantefreeze, { arg out=0, bufnum=0, point=0, vol=~initial_freeze_vol, fftwidth=4096, pan=0, startPos=0;
-				var in, chain, sig;
-				in = PlayBuf.ar(1, bufnum, BufRateScale.kr(bufnum),loop: 1);
-				chain = FFT(LocalBuf(4096), in);
-				chain = PV_MagFreeze(chain, point);
+//Mutante main sytnth (Multi effec freeze synth)
+	//TODO: check if there is a way to avoid processing when are disabled (pitchratio=1, delamix=0, etc
+SynthDef(\mutantefreeze, { arg busout=0, bufnum=0, point=0, vol=1, fftwidth=4096, pan=0, startPos=0, delay = 0.25, numchannels=1, delaymix=0, lfoamount= 0, lforate=0, pitchratio=1, roomsize=0.5, reverbmix=0;
 
-				//with PAN
-				sig = Splay.ar(vol * IFFT(chain).dup);
-				sig = Balance2.ar(sig[0], sig[1], pan);
-				Out.ar(out, sig);
-	}).add;
-	*/
-SynthDef(\mutantefreeze, { arg busout=0, bufnum=0, point=0, vol=~initial_freeze_vol, fftwidth=4096, pan=0, startPos=0, delay = 0.25, numchannels=1, delaymix=0.5;
-
-				var in, chain, sig, dupsig, adelay, z;
+	var in, chain, sig, dupsig, adelay, vibrato;
 
 	//plays buffer in loop
 	in = PlayBuf.ar(1, bufnum, BufRateScale.kr(bufnum),loop: 1);
@@ -59,6 +46,9 @@ SynthDef(\mutantefreeze, { arg busout=0, bufnum=0, point=0, vol=~initial_freeze_
 	chain = PV_MagFreeze(chain, point);
 	dupsig = IFFT(chain).dup;
 
+	vibrato = SinOsc.ar(lforate,Rand(0,2.0));
+	dupsig = vibrato*dupsig*(lfoamount) + dupsig*(1-lfoamount);
+
 	//with DELAY
 	adelay = DelayN.ar( dupsig, delay, delay, delaymix, dupsig); // input is mixed with delay via the add input (delaymix = 0 -> off)
 
@@ -66,8 +56,25 @@ SynthDef(\mutantefreeze, { arg busout=0, bufnum=0, point=0, vol=~initial_freeze_
 	sig = Splay.ar(vol *adelay);
 	sig = Balance2.ar(sig[0], sig[1], pan);
 
+	//with Pitch Shift (rate)
+		//pitchRatio - the ratio of the pitch shift. Must be from 0.0 to 4.0.
+	sig = PitchShift.ar(sig, 0.1, pitchratio, 0, 0.004);
+
+	//with Reverb (in, mix: 0.33, room: 0.5, damp: 0.5, mul: 1, add: 0)
+	sig = FreeVerb.ar(sig, reverbmix, roomsize, 0.5, 1, 0 );
+	//sig = GVerb(sig, roomsize, 3, 0.5, 0.5, 15 );
+
+	//Other FXs
+	//right = FreqShift.ar(left, SinOsc.kr(3.23, 0, 5));
+
 	Out.ar(busout, sig);
 }).add;
+
+/*
+	//Testing. Reloading first voice
+	~synthInstances[0].free;
+	~synthInstances[0] = Synth(\mutantefreeze, [\bufnum, ~bufferinstances[0].bufnum, \out, 0, \vol, 1]);
+*/
 
 //Granular synth / grain synthesis
 SynthDef(\sfgrain, {arg bufnum=0, pan=0.0, startPos=0.0, amp=0.1, dur=0.04;
@@ -84,8 +91,8 @@ SynthDef(\sfgrain, {arg bufnum=0, pan=0.0, startPos=0.0, amp=0.1, dur=0.04;
 /////////////////////////////////
 //External controller config
 //WARNING: se rompe si no esta el controlador presente/conectado
-"ui/akai_midimix_to_osc.scd".loadRelative; // AKAI MIDIMix Controller
-//"ui/yaeltex_midi_to_osc".loadRelative; // Yaeltex custom MIDI controller
+//"ui/akai_midimix_to_osc.scd".loadRelative; // AKAI MIDIMix Controller
+"ui/yaeltex_midi_to_osc.scd".loadRelative; // Yaeltex custom MIDI controller
 /////////////////////////////////
 
 
@@ -162,7 +169,7 @@ OSCdef.new(
 		arg msg;
 		//TODO: respuesta audible logarítmica? linexp?
         v.volume = msg[1].asFloat.linlin(0, 10, v.min, v.max);
-		("Volume: "++msg[1]).postln;
+		("Volume: "++msg[1].asFloat.asStringPrec(2)).postln;
 	},
 	'/fx/volume',
 );
@@ -285,7 +292,7 @@ OSCdef.new(
 );
 
 //////////////////////////////////
-	//(single) Voice configuration (FX)
+//(single) Voice configuration (FX)
 //////////////////////////////////
 
 //Voice volume
@@ -305,10 +312,12 @@ OSCdef.new(
 	{
 		arg msg;
 		var value = msg[1].asFloat;
-		("PAN: "++msg[1]).postln;
-			//Out.ar(0, Pan2(value)); //FIXME general PAN
+			 //FIXME general PAN
+			//("PAN: "++msg[1]).postln;
+			//Out.ar(0, Pan2(value));
 			//Out.ar(1, Pan2(msg[1].asFloat,0));
-		("Voice: "++(~active_voice)++" , PAN:  "++value).postln;
+
+		("Voice: "++(~active_voice)++" , Pan:  "++value.asStringPrec(2)).postln;
 		~synthInstances[~active_voice-1].set(\pan, value );
 	},
 	'/fx/pan',
@@ -319,7 +328,7 @@ OSCdef.new(
 	\fx_delay,
 	{
 		arg msg;
-			("Voice: "++(~active_voice)++" , Delay:  "++msg[1].asFloat).postln;
+			("Voice: "++(~active_voice)++" , Delay:  "++msg[1].asFloat.asStringPrec(2)).postln;
 			if( msg[1].asFloat==0,
 			   {
 					~synthInstances[~active_voice-1].set(\delaymix,0);
@@ -338,12 +347,114 @@ OSCdef.new(
 	\fx_delaymix,
 	{
 		arg msg;
-			("Voice: "++(~active_voice)++" , DelayMix:  "++msg[1].asFloat).postln;
+			("Voice: "++(~active_voice)++" , DelayMix:  "++msg[1].asFloat.asStringPrec(2)).postln;
 			~synthInstances[~active_voice-1].set(\delaymix, msg[1].asFloat);
 	},
 	'/fx/delay/mix',
 );
 
+
+//(pitch) Rate
+OSCdef.new(
+	\fx_pitch_rate,
+	{
+		arg msg;
+			("Voice: "++(~active_voice)++" , (pitch) Rate:  "++msg[1].asFloat).postln;
+			~synthInstances[~active_voice-1].set(\pitchratio, msg[1].asFloat);
+	},
+	'/fx/rate',
+);
+
+
+//Gate. TODO: improve this
+OSCdef.new(
+	\fx_gate,
+	{
+		arg msg;
+			var value = msg[1].asFloat;
+			if( value>0, {value=1}, {value=0});
+			("Voice: "++(~active_voice)++" , Gate:  "++value).postln;
+			~synthInstances[~active_voice-1].set(\vol, value);
+	},
+	'/fx/gate',
+);
+
+
+//Reverb
+OSCdef.new(
+	\fx_reverb,
+	{
+		arg msg;
+			var value = msg[1].asFloat;
+			("Voice: "++(~active_voice)++" , Reverb:  "++value.asStringPrec(2)).postln;
+			~synthInstances[~active_voice-1].set(\reverbmix, value);
+	},
+	'/fx/reverb',
+);
+
+//Ressonance (by now reverb roomsize)
+OSCdef.new(
+	\fx_ressonance,
+	{
+		arg msg;
+			var value = msg[1].asFloat;
+			("Voice: "++(~active_voice)++" , Ressonance (reverb roomsize):  "++value.asStringPrec(2)).postln;
+			~synthInstances[~active_voice-1].set(\roomsize, value.linlin(0,1,0,4));
+	},
+	'/fx/ressonance',
+);
+
+//TODO: implement
+//Filter (LP/BP/HP) -> 0,1,2
+OSCdef.new(
+	\fx_filter,
+	{
+		arg msg;
+			var value = msg[1].asFloat;
+			//if( value>0, {value=1}, {value=0});
+			("(TODO: implement) Voice: "++(~active_voice)++" , Filter Mode:  "++value.asStringPrec(2)).postln;
+			//~synthInstances[~active_voice-1].set(\lpf, value);
+			//~synthInstances[~active_voice-1].set(\bpf, value);
+			//~synthInstances[~active_voice-1].set(\hpf, value);
+	},
+	'/fx/filter',
+);
+
+//TODO: implement
+//Cutoff
+OSCdef.new(
+	\fx_cutoff,
+	{
+		arg msg;
+			var value = msg[1].asFloat;
+			("(TODO: implement) Voice: "++(~active_voice)++" , Cutoff,:  "++value.asStringPrec(2)).postln;
+			//~synthInstances[~active_voice-1].set(\filtercutoff,, value);
+	},
+	'/fx/cutoff',
+);
+
+//LFO (By now is RATE, not amount)
+OSCdef.new(
+	\fx_lfo,
+	{
+		arg msg;
+			("Voice: "++(~active_voice)++" , LFO (rate):  "++msg[1].asFloat.asStringPrec(2)).postln;
+			~synthInstances[~active_voice-1].set(\lforate, msg[1].asFloat);
+	},
+	'/fx/lfo',
+);
+
+//Factor --> LFO amount mix
+OSCdef.new(
+	\fx_factor,
+	{
+		arg msg;
+			var value = msg[1].asFloat;
+			("Voice: "++(~active_voice)++" , Rate (LFO amount mix):  "++msg[1].asFloat.asStringPrec(2)).postln;
+			~synthInstances[~active_voice-1].set(\lfoamount, msg[1].asFloat.linlin(0,1,0,0.95));
+	},
+	'/fx/factor',
+);
 
 ~osc_server_APICultorService.sendMsg("/chat", "Hello. SuperCollider is ready to rock!");
 } //end of waitForBoot

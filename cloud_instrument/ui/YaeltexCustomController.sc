@@ -12,7 +12,7 @@ YaeltexAPICultor {
 	var <master, <pan, <distanceSensor, <knobsMIR, <joyNoReturnMIR, <joyReturnMIR, <knobsSynth, <joyNoReturnSynth, <joyReturnSynth, <voices;
 
     var <ctls;
-	var mirKeyValues, synthKeyValues;
+	var mirKeyValues, synthKeyValues, joyKeyValues;
     var masterValue, panValue, distanceSensorValue, knobsMIRValues, joyNoReturnMIRValues, joyReturnMIRValues, knobsSynthValues, joyNoReturnSynthValues, joyReturnSynthValues, voicesValues;
 
     *new {
@@ -52,11 +52,11 @@ YaeltexAPICultor {
 
 		voicesValues = [ 60,61,62,63,64,65,66,67 ]; //Voice1 to Voice8
 
-		joyNoReturnMIR    = [110, 111]; //x, y
-		joyReturnMIR    = [112, 113]; //x, y
+		joyNoReturnMIRValues    = [110, 111]; //x, y
+		joyReturnMIRValues    = [112, 113]; //x, y
 
-		joyNoReturnSynth = [114, 115]; //x, y
-		joyReturnSynth = [115, 116]; //x, y
+		joyNoReturnSynthValues = [114, 115]; //x, y
+		joyReturnSynthValues = [116, 117]; //x, y
 
         MIDIClient.init;
         MIDIIn.connectAll;
@@ -113,6 +113,33 @@ YaeltexAPICultor {
             voices.add(btn);
             ctls.put(key, btn);
         };
+
+		joyKeyValues = ["joy1Synth_x", "joy1Synth_y", "joy2Synth_x", "joy2Synth_y", "joy1Mir_x", "joy1Mir_y", "joy2Mir_x", "joy2Mir_y"];
+
+		joyNoReturnSynthValues.collect {|note, i|
+			var key = joyKeyValues[0..1][i].asSymbol;
+            var joystick = YaeltexKnob(key, note);
+            joyNoReturnSynth.add(joystick);
+            ctls.put(key, joystick);
+		};
+	    joyNoReturnMIRValues.collect {|note, i|
+			var key = joyKeyValues[2..3][i].asSymbol;
+            var joystick = YaeltexKnob(key, note);
+            joyNoReturnMIR.add(joystick);
+            ctls.put(key, joystick);
+		};
+		joyReturnSynthValues.collect {|note, i|
+			var key = joyKeyValues[4..5][i].asSymbol;
+            var joystick = YaeltexKnob(key, note);
+            joyReturnSynth.add(joystick);
+            ctls.put(key, joystick);
+		};
+	    joyReturnMIRValues.collect {|note, i|
+			var key = joyKeyValues[6..7][i].asSymbol;
+            var joystick = YaeltexKnob(key, note);
+            joyReturnMIR.add(joystick);
+            ctls.put(key, joystick);
+		};
     }
 
     freeAll {
