@@ -19,7 +19,7 @@
 ~default_delaymix = 0.5;
 
 ~max_grains_amount = 500;
-~master_volume_max = 15;
+~master_volume_max = 25;
 
 //***************************************
 //Open Stage UI

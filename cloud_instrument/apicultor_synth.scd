@@ -76,6 +76,7 @@ SynthDef(\mutantefreeze, { arg busout=0, bufnum=0, point=0, vol=1, fftwidth=4096
 	~synthInstances[0] = Synth(\mutantefreeze, [\bufnum, ~bufferinstances[0].bufnum, \out, 0, \vol, 1]);
 */
 
+
 //Granular synth / grain synthesis
 SynthDef(\sfgrain, {arg bufnum=0, pan=0.0, startPos=0.0, amp=0.1, dur=0.04;
 	var grain;
@@ -95,6 +96,8 @@ SynthDef(\sfgrain, {arg bufnum=0, pan=0.0, startPos=0.0, amp=0.1, dur=0.04;
 "ui/yaeltex_midi_to_osc.scd".loadRelative; // Yaeltex custom MIDI controller
 /////////////////////////////////
 
+//sound test
+//x = {LPF.ar(WhiteNoise.ar)}.play(s);
 
 //
 //OSC function freeeze synth instance
@@ -457,4 +460,15 @@ OSCdef.new(
 );
 
 ~osc_server_APICultorService.sendMsg("/chat", "Hello. SuperCollider is ready to rock!");
+
+//Startup sounds
+~bufferinstances[0]= Buffer.read(s, "/home/pi/dev/apicultor/cloud_instrument/Room Tone In An Apartment Living Room 2.wav");
+//~bufferinstances[0]= Buffer.read(s, "/home/pi/dev/apicultor/cloud_instrument/Parallel.wav");
+~synthInstances[0] = Synth(\mutantefreeze, [\bufnum, ~bufferinstances[0].bufnum, \out, 0, \vol, 1]);
+
+~bufferinstances[1]= Buffer.read(s, "/home/pi/dev/apicultor/cloud_instrument/Ride_01-21.wav"); 
+//~bufferinstances[1]= Buffer.read(s, "/home/pi/dev/apicultor/cloud_instrument/btn201.wav"); 
+~synthInstances[1] = Synth(\mutantefreeze, [\bufnum, ~bufferinstances[1].bufnum, \out, 0, \vol, 1]);
 } //end of waitForBoot
+
+

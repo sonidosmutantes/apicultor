@@ -240,17 +240,17 @@
 
 //Joyttick 2 (right) with-return
 //X: Trigger grains
-~yaeltex.ctls['joy2Synth_x'].onChange = {|val|
-//~yaeltex.joyReturnSynth[0].onChange = {|val|
+//~yaeltex.ctls['joy2Synth_x'].onChange = {|val|
+~yaeltex.joyReturnSynth[0].onChange = {|val|
 	val = val.linlin(0,127,0,1).asFloat;
-	//("Joystick2 (with-return) x value:"++val).postln;
+//	("Joystick2 (with-return) x value:"++val).postln;
 	if( val==1, { //to the rigth
 		~osc_server_SuperCollider.sendMsg("/synth/granular/trigger", 1);
 	});
 };
 //Y: Freeze ON/OFF
-~yaeltex.ctls['joy2Synth_y'].onChange = {|val|
-//~yaeltex.joyReturnSynth[1].onChange = {|val|
+//~yaeltex.ctls['joy2Synth_y'].onChange = {|val|
+~yaeltex.joyReturnSynth[1].onChange = {|val|
 	val = val.linlin(0,127,1,0).asFloat;
 	//("Joystick2 (with-return) y value:"++val).postln;
 	if( val==1, {

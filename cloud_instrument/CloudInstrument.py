@@ -27,6 +27,8 @@ import json
 import signal
 import logging
 
+from time import sleep
+
 
 sys.path.append(os.path.join(os.path.dirname(os.path.realpath('__file__')), '../'))
 
@@ -59,6 +61,7 @@ signal.signal(signal.SIGINT, signal_handler)
 Usage = "./CloudInstument.py"
 if __name__ == '__main__':
     logging.basicConfig(filename='instrumento_nube.log',level=logging.DEBUG)
+    #logging.basicConfig(filename='instrumento_nube.log',level=logging.ERROR)
     # TODO: add timestamp
     logging.getLogger().addHandler(logging.StreamHandler()) #console std output
     logging.info('Inicio')
@@ -169,4 +172,6 @@ if __name__ == '__main__':
         pyo_server.gui(locals()) # gui instance (only for pyo)
     else:
         while True:
+            sleep(5) # sin esto en raspberry pi el consumo del cpu se va al 100%
+            #sleep(1) # sin esto en raspberry pi el consumo del cpu se va al 100%
             pass
