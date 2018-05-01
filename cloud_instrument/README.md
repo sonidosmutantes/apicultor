@@ -19,3 +19,7 @@
 
  Dependencies: [INSTALL.md](INSTALL.md)
 
+### Linux: jackd-no-disconnect-config 
+~/.jackdrc
+
+    /usr/local/bin/jackd -P75 -t2000 -dalsa -dhw:S2 -p4096 -n7 -r44100 -s

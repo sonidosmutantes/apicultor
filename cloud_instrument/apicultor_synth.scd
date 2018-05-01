@@ -471,4 +471,6 @@ OSCdef.new(
 );
 
 ~osc_server_APICultorService.sendMsg("/chat", "Hello. SuperCollider is ready to rock!");
+
+//Startup sounds
 } //end of waitForBoot

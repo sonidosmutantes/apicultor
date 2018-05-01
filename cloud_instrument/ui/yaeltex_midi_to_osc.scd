@@ -6,6 +6,11 @@
 //TODO: detectar donde corre. EN mac  MIDIOut.newByName("API-cultor", "API-cultor")
 // y en rapsberry pi MIDIOut.newByName("API-cultor", "API-cultor MIDI 1"); //raspberry pi
 
+// MIDI out
+~default_channel = 0;
+//~midi_device_set_color = MIDIOut.newByName("API-cultor", "API-cultor"); //mac
+~midi_device_set_color = MIDIOut.newByName("API-cultor", "API-cultor MIDI 1"); //raspberry pi
+
 ///////////////////////////////////////////////////////////////////////////
 // Yaeltex custom MIDI controller
 ///////////////////////////////////////////////////////////////////////////
@@ -178,11 +183,6 @@
 ////////////////
 // Voices
 ////////////////
-
-// MIDI out
-~default_channel = 0;
-//~midi_device_set_color = MIDIOut.newByName("API-cultor", "API-cultor"); //mac
-~midi_device_set_color = MIDIOut.newByName("API-cultor", "API-cultor MIDI 1"); //raspberry pi
 ~button_light = {
 	|button_arg, onoff_arg|
 	~midi_device_set_color.noteOn(~default_channel, button_arg, onoff_arg);
