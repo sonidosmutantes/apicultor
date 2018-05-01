@@ -1,32 +1,40 @@
+# Dependencies
 
-# [Pyo](http://ajaxsoundstudio.com/software/pyo/): dedicated Python module for digital signal processing
+## OSC Client
+    $ git clone https://github.com/ptone/pyosc.git
+    $ cd pyosc && sudo ./setup.py install
 
-      $ sudo apt-get install python-dev libjack-jackd2-dev libportmidi-dev portaudio19-dev liblo-dev libsndfile-dev python-dev python-tk python-imaging-tk python-wxgtk2.8
-
-      $ wget http://ajaxsoundstudio.com/downloads/pyo_0.8.5-src.tar.bz2
-
-      $ tar -xvf pyo_0.8.5-src.tar.bz2 && cd pyo_0.8.5-src
-
-      #enable-jack compilation
-      $ sudo python setup.py --use-jack install
-
-
-# liblo: Lightweight OSC implementation
-
-* [liblo](http://liblo.sourceforge.net/)
-* [pyliblo](http://das.nasophon.de/pyliblo/)
+## liblo: Lightweight OSC implementation
+    * [liblo](http://liblo.sourceforge.net/)
+    * [pyliblo](http://das.nasophon.de/pyliblo/)
 
         $ apt-get install -y liblo-dev
         $ pip2 install cython 
         $ pip2 install pyliblo 
 
-
-# Freesound API module
-
         $ git clone https://github.com/MTG/freesound-python
         $ cd freesound-python
         $ sudo python setup.py install
 
+## Freesound API module
+```
+$ git clone https://github.com/MTG/freesound-python
+$ cd freesound-python
+$ sudo python setup.py install
+```
+
+## Pre-processing scripts (saves realtime processing)
+
+    $ sudo apt-get install ffmpeg
+
+In Raspberry Pi and other debian based systems replace by:
+    $ sudo apt-get install libav-tools
+    alias ffmpeg=avconv
+
+    $ pip install ffmpeg-normalize
+
+
+# Old (check)
 # [RtMidi](https://pypi.python.org/pypi/python-rtmidi/)
 
 ## Linux
@@ -79,3 +87,15 @@ http://haypo-notes.readthedocs.io/python.html#build-a-python-wheel-package-on-wi
 Add custom classes to manage MIDI devices
 
     $ sudo cp Extensions/* /usr/local/share/SuperCollider/Extensions 
+
+# (optional) [Pyo](http://ajaxsoundstudio.com/software/pyo/): dedicated Python module for digital signal processing
+
+      $ sudo apt-get install python-dev libjack-jackd2-dev libportmidi-dev portaudio19-dev liblo-dev libsndfile-dev python-dev python-tk python-imaging-tk python-wxgtk2.8
+
+      $ wget http://ajaxsoundstudio.com/downloads/pyo_0.8.5-src.tar.bz2
+
+      $ tar -xvf pyo_0.8.5-src.tar.bz2 && cd pyo_0.8.5-src
+
+      #enable-jack compilation
+      $ sudo python setup.py --use-jack install
+
