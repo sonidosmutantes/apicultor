@@ -11,14 +11,19 @@ https://github.com/sonidosmutantes/apicultor
 2. Run this SuperCollider script
 */
 
+//General config
 ~host = "mac";
 //~host = "raspi";
+~midi_controller = "yaeltex"; //WARNING: fails if controller is not present
+//~midi_controller = "midimix";
 
 if( ~host=="mac", {
 	s.options.sampleRate= 48000; //mac
 }
 ,{
-	s.options.sampleRate= 44100; //raspberry low latency config
+	//Raspberry Pi low latency config
+	//jackd -P75 -t2000 -dalsa -dhw:S2 -p4096 -n7 -r44100 -s
+	s.options.sampleRate= 44100;
 });
 
 //TODO: ver multiple outputs
@@ -100,8 +105,13 @@ SynthDef(\sfgrain, {arg bufnum=0, pan=0.0, startPos=0.0, amp=0.1, dur=0.04;
 /////////////////////////////////
 //External controller config
 //WARNING: se rompe si no esta el controlador presente/conectado
-//"ui/akai_midimix_to_osc.scd".loadRelative; // AKAI MIDIMix Controller
-"ui/yaeltex_midi_to_osc.scd".loadRelative; // Yaeltex custom MIDI controller
+if( ~midi_controller=="yaeltex", {
+	"ui/yaeltex_midi_to_osc.scd".loadRelative; // Yaeltex custom MIDI controller
+}
+,{
+	"ui/akai_midimix_to_osc.scd".loadRelative; // AKAI MIDIMix Controller
+});
+
 /////////////////////////////////
 
 
@@ -118,8 +128,11 @@ x = OSCFunc(
 			( "Voice number: "+(voice_number+1)).postln;
 			( "New sound received " + new_file ).postln;
 
-			//FIXME: make general. This is custom for yaeltex ctrl
-			~button_light.value(~yaeltex.voices[~active_voice-1].note, 1); //voice led on
+			if( ~midi_controller=="yaeltex", {
+				~button_light.value(~yaeltex.voices[~active_voice-1].note, 1); //voice led on
+			}
+			,{
+			});
 
 			metadata = msg[3].asString; //Ej: sinbase.wav by anbo - id: 18860
 
@@ -231,8 +244,11 @@ OSCdef.new(
 			~osc_server_APICultorService.sendMsg("/retrieve", 1); //get a new sound
 			//~send_osc_all.value(~new_sound_reset, 1); // RESET MIR config?
 
-			//FIXME: make general. This is custom for yaeltex ctrl
-			~button_blink.value( ~yaeltex.voices[~active_voice-1].note );
+			if( ~midi_controller=="yaeltex", {
+				~button_blink.value( ~yaeltex.voices[~active_voice-1].note );
+			}
+			,{
+			});
 
 			//OpenStage UI update
 			[1,2,3,4,5,6,7,8].do{|number|
@@ -484,15 +500,20 @@ OSCdef.new(
 ~osc_server_APICultorService.sendMsg("/chat", "Hello. SuperCollider is ready to rock!");
 
 ////////////////////////////////////////
-	/*
 //(optional) Startup sounds
-//voice1
-~bufferinstances[0]= Buffer.read(s, "/home/pi/dev/apicultor/cloud_instrument/Room Tone In An Apartment Living Room 2.wav");
-~synthInstances[0] = Synth(\mutantefreeze, [\bufnum, ~bufferinstances[0].bufnum, \out, 0, \vol, 1]);
+if( ~host=="mac", {
 
-//voice 2
-~bufferinstances[1]= Buffer.read(s, "/home/pi/dev/apicultor/cloud_instrument/Ride_01-21.wav");
-~synthInstances[1] = Synth(\mutantefreeze, [\bufnum, ~bufferinstances[1].bufnum, \out, 0, \vol, 1]);
-	*/
+}
+,{
+		//Raspberry pi
+		//voice1
+		~bufferinstances[0]= Buffer.read(s, "/home/pi/dev/apicultor/cloud_instrument/Room Tone In An Apartment Living Room 2.wav");
+		~synthInstances[0] = Synth(\mutantefreeze, [\bufnum, ~bufferinstances[0].bufnum, \out, 0, \vol, 1]);
+
+		//voice 2
+		~bufferinstances[1]= Buffer.read(s, "/home/pi/dev/apicultor/cloud_instrument/Ride_01-21.wav");
+		~synthInstances[1] = Synth(\mutantefreeze, [\bufnum, ~bufferinstances[1].bufnum, \out, 0, \vol, 1]);
+});
+
 ////////////////////////////////////////
 } //end of waitForBoot
