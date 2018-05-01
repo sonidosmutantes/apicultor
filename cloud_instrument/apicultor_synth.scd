@@ -18,9 +18,11 @@ https://github.com/sonidosmutantes/apicultor
 //~midi_controller = "midimix";
 
 if( ~host=="mac", {
+	"Running in mac".postln;
 	s.options.sampleRate= 48000; //mac
 }
 ,{
+	"Running in raspberry pi".postln;
 	//Raspberry Pi low latency config
 	//jackd -P75 -t2000 -dalsa -dhw:S2 -p4096 -n7 -r44100 -s
 	s.options.sampleRate= 44100;
@@ -106,9 +108,11 @@ SynthDef(\sfgrain, {arg bufnum=0, pan=0.0, startPos=0.0, amp=0.1, dur=0.04;
 //External controller config
 //WARNING: se rompe si no esta el controlador presente/conectado
 if( ~midi_controller=="yaeltex", {
+	"Using Yaeltex MIDI API.Cultor custom controller".postln;
 	"ui/yaeltex_midi_to_osc.scd".loadRelative; // Yaeltex custom MIDI controller
 }
 ,{
+	"Using AKAI MIDIMix controller".postln;
 	"ui/akai_midimix_to_osc.scd".loadRelative; // AKAI MIDIMix Controller
 });
 
