@@ -44,9 +44,12 @@ s.waitForBoot {
 	~bufferinstances = Array.newClear(~voices_number);
 	~synthInstances = Array.newClear(~voices_number);
 
+	~filterInstances = Array.newClear(~voices_number); //TODO: set to zero (0)
+
 //Mutante main sytnth (Multi effec freeze synth)
 	//TODO: check if there is a way to avoid processing when are disabled (pitchratio=1, delamix=0, etc
-SynthDef(\mutantefreeze, { arg busout=0, bufnum=0, point=0, vol=1, fftwidth=4096, pan=0, startPos=0, delay = 0.25, numchannels=1, delaymix=0, lfoamount= 0, lforate=0, pitchratio=1, roomsize=0.5, reverbmix=0, filtercutoff=2000;
+SynthDef(\mutantefreeze, { arg busout=0, bufnum=0, point=0, vol=1, fftwidth=4096, pan=0, startPos=0, delay = 0.25, numchannels=1, delaymix=0, lfoamount= 0, lforate=0, pitchratio=1, roomsize=0.5, reverbmix=0, lpfcutoff=20000, bpfcutoff=20000, hpfcutoff=100;
+		//Note about HPF cutoff: Cutoff frequency in Hertz. WARNING: due to the nature of its implementation frequency values close to 0 may cause glitches and/or extremely loud audio artifacts!
 
 	var in, chain, sig, dupsig, adelay, vibrato;
 
@@ -77,19 +80,27 @@ SynthDef(\mutantefreeze, { arg busout=0, bufnum=0, point=0, vol=1, fftwidth=4096
 	sig = FreeVerb.ar(sig, reverbmix, roomsize, 0.5, 1, 0 );
 	//sig = GVerb(sig, roomsize, 3, 0.5, 0.5, 15 );
 
-	//Filter (filter_status=0 -> OFF, 1 LPF, 2 BPF, 3 HPF)
-	if( ~filter_status==1, {
-		sig = LPF.ar(sig, filtercutoff, 1, 0);
-	}, {
-	if( ~filter_status==2, {
-		sig = BPF.ar(sig, filtercutoff, 1, 0);
-	},
-	{
-		if( ~filter_status==3, {
-			 sig = HPF.ar(sig, filtercutoff, 1, 0);
-		});
-	})
-	});
+	sig = LPF.ar(sig, lpfcutoff, 1, 0);
+	//sig = BPF.ar(sig, bpfcutoff, 1, 0); //FIXME BPF (always enabled)
+	sig = HPF.ar(sig, hpfcutoff, 1, 0);
+
+		/*
+		  if( filtermode==1, {
+				//LPF
+			    sig = LPF.ar(sig, filtercutoff, 1, 0);
+			},
+		    {
+				if( filtermode==2, { //BPF
+				    sig = BPF.ar(sig, filtercutoff, 1, 0);
+				},
+				{
+				    if( filtermode==3, { //HPF
+                       sig = HPF.ar(sig, filtercutoff, 1, 0);
+				    }, {
+						//OFF
+					});
+				})
+			});*/
 
 	//Other FXs
 	//right = FreqShift.ar(left, SinOsc.kr(3.23, 0, 5));
@@ -98,7 +109,7 @@ SynthDef(\mutantefreeze, { arg busout=0, bufnum=0, point=0, vol=1, fftwidth=4096
 }).add;
 
 /*
-	//Testing. Reloading first voice
+	//Testing. Reloading first voice (voice 1)
 	~synthInstances[0].free;
 	~synthInstances[0] = Synth(\mutantefreeze, [\bufnum, ~bufferinstances[0].bufnum, \out, 0, \vol, 1]);
 */
@@ -463,29 +474,33 @@ OSCdef.new(
 
 
 //Filter (LP/BP/HP) -> 0-> OFF // 1:LPF,2:BPF,3:HPF
-~filter_status = 0; //Filter OFF
 OSCdef.new(
 	\fx_filter,
 	{
 		arg msg;
-
 			var value = msg[1].asInteger;
+
 			~filter_status = value;
+			//~synthInstances[~active_voice-1].set(\filtermode, ~filter_status);
+			~filterInstances[~active_voice-1] = ~filter_status;
+
 			~estado = "OFF";
 			if( ~filter_status==1, {
 				~estado = "LPF";
 			}, {
 				if( ~filter_status==2, {
-					~estado = "BPF";
+					~estado = "BPF (temporary disabled)"; //FIXME: implement BPF filter
 				},
 				{
 					if( ~filter_status==3, {
 					    ~estado = "HPF";
+					}, {
+						//OFF
 					});
 				})
 			});
 
-			("Voice: "++(~active_voice)++" , Filter Mode:  "++~estado).postln;
+			("Voice: "++(~active_voice)++" , Filter Mode:  "++~estado++" ("++value++")").postln;
 	},
 	'/fx/filter',
 );
@@ -497,7 +512,26 @@ OSCdef.new(
 		arg msg;
 			var value = msg[1].asInteger;
 			("Voice: "++(~active_voice)++" , Cutoff:  "++value).postln;
-			~synthInstances[~active_voice-1].set(\filtercutoff, value);
+
+
+			if( ~filterInstances[~active_voice-1] ==1, {
+				//~estado = "LPF";
+				~synthInstances[~active_voice-1].set(\lpfcutoff, value);
+			}, {
+				if( ~filter_status==2, {
+					//~estado = "BPF";
+					~synthInstances[~active_voice-1].set(\bpfcutoff, value);
+				},
+				{
+					if( ~filter_status==3, {
+					    //~estado = "HPF";
+						~synthInstances[~active_voice-1].set(\hpfcutoff, value);
+					}, {
+						//OFF
+					});
+				})
+			});
+
 	},
 	'/fx/cutoff',
 );
