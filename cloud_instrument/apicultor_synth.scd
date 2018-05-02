@@ -18,9 +18,11 @@ https://github.com/sonidosmutantes/apicultor
 //~midi_controller = "midimix";
 
 if( ~host=="mac", {
+	"Running in mac".postln;
 	s.options.sampleRate= 48000; //mac
 }
 ,{
+	"Running in raspberry pi".postln;
 	//Raspberry Pi low latency config
 	//jackd -P75 -t2000 -dalsa -dhw:S2 -p4096 -n7 -r44100 -s
 	s.options.sampleRate= 44100;
@@ -106,9 +108,11 @@ SynthDef(\sfgrain, {arg bufnum=0, pan=0.0, startPos=0.0, amp=0.1, dur=0.04;
 //External controller config
 //WARNING: se rompe si no esta el controlador presente/conectado
 if( ~midi_controller=="yaeltex", {
+	"Using Yaeltex MIDI API.Cultor custom controller".postln;
 	"ui/yaeltex_midi_to_osc.scd".loadRelative; // Yaeltex custom MIDI controller
 }
 ,{
+	"Using AKAI MIDIMix controller".postln;
 	"ui/akai_midimix_to_osc.scd".loadRelative; // AKAI MIDIMix Controller
 });
 
@@ -204,8 +208,12 @@ OSCdef.new(
 	{
 		arg msg;
 		//TODO: respuesta audible logarítmica? linexp?
-        v.volume = msg[1].asFloat.linlin(0, 10, v.min, v.max);
-		("Volume: "++msg[1].asFloat.asStringPrec(2)).postln;
+		//--> 7 son -20dB
+        //v.volume = msg[1].asFloat.linlin(0, ~master_volume_max, v.min, v.max);
+		v.volume = msg[1].asFloat.linlin(0, ~master_volume_max, -35, v.max);
+
+		//("Volume: "++msg[1].asFloat.asStringPrec(2)).postln;
+		("Volume: "++v.volume ++" dB").postln;
 	},
 	'/fx/volume',
 );
@@ -223,7 +231,7 @@ OSCdef.new(
 
 			//OpenStage UI update
 			[1,2,3,4,5,6,7,8].do{|number|
-				~osc_server_OpenStage.sendMsg('/EDIT', 'led_'++(number), '{"value":"0","color":"green"}');
+			~osc_server_OpenStage.sendMsg('/EDIT', 'led_'++(number), '{"value":"0","color":"green"}');
 			};
 			~osc_server_OpenStage.sendMsg('/EDIT', 'led_'++(~active_voice), '{"value":"1","color":"green"}');
 		 });
@@ -394,7 +402,6 @@ OSCdef.new(
 	'/fx/delay/mix',
 );
 
-
 //(pitch) Rate
 OSCdef.new(
 	\fx_pitch_rate,
@@ -406,20 +413,18 @@ OSCdef.new(
 	'/fx/rate',
 );
 
-
 //Gate. TODO: improve this
 OSCdef.new(
 	\fx_gate,
 	{
 		arg msg;
 			var value = msg[1].asFloat;
-			if( value>0, {value=1}, {value=0});
+			//if( value>0, {value=1}, {value=0});
 			("Voice: "++(~active_voice)++" , Gate:  "++value).postln;
 			~synthInstances[~active_voice-1].set(\vol, value);
 	},
 	'/fx/gate',
 );
-
 
 //Reverb
 OSCdef.new(
