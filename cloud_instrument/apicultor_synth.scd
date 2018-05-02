@@ -570,7 +570,7 @@ if( ~host=="mac", {
 		//Raspberry pi
 		//voice1
 		//~bufferinstances[0]= Buffer.read(s, "/home/pi/dev/apicultor/cloud_instrument/Room Tone In An Apartment Living Room 2.wav");
-		~bufferinstances[0]= Buffer.read(s, "/home/pi/dev/apicultor/cloud_instrument/Basspad (Desolate).wav");
+		~bufferinstances[0]= Buffer.read(s, "/home/pi/dev/apicultor/cloud_instrument/Basspad.wav");
 		~synthInstances[0] = Synth(\mutantefreeze, [\bufnum, ~bufferinstances[0].bufnum, \out, 0, \vol, 1]);
 
 		//voice 2
