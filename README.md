@@ -23,7 +23,12 @@ Spanish version: [README_es.md](README_es.md)
 
 See [cloud_instrument/README.md](cloud_instrument/README.md)
 
-Interactive __DEMO__: [https://www.youtube.com/watch?v=2sMsKvfZKGA](https://www.youtube.com/watch?v=2sMsKvfZKGA) 
+Interactive __DEMO__: [Cloud Instrument](https://www.youtube.com/watch?v=SCYEEpfct_Y). Interactive demo retrieving sounds from the Cloud using MIR descriptors and processing them in realtime (using raspicultor aka raspberry pi + apicultor).
+
+### UI
+[Open Stage Control](https://osc.ammd.net/) User Interface
+
+![](doc/UI%20ArCiTec.png)
 
 ## Custom MIDI Controller design
 
@@ -34,11 +39,10 @@ Interactive __DEMO__: [https://www.youtube.com/watch?v=2sMsKvfZKGA](https://www.
 
 With a SuperCollider synthesizer/effects processor running in a Raspberry pi, plus an external sound card for high fidelity.
 
-## Open Stage Control User Interface version
-### UI MIR mode
+### MIR mode
 ![](doc/modo-mir.png)
 
-### UI Synth mode
+### Synth mode
 ![](doc/modo-synth.png)
 
 ## Performances
