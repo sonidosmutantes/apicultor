@@ -46,7 +46,7 @@ s.waitForBoot {
 
 //Mutante main sytnth (Multi effec freeze synth)
 	//TODO: check if there is a way to avoid processing when are disabled (pitchratio=1, delamix=0, etc
-SynthDef(\mutantefreeze, { arg busout=0, bufnum=0, point=0, vol=1, fftwidth=4096, pan=0, startPos=0, delay = 0.25, numchannels=1, delaymix=0, lfoamount= 0, lforate=0, pitchratio=1, roomsize=0.5, reverbmix=0;
+SynthDef(\mutantefreeze, { arg busout=0, bufnum=0, point=0, vol=1, fftwidth=4096, pan=0, startPos=0, delay = 0.25, numchannels=1, delaymix=0, lfoamount= 0, lforate=0, pitchratio=1, roomsize=0.5, reverbmix=0, filtercutoff=2000;
 
 	var in, chain, sig, dupsig, adelay, vibrato;
 
@@ -77,8 +77,19 @@ SynthDef(\mutantefreeze, { arg busout=0, bufnum=0, point=0, vol=1, fftwidth=4096
 	sig = FreeVerb.ar(sig, reverbmix, roomsize, 0.5, 1, 0 );
 	//sig = GVerb(sig, roomsize, 3, 0.5, 0.5, 15 );
 
-	//Filter
-		//x = {LPF.ar(WhiteNoise.ar)}.play(s);
+	//Filter (filter_status=0 -> OFF, 1 LPF, 2 BPF, 3 HPF)
+	if( ~filter_status==1, {
+		sig = LPF.ar(sig, filtercutoff, 1, 0);
+	}, {
+	if( ~filter_status==2, {
+		sig = BPF.ar(sig, filtercutoff, 1, 0);
+	},
+	{
+		if( ~filter_status==3, {
+			 sig = HPF.ar(sig, filtercutoff, 1, 0);
+		});
+	})
+	});
 
 	//Other FXs
 	//right = FreqShift.ar(left, SinOsc.kr(3.23, 0, 5));
@@ -450,31 +461,43 @@ OSCdef.new(
 	'/fx/ressonance',
 );
 
-//TODO: implement
-//Filter (LP/BP/HP) -> 0,1,2
+
+//Filter (LP/BP/HP) -> 0-> OFF // 1:LPF,2:BPF,3:HPF
+~filter_status = 0; //Filter OFF
 OSCdef.new(
 	\fx_filter,
 	{
 		arg msg;
-			var value = msg[1].asFloat;
-			//if( value>0, {value=1}, {value=0});
-			("(TODO: implement) Voice: "++(~active_voice)++" , Filter Mode:  "++value.asStringPrec(2)).postln;
-			//~synthInstances[~active_voice-1].set(\lpf, value);
-			//~synthInstances[~active_voice-1].set(\bpf, value);
-			//~synthInstances[~active_voice-1].set(\hpf, value);
+
+			var value = msg[1].asInteger;
+			~filter_status = value;
+			~estado = "OFF";
+			if( ~filter_status==1, {
+				~estado = "LPF";
+			}, {
+				if( ~filter_status==2, {
+					~estado = "BPF";
+				},
+				{
+					if( ~filter_status==3, {
+					    ~estado = "HPF";
+					});
+				})
+			});
+
+			("Voice: "++(~active_voice)++" , Filter Mode:  "++~estado).postln;
 	},
 	'/fx/filter',
 );
 
-//TODO: implement
 //Cutoff
 OSCdef.new(
 	\fx_cutoff,
 	{
 		arg msg;
-			var value = msg[1].asFloat;
-			("(TODO: implement) Voice: "++(~active_voice)++" , Cutoff,:  "++value.asStringPrec(2)).postln;
-			//~synthInstances[~active_voice-1].set(\filtercutoff,, value);
+			var value = msg[1].asInteger;
+			("Voice: "++(~active_voice)++" , Cutoff:  "++value).postln;
+			~synthInstances[~active_voice-1].set(\filtercutoff, value);
 	},
 	'/fx/cutoff',
 );

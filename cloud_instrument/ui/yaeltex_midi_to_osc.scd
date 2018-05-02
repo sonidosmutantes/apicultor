@@ -123,10 +123,10 @@ if( ~host=="mac", {
 };
 
 //last row
-//Filter (LP/BP/HP)
+//Filter (LP/BP/HP) -> 0-> OFF // 1:LPF,2:BPF,3:HPF
 ~yaeltex.ctls['Filter'].onChange = {|val|
 	val = val.linlin(0,127,0,1).asFloat;
-	if( val<0.33, { val=0 }, { if( val<0.66, {val=1}, {val=2})});
+	if( val<0.1, { val=0 }, { if( val<0.38, {val=1},{ if( val<0.68, {val=2}, {val=3})})});
 	//("SYNTH: Filter Mode "++val).postln;
 	~osc_server_SuperCollider.sendMsg(~fx_filter, val);
 
@@ -135,7 +135,7 @@ if( ~host=="mac", {
 
 //Cutoff
 ~yaeltex.ctls['Cutoff'].onChange = {|val|
-	val = val.linlin(0,127,20,2000).asFloat;
+	val = val.linlin(0,127,20,5000).asFloat;
 	//("SYNTH: Cutoff "++val).postln;
 	~osc_server_SuperCollider.sendMsg(~fx_cutoff, val);
 

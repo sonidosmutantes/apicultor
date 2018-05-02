@@ -15,6 +15,7 @@ NetAddr.broadcastFlag = true; //Zero conf version. broadcast to the network
 //OSCFunc.trace
 //OSCFunc.trace(false); // Turn posting off
 
+("Listening OSC Port: "++NetAddr.langPort).postln;
 
 /////////////////////////////////////////////////////////////
 //Constants

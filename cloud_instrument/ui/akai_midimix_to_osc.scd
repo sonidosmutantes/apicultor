@@ -139,7 +139,11 @@
 ~mpkmidimix.knobsA[6].onChange = {|val| ~osc_server_SuperCollider.sendMsg(~fx_pan, val.linlin(0,127,-1,1))};
 
 //Master sound server VOLUME
-~mpkmidimix.knobsA[7].onChange = {|val| ~osc_server_SuperCollider.sendMsg(~fx_volume, val.linlin(0,127,0,~master_volume_max))};
+~mpkmidimix.knobsA[7].onChange = {|val|
+	~osc_server_SuperCollider.sendMsg(~fx_volume, val.linlin(0,127,0,~master_volume_max).asFloat;);
+};
+
+
 
 /////////////////////////////////////
 // Row 2 (knobs)
@@ -209,17 +213,17 @@
 // Row 3 (knobs)
 /////////////////////////////////////
 //Synth
-//Filter (LP/BP/HP) -> 0,1,2
+//Filter (LP/BP/HP) -> 0-> OFF // 1:LPF,2:BPF,3:HPF
 ~mpkmidimix.knobsC[0].onChange = {|val|
 	val = val.linlin(0,127,0,1).asFloat;
-	if( val<0.33, { val=0 }, { if( val<0.66, {val=1}, {val=2})});
+	if( val<0.1, { val=0 }, { if( val<0.38, {val=1},{ if( val<0.68, {val=2}, {val=3})})});
 	("SYNTH: Filter Mode "++val).postln;
 	~osc_server_SuperCollider.sendMsg(~fx_filter, val);
 };
 
 //Cutoff
 ~mpkmidimix.knobsC[1].onChange = {|val|
-	val = val.linlin(0,127,0,1).asFloat;
+	val = val.linlin(0,127,20,5000).asFloat;
 	("SYNTH: Cutoff "++val).postln;
 	~osc_server_SuperCollider.sendMsg(~fx_cutoff, val);
 };
@@ -335,7 +339,7 @@
 
 //Master sound server volume (AGAIN, double definition)
 ~mpkmidimix.master[0].onChange = {|val|
-    ~osc_server_SuperCollider.sendMsg(~fx_volume, val.linlin(0,127,0,10))
+	~osc_server_SuperCollider.sendMsg(~fx_volume, val.linlin(0,127,0,~master_volume_max).asFloat;);
 };
 
 /*
