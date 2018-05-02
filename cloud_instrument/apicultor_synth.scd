@@ -232,7 +232,7 @@ OSCdef.new(
 		//TODO: respuesta audible logarítmica? linexp?
 		//--> 7 son -20dB
         //v.volume = msg[1].asFloat.linlin(0, ~master_volume_max, v.min, v.max);
-		v.volume = msg[1].asFloat.linlin(0, ~master_volume_max, -35, v.max);
+		v.volume = msg[1].asFloat.linlin(0, ~master_volume_max, -40, v.max);
 
 		//("Volume: "++msg[1].asFloat.asStringPrec(2)).postln;
 		("Volume: "++v.volume ++" dB").postln;

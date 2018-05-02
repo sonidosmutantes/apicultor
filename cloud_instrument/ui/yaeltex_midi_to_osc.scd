@@ -72,7 +72,7 @@ if( ~host=="mac", {
 
 	//UI -> range: 0..10
 	//~osc_server_OpenStage.sendMsg('/EDIT', 'Master', '{"value":"'++val.linlin(0,~master_volume_max,0,10)++'"}');
-	~osc_server_OpenStage.sendMsg('/EDIT', 'Master', '{"value":"'++val.linlin(0,~master_volume_max,-35,6)++'"}');
+	~osc_server_OpenStage.sendMsg('/EDIT', 'Master', '{"value":"'++val.linlin(0,~master_volume_max,0,10)++'"}');
 };
 
 /////////////////////////////////////
