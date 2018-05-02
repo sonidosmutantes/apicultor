@@ -208,8 +208,12 @@ OSCdef.new(
 	{
 		arg msg;
 		//TODO: respuesta audible logarítmica? linexp?
-        v.volume = msg[1].asFloat.linlin(0, 10, v.min, v.max);
-		("Volume: "++msg[1].asFloat.asStringPrec(2)).postln;
+		//--> 7 son -20dB
+        //v.volume = msg[1].asFloat.linlin(0, ~master_volume_max, v.min, v.max);
+		v.volume = msg[1].asFloat.linlin(0, ~master_volume_max, -35, v.max);
+
+		//("Volume: "++msg[1].asFloat.asStringPrec(2)).postln;
+		("Volume: "++v.volume ++" dB").postln;
 	},
 	'/fx/volume',
 );
@@ -227,7 +231,7 @@ OSCdef.new(
 
 			//OpenStage UI update
 			[1,2,3,4,5,6,7,8].do{|number|
-				~osc_server_OpenStage.sendMsg('/EDIT', 'led_'++(number), '{"value":"0","color":"green"}');
+			~osc_server_OpenStage.sendMsg('/EDIT', 'led_'++(number), '{"value":"0","color":"green"}');
 			};
 			~osc_server_OpenStage.sendMsg('/EDIT', 'led_'++(~active_voice), '{"value":"1","color":"green"}');
 		 });
@@ -398,7 +402,6 @@ OSCdef.new(
 	'/fx/delay/mix',
 );
 
-
 //(pitch) Rate
 OSCdef.new(
 	\fx_pitch_rate,
@@ -410,20 +413,18 @@ OSCdef.new(
 	'/fx/rate',
 );
 
-
 //Gate. TODO: improve this
 OSCdef.new(
 	\fx_gate,
 	{
 		arg msg;
 			var value = msg[1].asFloat;
-			if( value>0, {value=1}, {value=0});
+			//if( value>0, {value=1}, {value=0});
 			("Voice: "++(~active_voice)++" , Gate:  "++value).postln;
 			~synthInstances[~active_voice-1].set(\vol, value);
 	},
 	'/fx/gate',
 );
-
 
 //Reverb
 OSCdef.new(

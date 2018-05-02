@@ -2,8 +2,13 @@
 ~osc_port = 7000; //Open Stage Control input SYNC port
 ~osc_port_instrument = 9001; // cloud it instrument native port
 
+~network_broadcast = "192.168.1.255";
+NetAddr.broadcastFlag = true; //Zero conf version. broadcast to the network
 //osc servers
-~osc_server_OpenStage = NetAddr.new("127.0.0.1", ~osc_port); // Open Stage Control port
+//Broadcast IP to avoid setting fixed IP (of the OpenStageControl server)
+~osc_server_OpenStage = NetAddr.new(~network_broadcast, ~osc_port); //Broadcast to Open Stage
+//~osc_server_OpenStage = NetAddr.new("127.0.0.1", ~osc_port); // Open Stage Control port
+
 ~osc_server_APICultorService = NetAddr.new("127.0.0.1", ~osc_port_instrument); //instrument port
 ~osc_server_SuperCollider  = NetAddr.new("127.0.0.1", NetAddr.langPort); //localhost SuperCollider port
 
@@ -39,6 +44,12 @@
 	~osc_server_OpenStage.sendMsg('/EDIT', 'led_'++(number), '{"value":"0", "label": "", "color":"green"}');
 };
 
+//Test modes
+//~set_mode_mir.value();
+//~set_mode_synth.value();
+
+/*
+Disable to work with a unique UI in stage control
 ~set_mode_mir = {
 
 	//2nd row, 2nd col
@@ -70,38 +81,38 @@
 
 ~set_mode_synth = {
 	//2nd row, 2nd col
-	~osc_server_OpenStage.sendMsg('/EDIT', 'KeyLfo', '{"label":"LFO Amount", "color":"orange"}');
-    ~osc_server_OpenStage.sendMsg('/EDIT', 'BpmRate', '{"label":"Rate", "color":"orange"}');
+	~osc_server_OpenStage.sendMsg('/EDIT', 'KeyLfo', '{"label":"LFO Amount", "color":"blue"}');
+    ~osc_server_OpenStage.sendMsg('/EDIT', 'BpmRate', '{"label":"Rate", "color":"blue"}');
 
 //FIXME: recordar valor anterior del knob!
 
 	//3rd row
-	~osc_server_OpenStage.sendMsg('/EDIT', 'DurationGate', '{"label":"GATE", "color":"orange"}');
-	~osc_server_OpenStage.sendMsg('/EDIT', 'PitchReverb', '{"label":"Reverb", "color":"orange"}');
-	~osc_server_OpenStage.sendMsg('/EDIT', 'InharmonicityDelay', '{"label":"Delay", "color":"orange"}');
-	//~osc_server_OpenStage.sendMsg('/EDIT', 'DissonanceTone', '{"label":"Tone", "color":"orange"}');
-	~osc_server_OpenStage.sendMsg('/EDIT', 'DissonanceTone', '{"label":"Delay Mix", "color":"orange"}'); //temp?
+	~osc_server_OpenStage.sendMsg('/EDIT', 'DurationGate', '{"label":"GATE", "color":"blue"}');
+	~osc_server_OpenStage.sendMsg('/EDIT', 'PitchReverb', '{"label":"Reverb", "color":"blue"}');
+	~osc_server_OpenStage.sendMsg('/EDIT', 'InharmonicityDelay', '{"label":"Delay", "color":"blue"}');
+	//~osc_server_OpenStage.sendMsg('/EDIT', 'DissonanceTone', '{"label":"Tone", "color":"blue"}');
+	~osc_server_OpenStage.sendMsg('/EDIT', 'DissonanceTone', '{"label":"Delay Mix", "color":"blue"}'); //temp?
 
 	//4th row
-	~osc_server_OpenStage.sendMsg('/EDIT', 'HFCFilter', '{"label":"LP/BP/HP Filter", "color":"orange"}');
-	~osc_server_OpenStage.sendMsg('/EDIT', 'PitchSalienceCutoff', '{"label":"Cutoff", "color":"orange"}');
-	~osc_server_OpenStage.sendMsg('/EDIT', 'SpectralCentroidRessonance', '{"label":"Ressonance", "color":"orange"}');
-	~osc_server_OpenStage.sendMsg('/EDIT', 'SpectralComplexFactor', '{"label":"Factor", "color":"orange"}');
+	~osc_server_OpenStage.sendMsg('/EDIT', 'HFCFilter', '{"label":"LP/BP/HP Filter", "color":"blue"}');
+	~osc_server_OpenStage.sendMsg('/EDIT', 'PitchSalienceCutoff', '{"label":"Cutoff", "color":"blue"}');
+	~osc_server_OpenStage.sendMsg('/EDIT', 'SpectralCentroidRessonance', '{"label":"Ressonance", "color":"blue"}');
+	~osc_server_OpenStage.sendMsg('/EDIT', 'SpectralComplexFactor', '{"label":"Factor", "color":"blue"}');
 
-	~osc_server_OpenStage.sendMsg('/EDIT', 'Joystick1', '{"color":"orange"}');
-	~osc_server_OpenStage.sendMsg('/EDIT', 'Joystick2', '{"color":"orange"}');
-	~osc_server_OpenStage.sendMsg('/EDIT', 'Up', '{"color":"orange"}');
-	~osc_server_OpenStage.sendMsg('/EDIT', 'Down', '{"color":"orange"}');
+	~osc_server_OpenStage.sendMsg('/EDIT', 'Joystick1', '{"color":"blue"}');
+	~osc_server_OpenStage.sendMsg('/EDIT', 'Joystick2', '{"color":"blue"}');
+	~osc_server_OpenStage.sendMsg('/EDIT', 'Up', '{"color":"blue"}');
+	~osc_server_OpenStage.sendMsg('/EDIT', 'Down', '{"color":"blue"}');
 
 	"UI mode Synth".postln;
 };
-//***************************************
 
 //FIXME: recordar valor anterior del knob!
-//~set_mode_mir.value;
-//~set_mode_synth.value;
+*/
 
+// General send
 //sends same control value to both OSC servers (OStageC and cloud instrument)
+/*
 ~send_osc_all = {
   |url_arg, value_arg|
 
@@ -109,6 +120,7 @@
   ~osc_server_APICultorService.sendMsg(url_arg, value_arg);
   ~osc_server_SuperCollider.sendMsg(url_arg, value_arg); // localhost SuperCollider
 };
+*/
 
 /////////////////////////////////////////////////////////////
 //OSC service urls

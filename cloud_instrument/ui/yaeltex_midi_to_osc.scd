@@ -26,6 +26,8 @@ if( ~host=="mac", {
 	val = val.linlin(0,127,0,100).asFloat;
 	//("SYNTH: LFO "++val).postln;
 	~osc_server_SuperCollider.sendMsg(~fx_lfo, val);
+
+	~osc_server_OpenStage.sendMsg('/EDIT', 'LFO', '{"value":"'++val++'"}');
 };
 
 //Rate  (Pitch is 0..4 range)
@@ -33,6 +35,8 @@ if( ~host=="mac", {
 	val = val.linlin(0,127,0,4).asFloat;
 	//("SYNTH: Rate "++val).postln;
 	~osc_server_SuperCollider.sendMsg(~fx_rate, val);
+
+	~osc_server_OpenStage.sendMsg('/EDIT', 'Rate', '{"value":"'++val++'"}');
 };
 
 //Mode MIR (abstract)
@@ -41,6 +45,8 @@ if( ~host=="mac", {
 	val = val.linlin(0,127,40,200).asFloat;
 	("MIR: BPM "++val).postln;
 	~osc_server_APICultorService.sendMsg(~mir_bpm, val);
+
+	~osc_server_OpenStage.sendMsg('/EDIT', 'BPM', '{"value":"'++val++'"}');
 };
 
 //Key
@@ -48,14 +54,26 @@ if( ~host=="mac", {
 	val = val.linlin(0,127,0,1).asFloat;
 	("MIR: Key (now chord strength) "++val).postln;
 	~osc_server_APICultorService.sendMsg(~mir_key, val);
+
+	~osc_server_OpenStage.sendMsg('/EDIT', 'Key', '{"value":"'++val++'"}');
 };
 
 //Master sound server PAN
-~yaeltex.ctls['Pan'].onChange = {|val| ~osc_server_SuperCollider.sendMsg(~fx_pan, val.linlin(0,127,-1,1))};
+~yaeltex.ctls['Pan'].onChange = {|val|
+	val = val.linlin(0,127,-1,1).asFloat;
+	~osc_server_SuperCollider.sendMsg(~fx_pan, val);
+	~osc_server_OpenStage.sendMsg('/EDIT', 'Pan', '{"value":"'++val++'"}');
+};
 
 //Master sound server MASTER VOLUME
+~yaeltex.ctls['Master'].onChange = {|val|
+	val = val.linlin(0,127,0,~master_volume_max).asFloat; //7 are -20dB
+	~osc_server_SuperCollider.sendMsg(~fx_volume, val);
 
-~yaeltex.ctls['Master'].onChange = {|val| ~osc_server_SuperCollider.sendMsg(~fx_volume, val.linlin(0,127,0,~master_volume_max ))};
+	//UI -> range: 0..10
+	//~osc_server_OpenStage.sendMsg('/EDIT', 'Master', '{"value":"'++val.linlin(0,~master_volume_max,0,10)++'"}');
+	~osc_server_OpenStage.sendMsg('/EDIT', 'Master', '{"value":"'++val.linlin(0,~master_volume_max,-35,6)++'"}');
+};
 
 /////////////////////////////////////
 // 8 (knobs)
@@ -64,18 +82,26 @@ if( ~host=="mac", {
 //synthKeyValues = ["LFO", "Rate",
 //"Gate", "Reverb", "Delay", "Tone",
 //"Filter", "Cutoff", "Ressonance", "Factor"];
+
 //Gate
 ~yaeltex.ctls['Gate'].onChange ={|val|
 	val = val.linlin(0,127,0,1).asFloat;
 	//("SYNTH: Gate "++val).postln;
 	~osc_server_SuperCollider.sendMsg(~fx_gate, val);
+
+	if( val>0, {val=1}, {val=0});
+
+	~osc_server_OpenStage.sendMsg('/EDIT', 'Gate', '{"value":"'++val++'"}');
 };
 
 //Reverb
 ~yaeltex.ctls['Reverb'].onChange = {|val|
 	val = val.linlin(0,127,0,1).asFloat;
+
 	//("SYNTH: Reverb "++val).postln;
 	~osc_server_SuperCollider.sendMsg(~fx_reverb, val);
+
+	~osc_server_OpenStage.sendMsg('/EDIT', 'Reverb', '{"value":"'++val++'"}');
 };
 
 //Delay
@@ -83,6 +109,8 @@ if( ~host=="mac", {
 	val = val.linlin(0,127,0,~delay_max).asFloat;
 	//("SYNTH: Delay "++val).postln;
 	~osc_server_SuperCollider.sendMsg(~fx_delay, val);
+
+	~osc_server_OpenStage.sendMsg('/EDIT', 'Delay', '{"value":"'++val++'"}');
 };
 
 //Tone (temporary delaymix)
@@ -90,6 +118,8 @@ if( ~host=="mac", {
 	val = val.linlin(0,127,0,1).asFloat;
 	//("SYNTH: Tone (delaymix by now) "++val).postln;
 	~osc_server_SuperCollider.sendMsg(~fx_delaymix, val);
+
+	~osc_server_OpenStage.sendMsg('/EDIT', 'Tone', '{"value":"'++val++'"}');
 };
 
 //last row
@@ -99,13 +129,17 @@ if( ~host=="mac", {
 	if( val<0.33, { val=0 }, { if( val<0.66, {val=1}, {val=2})});
 	//("SYNTH: Filter Mode "++val).postln;
 	~osc_server_SuperCollider.sendMsg(~fx_filter, val);
+
+	~osc_server_OpenStage.sendMsg('/EDIT', 'Filter', '{"value":"'++val++'"}');
 };
 
 //Cutoff
 ~yaeltex.ctls['Cutoff'].onChange = {|val|
-	val = val.linlin(0,127,0,1).asFloat;
+	val = val.linlin(0,127,20,2000).asFloat;
 	//("SYNTH: Cutoff "++val).postln;
 	~osc_server_SuperCollider.sendMsg(~fx_cutoff, val);
+
+	~osc_server_OpenStage.sendMsg('/EDIT', 'Cutoff', '{"value":"'++val++'"}');
 };
 
 //Ressonance
@@ -113,6 +147,8 @@ if( ~host=="mac", {
 	val = val.linlin(0,127,0,1).asFloat;
 	//("SYNTH: Ressonance "++val).postln;
 	~osc_server_SuperCollider.sendMsg(~fx_ressonance, val);
+
+	~osc_server_OpenStage.sendMsg('/EDIT', 'Ressonance', '{"value":"'++val++'"}');
 };
 
 //Factor
@@ -120,6 +156,8 @@ if( ~host=="mac", {
 	val = val.linlin(0,127,0,1).asFloat;
 	//("SYNTH: Factor "++val).postln;
 	~osc_server_SuperCollider.sendMsg(~fx_factor, val);
+
+	~osc_server_OpenStage.sendMsg('/EDIT', 'Factor', '{"value":"'++val++'"}');
 };
 
 //MIR
@@ -131,6 +169,8 @@ if( ~host=="mac", {
 	val = val.linlin(0,127,0.1,5).asFloat; //TODO: define range
 	("MIR: Duration "++val).postln;
 	~osc_server_APICultorService.sendMsg(~mir_duration, val);
+
+	~osc_server_OpenStage.sendMsg('/EDIT', 'Duration', '{"value":"'++val++'"}');
 };
 
 //Pitch
@@ -138,6 +178,8 @@ if( ~host=="mac", {
 	val = val.linlin(0,127,0,1).asFloat;
 	("MIR: Pitch "++val).postln;
 	~osc_server_APICultorService.sendMsg(~mir_pitch, val);
+
+	~osc_server_OpenStage.sendMsg('/EDIT', 'Pitch', '{"value":"'++val++'"}');
 };
 
 //Inharmonicity
@@ -145,6 +187,8 @@ if( ~host=="mac", {
 	val = val.linlin(0,127,0,1).asFloat;
 	("MIR: Inharmonicity "++val).postln;
 	~osc_server_APICultorService.sendMsg(~mir_inharmonicity, val);
+
+	~osc_server_OpenStage.sendMsg('/EDIT', 'Inharmonicity', '{"value":"'++val++'"}');
 };
 
 //Dissonance
@@ -152,6 +196,8 @@ if( ~host=="mac", {
 	val = val.linlin(0,127,0,1).asFloat;
 	("MIR: Dissonance "++val).postln;
 	~osc_server_APICultorService.sendMsg(~mir_dissonance, val);
+
+	~osc_server_OpenStage.sendMsg('/EDIT', 'Dissonance', '{"value":"'++val++'"}');
 };
 
 //HFC
@@ -159,6 +205,8 @@ if( ~host=="mac", {
 	val = val.linlin(0,127,0,1).asFloat;
 	("MIR: HFC "++val).postln;
 	~osc_server_APICultorService.sendMsg(~mir_hfc, val);
+
+	~osc_server_OpenStage.sendMsg('/EDIT', 'HFC', '{"value":"'++val++'"}');
 };
 
 //PitchSalience
@@ -166,6 +214,8 @@ if( ~host=="mac", {
 	val = val.linlin(0,127,0,1).asFloat;
 	("MIR: PitchSalience "++val).postln;
 	~osc_server_APICultorService.sendMsg(~mir_pitch_salience, val);
+
+	~osc_server_OpenStage.sendMsg('/EDIT', 'PitchSalience', '{"value":"'++val++'"}');
 };
 
 //SpectralCentroid
@@ -173,6 +223,8 @@ if( ~host=="mac", {
 	val = val.linlin(0,127,0,10000).asFloat;
 	("MIR: SpectralCentroid "++val).postln;
 	~osc_server_APICultorService.sendMsg(~mir_spectral_centroid, val);
+
+	~osc_server_OpenStage.sendMsg('/EDIT', 'SpectralCentroid', '{"value":"'++val++'"}');
 };
 
 //SpectralComplexity
@@ -180,6 +232,8 @@ if( ~host=="mac", {
 	val = val.linlin(0,127,0,1).asFloat;
 	("MIR: SpectralComplexity "++val).postln;
 	~osc_server_APICultorService.sendMsg(~mir_spectral_complexity, val);
+
+	~osc_server_OpenStage.sendMsg('/EDIT', 'SpectralComplexity', '{"value":"'++val++'"}');
 };
 
 ////////////////
@@ -232,7 +286,10 @@ if( ~host=="mac", {
 //Distance sensor -> Grains amount
 //////////////////////////////////////
 ~yaeltex.distanceSensor[0].onChange = {|val|
-	~osc_server_SuperCollider.sendMsg("/synth/granular/grains/amount", val.linlin(0,127,0,~max_grains_amount) );
+	val = val.linlin(0,127,0,~max_grains_amount).asFloat;
+	~osc_server_SuperCollider.sendMsg("/synth/granular/grains/amount", val);
+
+	~osc_server_OpenStage.sendMsg('/EDIT', 'Grains', '{"value":"'++val++'"}');
 };
 
 //////////////////////////////////////
