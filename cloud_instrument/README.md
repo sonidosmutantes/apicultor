@@ -20,6 +20,11 @@
 
  Dependencies: [INSTALL.md](INSTALL.md)
 
+# Use
+
+# FX Chain
+
+        freeze -> vibrato -> pan-> pithshift -> filters -> delay -> reverb
 
 ### Linux: jackd-no-disconnect-config 
 ~/.jackdrc
