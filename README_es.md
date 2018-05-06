@@ -28,7 +28,7 @@ Extrae miel de [RedPanal](http://redpanal.org)  con técnicas de Music Informati
 ![](doc/yaeltex-pre-print-front.png)
 [Yaeltex](https://yaeltex.com/en) custom MIDI controllers
 
-![](custom_controller/controller.jpg)
+![](raspicultor/img/controller.jpg)
 
 Con un sintetizador en SuperCollider corriendo en una Raspberry pi + placa de sonido externa.
 

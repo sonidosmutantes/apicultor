@@ -1,4 +1,16 @@
-# Usage
+# Raspicultor
+
+Custom MIDI Controller plus a Raspberry pi running Supercollider synthesizer/effects processor. Using an external USB sound card for high fidelity.
+
+![](../doc/yaeltex-pre-print-front.png)
+
+![](img/controller.jpg)
+Build by [Yaeltex](https://yaeltex.com/en) custom MIDI controllers
+
+![](img/IMG_20180503_181957_HDR.jpg)
+Sounds from the Cloud installation.
+
+## Usage
 
 * Install dependencies (Linux, MacOS, Windows or raspberry pi)
 * Create a config file with Freesound api key (or another database service)
@@ -31,16 +43,11 @@
 
     /usr/local/bin/jackd -P75 -t2000 -dalsa -dhw:S2 -p4096 -n7 -r44100 -s
 
-### UI
+
+### (optional) External UI
+
+Running a browser in an external computer, tablet, mobile phone, etc.
+
 [Open Stage Control](https://osc.ammd.net/) User Interface
 
 ![](../doc/UI%20ArCiTec.png)
-
-## (optional) Custom MIDI Controller
-
-![](../doc/yaeltex-pre-print-front.png)
-[Yaeltex](https://yaeltex.com/en) custom MIDI controllers
-
-![](../custom_controller/controller.jpg)
-
-With a SuperCollider synthesizer/effects processor running in a Raspberry pi, plus an external sound card for high fidelity.

@@ -37,7 +37,7 @@ Interactive __DEMO__: [Cloud Instrument](https://www.youtube.com/watch?v=SCYEEpf
 ![](doc/yaeltex-pre-print-front.png)
 [Yaeltex](https://yaeltex.com/en) custom MIDI controllers
 
-![](custom_controller/controller.jpg)
+![](raspicultor/img/controller.jpg)
 
 With a SuperCollider synthesizer/effects processor running in a Raspberry pi, plus an external sound card for high fidelity.
 
