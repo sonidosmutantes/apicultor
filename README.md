@@ -42,11 +42,6 @@ Interactive __DEMO__: [Cloud Instrument](https://www.youtube.com/watch?v=SCYEEpf
 
 With a SuperCollider synthesizer/effects processor running in a Raspberry pi, plus an external sound card for high fidelity.
 
-### MIR mode
-![](doc/modo-mir.png)
-
-### Synth mode
-![](doc/modo-synth.png)
 
 ## Performances
 
