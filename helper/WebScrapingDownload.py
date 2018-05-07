@@ -3,7 +3,7 @@
 
 import os
 import sys
-import urllib2
+import urllib.request, urllib.error, urllib.parse
 from bs4 import BeautifulSoup
 import re
 import wget
@@ -21,11 +21,11 @@ tags_url = host+'/tag/'
 def searchfiles(tags_url, host, tag, search):
     page = '/?page=' 
     index = 0
-    resp = urllib2.urlopen(tags_url+search+page)
+    resp = urllib.request.urlopen(tags_url+search+page)
     resp_pages = []
     while index < 30: #look for 30 pages
         index += 1
-        resp_pages.append(urllib2.urlopen(resp.geturl()+str(index)))
+        resp_pages.append(urllib.request.urlopen(resp.geturl()+str(index)))
     htmlcodes = [BeautifulSoup(i) for i in resp_pages]
 
     links = []
@@ -36,7 +36,7 @@ def searchfiles(tags_url, host, tag, search):
 
     urls = [host+link for link in links]
 
-    openurl = [urllib2.urlopen(url) for url in set(urls)]
+    openurl = [urllib.request.urlopen(url) for url in set(urls)]
 
     htmlcodes = [BeautifulSoup(openurl) for i, openurl in enumerate(openurl)]
 
@@ -48,31 +48,33 @@ def searchfiles(tags_url, host, tag, search):
 
     return  list(set([host+'/media'+audiopath for audiopath in audiopaths]))
 
-def download_files(tag):
+def download_files(tag, sounds_path, search):
     paths_in_website = searchfiles(tags_url, host, tag, search)
 
-    [wget.download(path_in_website, out = tag) for path_in_website in paths_in_website]
+    [wget.download(path_in_website, out = sounds_path) for path_in_website in paths_in_website]
 
 
-Usage = "./WebScrapingDownload.py [TAGNAME]"
-if __name__ == '__main__':
-  
-    if len(sys.argv) < 2:
-        print "\nBad amount of input arguments\n", Usage, "\n"
+Usage = "./WebScrapingDownload.py [TAGNAME] [DATA_DIR]"
+def main(): 
+    if len(sys.argv) < 3:
+        print("\nBad amount of input arguments\n", Usage, "\n")
         sys.exit(1)
 
     try:
         tagName = sys.argv[1]
 
         try:
-            os.mkdir(tagName)
+            os.mkdir(sys.argv[2])
         except:
             pass
 
         search = tagName+'/audios' 
-        print( "Downloading most files with tag %s"%tagName )
-        download_files(tagName)
+        print(( "Downloading most files with tag %s"%tagName ))
+        download_files(tagName, sys.argv[2], search)
 
-    except Exception, e:
+    except Exception as e:
         print(e)
         exit(1)
+
+if __name__ == '__main__':
+    main()
