@@ -48,7 +48,7 @@ def searchfiles(tags_url, host, tag, search):
 
     return  list(set([host+'/media'+audiopath for audiopath in audiopaths]))
 
-def download_files(tag, sounds_path):
+def download_files(tag, sounds_path, search):
     paths_in_website = searchfiles(tags_url, host, tag, search)
 
     [wget.download(path_in_website, out = sounds_path) for path_in_website in paths_in_website]
@@ -70,7 +70,7 @@ def main():
 
         search = tagName+'/audios' 
         print(( "Downloading most files with tag %s"%tagName ))
-        download_files(tagName, sys.argv[2])
+        download_files(tagName, sys.argv[2], search)
 
     except Exception as e:
         print(e)
