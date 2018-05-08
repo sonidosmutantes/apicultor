@@ -68,7 +68,7 @@ SynthDef(\mutantefreeze, { arg busout=0, bufnum=0, point=0, vol=1, fftwidth=4096
 	dupsig = vibrato*dupsig*(lfoamount) + dupsig*(1-lfoamount);
 
 	//with PAN
-	sig = Splay.ar(vol *adelay);
+	sig = Splay.ar(vol *dupsig);
 	sig = Balance2.ar(sig[0], sig[1], pan);
 
 	//with Pitch Shift (rate)
@@ -100,7 +100,7 @@ SynthDef(\mutantefreeze, { arg busout=0, bufnum=0, point=0, vol=1, fftwidth=4096
 
 	
 	//with DELAY
-	adelay = DelayN.ar( dupsig, delay, delay, delaymix, dupsig); // input is mixed with delay via the add input (delaymix = 0 -> off)
+	adelay = DelayN.ar( sig, delay, delay, delaymix, sig); // input is mixed with delay via the add input (delaymix = 0 -> off)
 	
 	//with Reverb (in, mix: 0.33, room: 0.5, damp: 0.5, mul: 1, add: 0)
 	sig = FreeVerb.ar(sig, reverbmix, roomsize, 0.5, 1, 0 );
@@ -571,15 +571,16 @@ if( ~host=="mac", {
 
 }
 ,{
+	("Default sounds").postln;
 		//Raspberry pi
 		//voice1
 		//~bufferinstances[0]= Buffer.read(s, "/home/pi/dev/apicultor/cloud_instrument/Room Tone In An Apartment Living Room 2.wav");
-		~bufferinstances[0]= Buffer.read(s, "/home/pi/dev/apicultor/cloud_instrument/Basspad.wav");
-		~synthInstances[0] = Synth(\mutantefreeze, [\bufnum, ~bufferinstances[0].bufnum, \out, 0, \vol, 1]);
+//		~bufferinstances[0]= Buffer.read(s, "/home/pi/dev/apicultor/cloud_instrument/Basspad.wav");
+//		~synthInstances[0] = Synth(\mutantefreeze, [\bufnum, ~bufferinstances[0].bufnum, \out, 0, \vol, 1]);
 
 		//voice 2
-		~bufferinstances[1]= Buffer.read(s, "/home/pi/dev/apicultor/cloud_instrument/Ride_01-21.wav");
-		~synthInstances[1] = Synth(\mutantefreeze, [\bufnum, ~bufferinstances[1].bufnum, \out, 0, \vol, 1]);
+//		~bufferinstances[1]= Buffer.read(s, "/home/pi/dev/apicultor/cloud_instrument/Ride_01-21.wav");
+//		~synthInstances[1] = Synth(\mutantefreeze, [\bufnum, ~bufferinstances[1].bufnum, \out, 0, \vol, 1]);
 });
 
 ////////////////////////////////////////
