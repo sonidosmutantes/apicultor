@@ -1,7 +1,15 @@
 # Usage
 
 * Install dependencies (Linux, MacOS, Windows or raspberry pi)
-* Create a config file with Freesound api key (or another database service)
+* Create a config file with Freesound api key (or config another database service)
+
+    For Freesound: [APIv2 APPLY](http://www.freesound.org/apiv2/apply/)
+    (and use this callback https://www.freesound.org/home/app_permissions/permission_granted/)
+    And we get something like:
+        API_KEY = "asga2823235r48qklasdjl3khfasdflk2"
+
+
+    Then create a file named ".config.json" in the cloud_instrument/ path:
         {
             "sound.synth": "supercollider",
             "api": "freesound",

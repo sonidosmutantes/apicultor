@@ -3,7 +3,7 @@ English version: [README.md](README.md)
 
 # Sobre el proyecto
 * __DEMO__ interactiva: [Experimental session with sounds from the cloud](https://www.youtube.com/watch?v=2sMsKvfZKGA) ([youtube link](https://www.youtube.com/watch?v=2sMsKvfZKGA))
-* Versión instrumento embebido: [raspicultor](raspicultor/README.md).
+* Instrumento embebido corriendo en raspberry pi: [raspicultor](raspicultor/README.md).
 * Mención como "Instrumento basado en sonidos de la Nube" en el [premio ArCiTec](https://arcitec.frba.utn.edu.ar/tecnologia-aplicada-al-arte/) categoría Tecnología aplicada al Arte (2018).
 * Publicación en [Audio Mostly](http://audiomostly.com): [Sound recycling from public databases](https://www.researchgate.net/publication/317388443_Sound_recycling_from_public_databases) (2017) 
 * "Forgotten pieces from unknown people" and "Dialectic in suspense" constructed using APICultor, were showed in [NIPS 2017 Art Gallery](http://nips4creativity.com/music/) (Machine Learning for Creativity and Design, Long Beach, California, USA)
