@@ -1,0 +1,8 @@
+
+$ crontab -e
+
+
+# m h  dom mon dow   command
+0 15 * * * /home/pi/dev/apicultor/raspicultor/scripts/clean_disk.sh # cleans downloaded sound files every day
+@reboot cd /home/pi && ./autostart.sh # starts de apicultor synth and service, and makes the connection with the MIDI controller
+
