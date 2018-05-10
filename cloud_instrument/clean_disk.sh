@@ -1,7 +1,7 @@
 cd ~/dev/apicultor/cloud_instrument
 
 #STARTUP_FILES="FILE1.wav FILE2.wav"
-STARTUP_FILES="Ride_01-21.wav Basspad.wav"
+STARTUP_FILES="instrucciones.wav Ride_01-21.wav Basspad.wav"
 
 mkdir startupfiles
 mv $STARTUP_FILES startupfiles/

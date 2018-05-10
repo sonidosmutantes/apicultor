@@ -34,7 +34,7 @@ s.boot; //start server
 
 // (optional) Recording
 /*
-thisProcess.platform.recordingsDir//locate folder
+("Recording in "++thisProcess.platform.recordingsDir).postln; //locate folder
 s.recHeaderFormat = "wav";
 s.record;
 */
@@ -583,8 +583,9 @@ if( ~host=="mac", {
 //		~synthInstances[1] = Synth(\mutantefreeze, [\bufnum, ~bufferinstances[1].bufnum, \out, 0, \vol, 1]);
 
 		//voice 8
-//		~bufferinstances[7]= Buffer.read(s, "/home/pi/dev/apicultor/cloud_instrument/instrucciones.wav");
-//		~synthInstances[7] = Synth(\mutantefreeze, [\bufnum, ~bufferinstances[7].bufnum, \out, 0, \vol, 0.7]);
+		~bufferinstances[7]= Buffer.read(s, "/home/pi/dev/apicultor/cloud_instrument/instrucciones.wav");
+		~synthInstances[7] = Synth(\mutantefreeze, [\bufnum, ~bufferinstances[7].bufnum, \out, 0, \vol, 0.7]);
+		//~synthInstances[7] = Synth(\mutantefreeze, [\bufnum, ~bufferinstances[7].bufnum, \out, 0, \vol, 0.7, \pitchratio, 0.85]);
 });
 
 ////////////////////////////////////////
