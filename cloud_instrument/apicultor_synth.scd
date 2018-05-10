@@ -270,7 +270,7 @@ OSCdef.new(
 	\retrieve,
 	{
 		arg msg;
-			("Ask to retrieve a new sound from database").postln;
+			("Asking the Service for a new sound in the remote database").postln;
 			//msg[1] argument, always 1
 			~onoff_value = 1;
 			//Activating ~active_voice on apicultor
@@ -581,6 +581,10 @@ if( ~host=="mac", {
 		//voice 2
 //		~bufferinstances[1]= Buffer.read(s, "/home/pi/dev/apicultor/cloud_instrument/Ride_01-21.wav");
 //		~synthInstances[1] = Synth(\mutantefreeze, [\bufnum, ~bufferinstances[1].bufnum, \out, 0, \vol, 1]);
+
+		//voice 8
+//		~bufferinstances[7]= Buffer.read(s, "/home/pi/dev/apicultor/cloud_instrument/instrucciones.wav");
+//		~synthInstances[7] = Synth(\mutantefreeze, [\bufnum, ~bufferinstances[7].bufnum, \out, 0, \vol, 0.7]);
 });
 
 ////////////////////////////////////////
