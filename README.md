@@ -22,6 +22,10 @@ Contact: hordiales@gmail.com
 
 Spanish version: [README_es.md](README_es.md)
 
+## License
+
+Free Software shared with GPL v3, see [LICENSE](LICENSE).
+
 ## Cloud Instrument
 
 See [cloud_instrument/README.md](cloud_instrument/README.md)

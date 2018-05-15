@@ -7,9 +7,11 @@ Entre las posibles aplicaciones, además de funcionar como herramienta de búsqu
 
 ![](../raspicultor/img/controller.jpg)
 
-## Uso
+# Licencia
 
-# Usage
+Software Libre, compartido con GPL v3 ([LICENSE](LICENSE)).
+
+# Uso
 
 * Install dependencies
 * Create a config file

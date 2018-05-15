@@ -5,6 +5,9 @@ Custom MIDI Controller plus a Raspberry pi running Supercollider synthesizer/eff
 ![](img/controller.jpg)
 Build by [Yaeltex](https://yaeltex.com/en) custom MIDI controllers
 
+## License
+
+Free Software shared with GPL v3, see [LICENSE](LICENSE).
 
 ## How to perform with it?
 

@@ -10,6 +10,11 @@ English version: [README.md](README.md)
 * El trabajo "Sound recycling from public databases" fue presentado [Technarte Los Angeles 2017](http://www.technarte.org/losangeles-2017-program/).
 * Sonidos reciclados en RedPanal.org: [Sound miniatures](http://redpanal.org/p/reciclado-de-samples/)
 
+
+# Licencia
+
+Software Libre, compartido con GPL v3 ([LICENSE](LICENSE)).
+
 # ¿Qué es?
 
 ApiCultor fue implementado para realizar performances multidisciplinarias basadas en los sonidos de la plataforma [http://redpanal.org](http://redpanal.org) pero sirve para trabajar con cualquier otra base de datos sonora en internet o disponible localmente.

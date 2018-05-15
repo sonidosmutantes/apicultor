@@ -28,6 +28,10 @@
 
  Dependencies: [INSTALL.md](INSTALL.md)
 
+## License
+
+Free Software shared with GPL v3, see [LICENSE](LICENSE).
+
 # Use
 
 # FX Chain
