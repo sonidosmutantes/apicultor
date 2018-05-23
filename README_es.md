@@ -3,11 +3,17 @@ English version: [README.md](README.md)
 
 # Sobre el proyecto
 * __DEMO__ interactiva: [Experimental session with sounds from the cloud](https://www.youtube.com/watch?v=2sMsKvfZKGA) ([youtube link](https://www.youtube.com/watch?v=2sMsKvfZKGA))
+* Instrumento embebido corriendo en raspberry pi: [raspicultor](raspicultor/README.md).
 * Mención como "Instrumento basado en sonidos de la Nube" en el [premio ArCiTec](https://arcitec.frba.utn.edu.ar/tecnologia-aplicada-al-arte/) categoría Tecnología aplicada al Arte (2018).
 * Publicación en [Audio Mostly](http://audiomostly.com): [Sound recycling from public databases](https://www.researchgate.net/publication/317388443_Sound_recycling_from_public_databases) (2017) 
 * "Forgotten pieces from unknown people" and "Dialectic in suspense" constructed using APICultor, were showed in [NIPS 2017 Art Gallery](http://nips4creativity.com/music/) (Machine Learning for Creativity and Design, Long Beach, California, USA)
 * El trabajo "Sound recycling from public databases" fue presentado [Technarte Los Angeles 2017](http://www.technarte.org/losangeles-2017-program/).
 * Sonidos reciclados en RedPanal.org: [Sound miniatures](http://redpanal.org/p/reciclado-de-samples/)
+
+
+# Licencia
+
+Software Libre, compartido con GPL v3 ([LICENSE](LICENSE)).
 
 # ¿Qué es?
 
@@ -28,7 +34,7 @@ Extrae miel de [RedPanal](http://redpanal.org)  con técnicas de Music Informati
 ![](doc/yaeltex-pre-print-front.png)
 [Yaeltex](https://yaeltex.com/en) custom MIDI controllers
 
-![](custom_controller/controller.jpg)
+![](raspicultor/img/controller.jpg)
 
 Con un sintetizador en SuperCollider corriendo en una Raspberry pi + placa de sonido externa.
 

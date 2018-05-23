@@ -1,4 +1,21 @@
-# Usage
+# Raspicultor
+
+Custom MIDI Controller plus a Raspberry pi running Supercollider synthesizer/effects processor. Using an external USB sound card for high fidelity.
+
+![](img/controller.jpg)
+Build by [Yaeltex](https://yaeltex.com/en) custom MIDI controllers
+
+## License
+
+Free Software shared with GPL v3, see [LICENSE](LICENSE).
+
+## How to perform with it?
+
+See the [User Guide](User-Guide.pdf) for more details.
+
+![](../doc/yaeltex-pre-print-front.png)
+
+## Configuration
 
 * Install dependencies (Linux, MacOS, Windows or raspberry pi)
 * Create a config file with Freesound api key (or config another database service)
@@ -9,7 +26,7 @@
         API_KEY = "asga2823235r48qklasdjl3khfasdflk2"
 
 
-    Then create a file named ".config.json" in the cloud_instrument/ path:
+    Then create a file named ".config.json" in the raspicultor/ path:
         {
             "sound.synth": "supercollider",
             "api": "freesound",
@@ -18,7 +35,6 @@
                 }
             ]
         }
-
 * Run ./CloudInstrument.py
 * If you are going to use SuperCollider run first. Note: sends broadcast OSC message to the network.
     $ sclang -D apicultor_synth.scd
@@ -27,10 +43,6 @@
 
 
  Dependencies: [INSTALL.md](INSTALL.md)
-
-## License
-
-Free Software shared with GPL v3, see [LICENSE](LICENSE).
 
 # Use
 
@@ -43,22 +55,16 @@ Free Software shared with GPL v3, see [LICENSE](LICENSE).
 
     /usr/local/bin/jackd -P75 -t2000 -dalsa -dhw:S2 -p4096 -n7 -r44100 -s
 
-### UI
+
+### (optional) External UI for visual feedback
+
+Running a browser in an external computer, tablet, mobile phone, etc.
+
 [Open Stage Control](https://osc.ammd.net/) User Interface
 
 ![](../doc/UI%20ArCiTec.png)
 
-## (optional) Custom MIDI Controller
+# Art installations
 
-![](../doc/yaeltex-pre-print-front.png)
-[Yaeltex](https://yaeltex.com/en) custom MIDI controllers
-
-![](../raspicultor/img/controller.jpg)
-
-With a SuperCollider synthesizer/effects processor running in a Raspberry pi, plus an external sound card for high fidelity.
-
-### MIR mode
-![](../doc/modo-mir.png)
-
-### Synth mode
-![](../doc/modo-synth.png)
+![](img/IMG_20180503_181957_HDR.jpg)
+Sounds from the Cloud installation.

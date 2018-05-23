@@ -12,7 +12,13 @@
 
 // MIDI out
 ~default_channel = 0;
-~midi_device_set_color = MIDIOut.newByName("MIDI Mix", "MIDI Mix");
+if( ~host=="mac", {
+	~midi_device_set_color = MIDIOut.newByName("MIDI Mix", "MIDI Mix"); //mac
+}
+,{
+	~midi_device_set_color = MIDIOut.newByName("MIDI Mix", "MIDI Mix MIDI 1"); //raspberry pi
+});
+
 ~button_light = {
 	|button_arg, onoff_arg|
 	~midi_device_set_color.noteOn(~default_channel, button_arg, onoff_arg);

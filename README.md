@@ -1,8 +1,9 @@
 # About the project
 
 * Interactive __DEMO__:
-  * [Cloud Instrument](https://www.youtube.com/watch?v=SCYEEpfct_Y). Interactive demo retrieving sounds from the Cloud using MIR descriptors and processing them in realtime (using raspicultor aka raspberry pi + apicultor).
+  * [Cloud Instrument](https://www.youtube.com/watch?v=SCYEEpfct_Y) raspicultor + custom controller version video. Interactive demo retrieving sounds from the Cloud using MIR descriptors and processing them in realtime (using raspicultor aka raspberry pi + apicultor).
   * [Experimental session with sounds from the cloud](https://www.youtube.com/watch?v=2sMsKvfZKGA). First live demo with an standard midi controller.
+* Embedded instrument running in a raspberry pi: [raspicultor](raspicultor/README.md).
 * Cloud Instrument mention in [ArCiTec prize, Technology applied to Arts](https://arcitec.frba.utn.edu.ar/tecnologia-aplicada-al-arte/) (2018).
 * Publication: [Sound recycling from public databases](https://www.researchgate.net/publication/317388443_Sound_recycling_from_public_databases) @ [Audio Mostly](http://audiomostly.com) 2017 
 * "Forgotten pieces from unknown people" and "Dialectic in suspense" constructed using APICultor, were showed in [NIPS 2017 Art Gallery](http://nips4creativity.com/music/) (Machine Learning for Creativity and Design, Long Beach, California, USA)
@@ -17,7 +18,13 @@ The sound is processed digitally using different live-coding techniques. A pre-a
 
 Examples available with SuperCollider, Pyo and pure data.
 
+Contact: hordiales@gmail.com
+
 Spanish version: [README_es.md](README_es.md)
+
+## License
+
+Free Software shared with GPL v3, see [LICENSE](LICENSE).
 
 ## Cloud Instrument
 
@@ -35,15 +42,10 @@ Interactive __DEMO__: [Cloud Instrument](https://www.youtube.com/watch?v=SCYEEpf
 ![](doc/yaeltex-pre-print-front.png)
 [Yaeltex](https://yaeltex.com/en) custom MIDI controllers
 
-![](custom_controller/controller.jpg)
+![](raspicultor/img/controller.jpg)
 
 With a SuperCollider synthesizer/effects processor running in a Raspberry pi, plus an external sound card for high fidelity.
 
-### MIR mode
-![](doc/modo-mir.png)
-
-### Synth mode
-![](doc/modo-synth.png)
 
 ## Performances
 

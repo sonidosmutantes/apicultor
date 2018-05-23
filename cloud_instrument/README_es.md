@@ -5,9 +5,13 @@ Más allá de facilitar la reutilización de sonidos, también promueve la colab
 Entre las posibles aplicaciones, además de funcionar como herramienta de búsqueda o instrumento experimental en una agrupación, puede ser usado de forma automatizada e independiente, por ejemplo como parte de una instalación multimedia.
 
 
-## Uso
+![](../raspicultor/img/controller.jpg)
 
-# Usage
+# Licencia
+
+Software Libre, compartido con GPL v3 ([LICENSE](LICENSE)).
+
+# Uso
 
 * Install dependencies
 * Create a config file

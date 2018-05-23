@@ -14,8 +14,8 @@ https://github.com/sonidosmutantes/apicultor
 //General config
 //~host = "mac";
 ~host = "raspi";
-~midi_controller = "yaeltex"; //WARNING: fails if controller is not present
-//~midi_controller = "midimix";
+//~midi_controller = "yaeltex"; //WARNING: fails if controller is not present
+~midi_controller = "midimix";
 
 if( ~host=="mac", {
 	"Running in mac".postln;
@@ -34,7 +34,7 @@ s.boot; //start server
 
 // (optional) Recording
 /*
-thisProcess.platform.recordingsDir//locate folder
+("Recording in "++thisProcess.platform.recordingsDir).postln; //locate folder
 s.recHeaderFormat = "wav";
 s.record;
 */
@@ -48,6 +48,8 @@ s.waitForBoot {
 
 //Mutante main sytnth (Multi effec freeze synth)
 	//TODO: check if there is a way to avoid processing when are disabled (pitchratio=1, delamix=0, etc
+	//Chain order: freeze -> vibrato -> pan-> pithshift -> filters -> delay -> reverb
+	//TODO: add compression? freqshift? Stereo vibrato? stereo delay?
 SynthDef(\mutantefreeze, { arg busout=0, bufnum=0, point=0, vol=1, fftwidth=4096, pan=0, startPos=0, delay = 0.25, numchannels=1, delaymix=0, lfoamount= 0, lforate=0, pitchratio=1, roomsize=0.5, reverbmix=0, lpfcutoff=20000, bpfcutoff=20000, hpfcutoff=100;
 		//Note about HPF cutoff: Cutoff frequency in Hertz. WARNING: due to the nature of its implementation frequency values close to 0 may cause glitches and/or extremely loud audio artifacts!
 
@@ -65,20 +67,14 @@ SynthDef(\mutantefreeze, { arg busout=0, bufnum=0, point=0, vol=1, fftwidth=4096
 	vibrato = SinOsc.ar(lforate,Rand(0,2.0));
 	dupsig = vibrato*dupsig*(lfoamount) + dupsig*(1-lfoamount);
 
-	//with DELAY
-	adelay = DelayN.ar( dupsig, delay, delay, delaymix, dupsig); // input is mixed with delay via the add input (delaymix = 0 -> off)
-
 	//with PAN
-	sig = Splay.ar(vol *adelay);
+	sig = Splay.ar(vol *dupsig);
 	sig = Balance2.ar(sig[0], sig[1], pan);
 
 	//with Pitch Shift (rate)
 		//pitchRatio - the ratio of the pitch shift. Must be from 0.0 to 4.0.
 	sig = PitchShift.ar(sig, 0.1, pitchratio, 0, 0.004);
 
-	//with Reverb (in, mix: 0.33, room: 0.5, damp: 0.5, mul: 1, add: 0)
-	sig = FreeVerb.ar(sig, reverbmix, roomsize, 0.5, 1, 0 );
-	//sig = GVerb(sig, roomsize, 3, 0.5, 0.5, 15 );
 
 	sig = LPF.ar(sig, lpfcutoff, 1, 0);
 	//sig = BPF.ar(sig, bpfcutoff, 1, 0); //FIXME BPF (always enabled)
@@ -102,6 +98,14 @@ SynthDef(\mutantefreeze, { arg busout=0, bufnum=0, point=0, vol=1, fftwidth=4096
 				})
 			});*/
 
+	
+	//with DELAY
+	adelay = DelayN.ar( sig, delay, delay, delaymix, sig); // input is mixed with delay via the add input (delaymix = 0 -> off)
+	
+	//with Reverb (in, mix: 0.33, room: 0.5, damp: 0.5, mul: 1, add: 0)
+	sig = FreeVerb.ar(sig, reverbmix, roomsize, 0.5, 1, 0 );
+	//sig = GVerb(sig, roomsize, 3, 0.5, 0.5, 15 );
+	
 	//Other FXs
 	//right = FreqShift.ar(left, SinOsc.kr(3.23, 0, 5));
 
@@ -266,7 +270,7 @@ OSCdef.new(
 	\retrieve,
 	{
 		arg msg;
-			("Ask to retrieve a new sound from database").postln;
+			("Asking the Service for a new sound in the remote database").postln;
 			//msg[1] argument, always 1
 			~onoff_value = 1;
 			//Activating ~active_voice on apicultor
@@ -567,20 +571,21 @@ if( ~host=="mac", {
 
 }
 ,{
+	("Default sounds").postln;
 		//Raspberry pi
 		//voice1
-		//~bufferinstances[0]= Buffer.read(s, "/home/pi/dev/apicultor/cloud_instrument/Room Tone In An Apartment Living Room 2.wav");
 		~bufferinstances[0]= Buffer.read(s, "/home/pi/dev/apicultor/cloud_instrument/Basspad.wav");
-		~synthInstances[0] = Synth(\mutantefreeze, [\bufnum, ~bufferinstances[0].bufnum, \out, 0, \vol, 1]);
+		~synthInstances[0] = Synth(\mutantefreeze, [\bufnum, ~bufferinstances[0].bufnum, \out, 0, \vol, 0]); //vol 0
 
 
 		//voice 2
 		~bufferinstances[1]= Buffer.read(s, "/home/pi/dev/apicultor/cloud_instrument/Ride_01-21.wav");
-		~synthInstances[1] = Synth(\mutantefreeze, [\bufnum, ~bufferinstances[1].bufnum, \out, 0, \vol, 1]);
+		~synthInstances[1] = Synth(\mutantefreeze, [\bufnum, ~bufferinstances[1].bufnum, \out, 0, \vol, 0]); //vol 0
 
 		//voice 8 (bank2+v4)
 		~bufferinstances[7]= Buffer.read(s, "/home/pi/dev/apicultor/cloud_instrument/instrucciones.wav");
-		~synthInstances[7] = Synth(\mutantefreeze, [\bufnum, ~bufferinstances[7].bufnum, \out, 0, \vol, 0.8]);
+		~synthInstances[7] = Synth(\mutantefreeze, [\bufnum, ~bufferinstances[7].bufnum, \out, 0, \vol, 0]); //vol 0
+		//~synthInstances[7] = Synth(\mutantefreeze, [\bufnum, ~bufferinstances[7].bufnum, \out, 0, \vol, 0.7, \pitchratio, 0.85]); //pitch ratio low
 });
 
 ////////////////////////////////////////
