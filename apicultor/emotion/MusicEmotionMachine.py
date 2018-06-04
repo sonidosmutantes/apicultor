@@ -11,7 +11,7 @@
         0: acoustic
         1: electronic
         2: party"""
-
+from multiproccessing import Pool, cpu_count
 from ..utils.dj import *
 from ..machine_learning.cross_validation import *
 from ..gradients.descent import SGD
@@ -541,13 +541,16 @@ class svm_layers(deep_support_vector_machines):
         reg_params = [0.001, 0.01, 0.04, 0.06, 0.08, 0.1, 0.12, 0.2, 0.3, 0.4, 0.5, 0.6, 0.8, 2]
         self.kernel_configs = kernel_configs
         for i in range(len(self.kernel_configs)):
-            try:
-                best_estimator = GridSearch(self, features, labels, Cs, reg_params, [self.kernel_configs[i]])
-                print(("Best estimators are: ") + str(best_estimator['C'][0]) + " for C and " + str(best_estimator['reg_param'][0]) + " for regularization parameter")
-                self.fit_model(features, labels, self.kernel_configs[i][0], self.kernel_configs[i][1], best_estimator['C'][0][0], best_estimator['reg_param'][0][0], 1./features.shape[1], 0.8)                                                  
-                pred_c = self.predictions(features, labels)
-            except Exception as e:
-                continue
+            with Pool(cpu_count()) as p:                               
+                try:                                                   
+                    r = p.apply_async(GridSearch,(self, features, labels, Cs, reg_params, [self.kernel_configs[i]]))                
+                    best_estimator = r.get()
+                    print(("Best estimators are: ") + str(best_estimator['C'][0]) + " for C and " + str(best_estimator['reg_param'][0]) + " for regularization parameter")
+                    self.fit_model(features, labels, self.kernel_configs[i][0], self.kernel_configs[i][1], best_estimator['C'][0][0], best_estimator['reg_param'][0][0], 1./features.shape[1], 0.8)                  
+                    pred_c = self.predictions(features, labels)
+                except Exception as e:
+ 
+                   continue
             precision, recall, f1score, support = precision_recall_fscore_support(labels, pred_c, average='weighted')
             self.scores.append(f1score)
             print("Relevant information %: " + str(precision * 100))
