@@ -574,18 +574,18 @@ if( ~host=="mac", {
 	("Default sounds").postln;
 		//Raspberry pi
 		//voice1
-		//~bufferinstances[0]= Buffer.read(s, "/home/pi/dev/apicultor/cloud_instrument/Room Tone In An Apartment Living Room 2.wav");
-//		~bufferinstances[0]= Buffer.read(s, "/home/pi/dev/apicultor/cloud_instrument/Basspad.wav");
-//		~synthInstances[0] = Synth(\mutantefreeze, [\bufnum, ~bufferinstances[0].bufnum, \out, 0, \vol, 1]);
+		~bufferinstances[0]= Buffer.read(s, "/home/pi/dev/apicultor/cloud_instrument/Basspad.wav");
+		~synthInstances[0] = Synth(\mutantefreeze, [\bufnum, ~bufferinstances[0].bufnum, \out, 0, \vol, 0]); //vol 0
+
 
 		//voice 2
-//		~bufferinstances[1]= Buffer.read(s, "/home/pi/dev/apicultor/cloud_instrument/Ride_01-21.wav");
-//		~synthInstances[1] = Synth(\mutantefreeze, [\bufnum, ~bufferinstances[1].bufnum, \out, 0, \vol, 1]);
+		~bufferinstances[1]= Buffer.read(s, "/home/pi/dev/apicultor/cloud_instrument/Ride_01-21.wav");
+		~synthInstances[1] = Synth(\mutantefreeze, [\bufnum, ~bufferinstances[1].bufnum, \out, 0, \vol, 0]); //vol 0
 
-		//voice 8
+		//voice 8 (bank2+v4)
 		~bufferinstances[7]= Buffer.read(s, "/home/pi/dev/apicultor/cloud_instrument/instrucciones.wav");
-		~synthInstances[7] = Synth(\mutantefreeze, [\bufnum, ~bufferinstances[7].bufnum, \out, 0, \vol, 0.7]);
-		//~synthInstances[7] = Synth(\mutantefreeze, [\bufnum, ~bufferinstances[7].bufnum, \out, 0, \vol, 0.7, \pitchratio, 0.85]);
+		~synthInstances[7] = Synth(\mutantefreeze, [\bufnum, ~bufferinstances[7].bufnum, \out, 0, \vol, 0]); //vol 0
+		//~synthInstances[7] = Synth(\mutantefreeze, [\bufnum, ~bufferinstances[7].bufnum, \out, 0, \vol, 0.7, \pitchratio, 0.85]); //pitch ratio low
 });
 
 ////////////////////////////////////////
