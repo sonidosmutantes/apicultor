@@ -1,5 +1,7 @@
-#!/usr/bin/python
+#!/usr/bin/python3
 # -*- coding: UTF-8 -*-
+
+# Essentia: http://chrisstrelioff.ws/sandbox/2014/12/10/installing_essentia_for_audio_feature_extraction.html
 
 import os
 import sys
@@ -37,8 +39,7 @@ def process_file(inputSoundFile, frameSize = 1024, hopSize = 512):
 if __name__ == '__main__':
   
     if len(sys.argv) < 2:
-        print "\nBad amount of input arguments\n\t", Usage, "\n"
-#        print("Example:\n\t./run_MIR_analysis.py data\n\t./run_MIR_analysis.py samples\n")
+        print("\nBad amount of input arguments\n\t", Usage, "\n")
         sys.exit(1)
 
 
@@ -52,6 +53,6 @@ if __name__ == '__main__':
             raise Exception
 
         process_file( f )
-    except Exception, e:
+    except Exception as e:
         print(e)
         exit(1)
