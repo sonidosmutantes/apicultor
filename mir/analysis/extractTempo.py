@@ -1,7 +1,13 @@
-#!/usr/bin/python3
+#!/usr/bin/python
 # -*- coding: UTF-8 -*-
 
-# Essentia: http://chrisstrelioff.ws/sandbox/2014/12/10/installing_essentia_for_audio_feature_extraction.html
+"""
+	Extract tempo (BPM) from a file 
+	Python 2/3
+
+	Dependency: 	
+		Essentia (https://github.com/sonidosmutantes/apicultor/blob/master/INSTALL.md#essentia-httpessentiaupfed)
+"""
 
 import os
 import sys
@@ -35,7 +41,7 @@ def process_file(inputSoundFile, frameSize = 1024, hopSize = 512):
 
 #()    
 
-#Usage = "./run_MIR_analysis.py [FILES_DIR]"
+Usage = "./extractTempo.py [FILE]"
 if __name__ == '__main__':
   
     if len(sys.argv) < 2:
