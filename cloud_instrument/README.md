@@ -53,7 +53,7 @@ Free Software shared with GPL v3, see [LICENSE](LICENSE).
 ![](../doc/yaeltex-pre-print-front.png)
 [Yaeltex](https://yaeltex.com/en) custom MIDI controllers
 
-![](../raspicultor/img/controller.jpg)
+![](../doc/controller.jpg)
 
 With a SuperCollider synthesizer/effects processor running in a Raspberry pi, plus an external sound card for high fidelity.
 

@@ -3,7 +3,7 @@
 * Interactive __DEMO__:
   * [Cloud Instrument](https://www.youtube.com/watch?v=SCYEEpfct_Y) raspicultor + custom controller version video. Interactive demo retrieving sounds from the Cloud using MIR descriptors and processing them in realtime (using raspicultor aka raspberry pi + apicultor).
   * [Experimental session with sounds from the cloud](https://www.youtube.com/watch?v=2sMsKvfZKGA). First live demo with an standard midi controller.
-* Embedded instrument running in a raspberry pi: [raspicultor](raspicultor/README.md).
+* Embedded instrument running in a raspberry pi: [raspicultor](https://github.com/hordiales/raspicultor/).
 * Cloud Instrument mention in [ArCiTec prize, Technology applied to Arts](https://arcitec.frba.utn.edu.ar/tecnologia-aplicada-al-arte/) (2018).
 * Publication: [Sound recycling from public databases](https://www.researchgate.net/publication/317388443_Sound_recycling_from_public_databases) @ [Audio Mostly](http://audiomostly.com) 2017 
 * "Forgotten pieces from unknown people" and "Dialectic in suspense" constructed using APICultor, were showed in [NIPS 2017 Art Gallery](http://nips4creativity.com/music/) (Machine Learning for Creativity and Design, Long Beach, California, USA)
@@ -42,7 +42,7 @@ Interactive __DEMO__: [Cloud Instrument](https://www.youtube.com/watch?v=SCYEEpf
 ![](doc/yaeltex-pre-print-front.png)
 [Yaeltex](https://yaeltex.com/en) custom MIDI controllers
 
-![](raspicultor/img/controller.jpg)
+![](doc/controller.jpg)
 
 With a SuperCollider synthesizer/effects processor running in a Raspberry pi, plus an external sound card for high fidelity.
 
@@ -96,7 +96,7 @@ Interdisciplinary performances based on sounds of the web platform [Redpanal.org
 
 Tested under Linux, Mac OS (>10.11) and Windows 10.
 
-Debian, Ubuntu 15.04 and 16.04 (and .10). And [Docker](module/docker.md) images.
+Debian, Ubuntu 15.04 and 16.04 (and .10). And [Docker](docker/Docker.md) images.
 Raspian @ Raspberry Pi
 
 See [INSTALL.md](INSTALL.md)
