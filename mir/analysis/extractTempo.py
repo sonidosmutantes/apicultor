@@ -1,6 +1,14 @@
 #!/usr/bin/python
 # -*- coding: UTF-8 -*-
 
+"""
+	Extract tempo (BPM) from a file 
+	Python 2/3
+
+	Dependency: 	
+		Essentia (https://github.com/sonidosmutantes/apicultor/blob/master/INSTALL.md#essentia-httpessentiaupfed)
+"""
+
 import os
 import sys
 import json
@@ -33,12 +41,11 @@ def process_file(inputSoundFile, frameSize = 1024, hopSize = 512):
 
 #()    
 
-#Usage = "./run_MIR_analysis.py [FILES_DIR]"
+Usage = "./extractTempo.py [FILE]"
 if __name__ == '__main__':
   
     if len(sys.argv) < 2:
-        print "\nBad amount of input arguments\n\t", Usage, "\n"
-#        print("Example:\n\t./run_MIR_analysis.py data\n\t./run_MIR_analysis.py samples\n")
+        print("\nBad amount of input arguments\n\t", Usage, "\n")
         sys.exit(1)
 
 
@@ -52,6 +59,6 @@ if __name__ == '__main__':
             raise Exception
 
         process_file( f )
-    except Exception, e:
+    except Exception as e:
         print(e)
         exit(1)
