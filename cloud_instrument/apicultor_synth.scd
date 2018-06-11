@@ -12,10 +12,12 @@ https://github.com/sonidosmutantes/apicultor
 */
 
 //General config
-//~host = "mac";
-~host = "raspi";
+~host = "mac";
+//~host = "raspi";
+
 //~midi_controller = "yaeltex"; //WARNING: fails if controller is not present
-~midi_controller = "midimix";
+//~midi_controller = "midimix";
+~midi_controller = "none";
 
 if( ~host=="mac", {
 	"Running in mac".postln;
@@ -37,6 +39,7 @@ s.boot; //start server
 ("Recording in "++thisProcess.platform.recordingsDir).postln; //locate folder
 s.recHeaderFormat = "wav";
 s.record;
+//to end: s.stopRecording;
 */
 
 s.waitForBoot {
@@ -98,14 +101,14 @@ SynthDef(\mutantefreeze, { arg busout=0, bufnum=0, point=0, vol=1, fftwidth=4096
 				})
 			});*/
 
-	
+
 	//with DELAY
 	adelay = DelayN.ar( sig, delay, delay, delaymix, sig); // input is mixed with delay via the add input (delaymix = 0 -> off)
-	
+
 	//with Reverb (in, mix: 0.33, room: 0.5, damp: 0.5, mul: 1, add: 0)
 	sig = FreeVerb.ar(sig, reverbmix, roomsize, 0.5, 1, 0 );
 	//sig = GVerb(sig, roomsize, 3, 0.5, 0.5, 15 );
-	
+
 	//Other FXs
 	//right = FreqShift.ar(left, SinOsc.kr(3.23, 0, 5));
 
@@ -138,8 +141,13 @@ if( ~midi_controller=="yaeltex", {
 	"ui/yaeltex_midi_to_osc.scd".loadRelative; // Yaeltex custom MIDI controller
 }
 ,{
-	"Using AKAI MIDIMix controller".postln;
-	"ui/akai_midimix_to_osc.scd".loadRelative; // AKAI MIDIMix Controller
+	if( ~midi_controller=="midimix", {
+			"Using AKAI MIDIMix controller".postln;
+			"ui/akai_midimix_to_osc.scd".loadRelative; // AKAI MIDIMix Controller
+	}, {
+		"Not using MIDI controller!".postln;
+		"ui/midi_to_osc.scd".loadRelative; //osc instances
+	});
 });
 
 /////////////////////////////////
@@ -568,6 +576,11 @@ OSCdef.new(
 ////////////////////////////////////////
 //(optional) Startup sounds
 if( ~host=="mac", {
+
+		//voice 8
+		~bufferinstances[7]= Buffer.read(s, "/Users/hordia/samples/instrucciones.wav");
+		//~synthInstances[7] = Synth(\mutantefreeze, [\bufnum, ~bufferinstances[7].bufnum, \out, 0, \vol, 0.7]);
+		~synthInstances[7] = Synth(\mutantefreeze, [\bufnum, ~bufferinstances[7].bufnum, \out, 0, \vol, 0.7, \pitchratio, 0.85]);
 
 }
 ,{
