@@ -1020,7 +1020,7 @@ def danceability(audio, target, fs):
     for i in range(310, 3300):   
         i *= 0.09               
         tau.append(int(i/10)) 
-    tau = bnp.unique(tau) 
+    tau = np.unique(tau) 
     F = np.zeros(len(tau))                                                            
     nfvalues = 0            
     for i in range(len(tau)):        
