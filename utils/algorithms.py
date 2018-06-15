@@ -11,9 +11,12 @@ from librosa.beat import __last_beat as last_beat
 from librosa.beat import __trim_beats as trim_beats
 from scipy.fftpack import fft, ifft
 from collections import Counter
+from sklearn.linear_model import SGDRegressor
 from ..machine_learning.cache import memoize
+from ..gradients.descent import attention_sgd
 import random
 from itertools import groupby
+from multiprocessing import Pool, cpu_count
 
 def mono_stereo(input_signal): 
     input_signal = input_signal.astype(np.float32)   
@@ -213,7 +216,8 @@ class MIR:
             nyquist_hi = self.nyquist(cutoffHz[1])                
             Wn = [nyquist_low, nyquist_hi] 
         else:                
-            Wn = self.nyquist(cutoffHz)                   
+            Wn = self.nyquist(cutoffHz)    
+        Wn = max(1e-4,min(Wn,0.9))                            
         b,a = iirfilter(1, Wn, btype = type, ftype = 'butter')          
         output = lfilter(b,a,array) #use a time-freq compromised filter
         return output 
@@ -999,59 +1003,55 @@ def residual_error(signal, start, end):
         ssxx, ssxy, ssyy = addError(i, ssxx, ssxy, ssyy, meanx, meany)
     return (ssyy - ssxy * ssxy / ssxx) / size
     
-def danceability(audio, fs):        
+def danceability(audio, target, fs):        
     frame_size = int(0.01 * fs)
-    audio = audio[:fs * 3]
+    audio = audio[:fs * 8]
     nframes = audio.size / frame_size
-    s = []
+    S = []
     for i in range(int(nframes)):
         fbegin = i * frame_size
         fend = min((i+1) * frame_size, audio.size)
-        s.append(np.std(audio[fbegin:fend]))
+        S.append(np.std(audio[fbegin:fend]))
     for i in range(int(nframes)):
-        s[i] -= np.mean(s) 
-    for i in range(len(s)):      
-        s[i] += s[i-1]           
+        S[i] -= np.mean(S) 
+    for i in range(len(S)):      
+        S[i] += S[i-1]           
     tau = []                     
-    for i in range(930, 1930):   
-        i *= 1.1               
+    for i in range(310, 3300):   
+        i *= 0.09               
         tau.append(int(i/10)) 
-    F = np.zeros(len(tau))
-    nfvalues = 0          
-    for i in range(len(tau)):
-        jump = max(tau[i]/50, 1)
-        if nframes >= tau[i]:
-            k = jump
+    tau = bnp.unique(tau) 
+    F = np.zeros(len(tau))                                                            
+    nfvalues = 0            
+    for i in range(len(tau)):        
+        jump = max(tau[i]/50, 1)                                                                                       
+        if nframes >= tau[i]:                                                                              
+            k = jump                  
             while k < int(nframes-tau[i]):
-                fbegin = k
-                fend = k + tau[i]
-                F[i] += residual_error(s, int(fbegin), int(fend))
-                k += jump
+                fbegin = int(k)                        
+                fend = int(k + tau[i])           
+                w = attention_sgd(np.mat(S[fbegin:fend]),target)    
+                reg = S[fbegin:fend] * w
+                F[i] += np.sum((target-reg)**2)
+                k += jump        
             if nframes == tau[i]:
-                F[i] = 0
-            else:
+                F[i] = 0         
+            else:              
                 F[i] = np.sqrt(F[i] / ((nframes - tau[i])/jump))
+            print(F[i])   
         else:      
-            break
+            break    
         nfvalues += 1
-    danceability = 0.0  
+
+    F = F[F<1.5]
     dfa = np.zeros(len(tau))
-    danceability = 0
-    for i in range(nfvalues-1):
+    for i in range(len(F)-1):
         if F[i+1] != 0:
             dfa[i] = np.log10(F[i+1] / F[i]) / np.log10( (tau[i+1]+3.0) / (tau[i]+3.0))
-            if danceability + dfa[i] > 0 and not danceability + dfa[i] == np.inf:
-                danceability += dfa[i]
-            else:
-                pass
         else:
             break
-    danceability /= len(np.where(dfa[dfa.nonzero()] >0)[0]-2) #this might change some values but can help understand rituals, seriously 
-    if danceability > 0:
-        danceability = 1/danceability
-    else:
-        danceability = 0
-    return danceability
+    motion = dfa[np.nan_to_num(dfa) > 0]
+    return 1/(motion.sum() / len(motion))
 
 def addContributionHarmonics(pitchclass, contribution, M_chords):                                                        
   weight = contribution                                                                                                  
@@ -1085,6 +1085,36 @@ def addMajorTriad(root, contribution, M_chords):
   if fifth > 11:                                                                                                         
     fifth -= 12                                                                                                          
   addContributionHarmonics(fifth, contribution, M_chords)                                                                
+
+def addAugTriad(root, contribution, M_chords):                                                          
+  # Root            
+  addContributionHarmonics(root, contribution, M_chords)                                                                                                                       
+  # Major 3rd                                                                                                            
+  third = root + 4                                                                                                       
+  if third > 11:                                                                                                         
+    third -= 12                                                                                                          
+  addContributionHarmonics(third, contribution, M_chords)
+                                                                                                                           
+  # augmented                                                                                                          
+  fifth = root + 8                                                                                                       
+  if fifth > 11:                                                                                                         
+    fifth -= 12                                                                                                          
+  addContributionHarmonics(fifth, contribution, M_chords)  
+  
+def addDimTriad(root, contribution, M_chords):                                                          
+  # Root            
+  addContributionHarmonics(root, contribution, M_chords)                                                                                                                       
+  # diminished 3rd                                                                                                            
+  third = root + 3                                                                                                       
+  if third > 11:                                                                                                         
+    third -= 12                                                                                                          
+  addContributionHarmonics(third, contribution, M_chords)
+                                                                                                                           
+  # diminished 5th                                                                                                          
+  fifth = root + 6                                                                                                       
+  if fifth > 11:                                                                                                         
+    fifth -= 12                                                                                                          
+  addContributionHarmonics(fifth, contribution, M_chords)    
                                                                                                                 
 def addMinorTriad(root, contribution, M_chords):                                                                         
   # Root                                                                                                                 
@@ -1107,75 +1137,86 @@ def correlation(v1, mean1, std1, v2, mean2, std2, shift):
   for i in range(size):                                                                                                  
     index = (i - shift) % size                                                                                                                         
     if index < 0:                                                                                                        
-        index += size                                                                                                    
-    r += (v1[i] - mean1) * (v2[index] - mean2)                                                                           
+        index += size 
+    if index == size:                                                                                                        
+        index -= 1         
+    r += (v1[i] - mean1) * (v2[index] - mean2)                                                                          
   r /= std1*std2                                                                                                       
   return r 
 
 def Key(pcp):                                                                                                            
     slope = 0.6                                                                                                          
     numHarmonics = 96
-    noland =  np.array([[0.0629, 0.0146, 0.061, 0.0121, 0.0623, 0.0414, 0.0248, 0.0631, 0.015, 0.0521, 0.0142, 0.0478],  
-    [0.0682, 0.0138, 0.0543, 0.0519, 0.0234, 0.0544, 0.0176, 0.067, 0.0349, 0.0297, 0.0401, 0.027 ]])                    
+    #M,m,aug,sus(Jazz)
+    tuller_hordiales =  np.array([[1.        , 0.        , 0.07970044, 0.11365712, 0.10877776,
+       0.36621089, 0.02502536, 0.469842  , 0.20950151, 0.06540852,
+       0.09295253, 0.00188105],
+    [1.        , 0.09489373, 0.03009842, 0.37268564, 0.        ,
+       0.33602228, 0.05863082, 0.58744394, 0.23305194, 0.04754683,
+       0.09765843, 0.02959059], 
+    [1.        , 0.17706491, 0.06556756, 0.01620899, 0.2448181 , 0.39539417, 0.07605821, 0.        , 
+    0.71396226, 0.03195886, 0.14465802, 0.00201328],
+    [1.        , 0.10097367, 0.0977697 , 0.        , 0.68889616,
+       0.46660727, 0.14499055, 0.40802432, 0.30845697, 0.33547322,
+       0.10670692, 0.5693731 ]])                    
     M_chords = np.zeros(12)                                                                                              
-    m_chords = np.zeros(12)                                                                                              
+    m_chords = np.zeros(12) 
+    aug_chords = np.zeros(12)                                                                                              
+    jazz_chords = np.zeros(12)                                                                                                  
     key_names = ["A", "A#", "B", "C", "C#", "D", "D#", "E", "F", "F#", "G", "G#"] #it is good to remember keys sometimes 
-    _M = noland[0]                                                                                                       
-    _m = noland[1]                                                                                                       
-    addMajorTriad(0, _M[0], M_chords) #first argument accounts for key index, not scale degree, so first of all the tonic
-    addMinorTriad(2, _M[2], M_chords) #ii 
-    addMinorTriad(4, _M[4], M_chords) #iii    
+    _M = tuller_hordiales[0]                                                                                                       
+    _m = tuller_hordiales[1] 
+    _aug = tuller_hordiales[2]
+    _jazz = tuller_hordiales[3]  
+    #TODO: build all key profiles                                                                                                    
+    addMajorTriad(0, _M[0], M_chords) #first argument accounts for key index, not scale degree, so first of all the tonic  
     addMajorTriad(5, _M[5], M_chords) #subdominant (iv)            
-    addMajorTriad(7, _M[7], M_chords) #dominant (the famous 5th) 
-    addMinorTriad(9, _M[9], M_chords) #vi
-    addContributionHarmonics(11, _M[11], M_chords)
-    addContributionHarmonics(2 , _M[11], M_chords)
-    addContributionHarmonics(5 , _M[11], M_chords)                          
-    addMinorTriad(0, _m[0], m_chords) #tonic of minor chord 
-    addContributionHarmonics(2, _m[2], m_chords);
-    addContributionHarmonics(5, _m[2], m_chords);
-    addContributionHarmonics(8, _m[2], m_chords);
-    addContributionHarmonics(3, _m[3], m_chords); #5th augmented
-    addContributionHarmonics(7, _m[3], m_chords);
-    addContributionHarmonics(11,_m[3], m_chords); #harmonic minor                          
+    addMajorTriad(7, _M[7], M_chords) #dominant (the famous 5th)                  
+    addMinorTriad(0, _m[0], m_chords) #tonic of minor chord                         
     addMinorTriad(5, _m[5], m_chords) #subdominant of minor chord                  
-    addMinorTriad(7, _m[7], m_chords) #dominant of minor chord 
-    addMajorTriad(8, _m[8], m_chords)
-    addContributionHarmonics(11, _m[8], m_chords) #5th diminished
-    addContributionHarmonics(2, _m[8], m_chords)
-    addContributionHarmonics(5, _m[8], m_chords)                   
+    addMinorTriad(7, _m[7], m_chords) #dominant of minor chord              
+    addAugTriad(0, _aug[0], aug_chords) 
+    addAugTriad(5, _aug[5], aug_chords)                   
+    addAugTriad(7, _aug[7], aug_chords)                                                        
     _M = M_chords                                                 
-    _m = m_chords                                                                  
-    prof_dom = np.zeros(96)                                                  
-    prof_doM = np.zeros(96)                                                  
+    _m = m_chords 
+    _aug = aug_chords 
+    _jazz = jazz_chords                                                                
+    prof_dom = np.zeros(pcp.size)                                                  
+    prof_doM = np.zeros(pcp.size) 
+    prof_aug = np.zeros(pcp.size)                                                      
     for i in range(12):                                                            
-        prof_doM[int(i*3)] = noland[0][i]                              
-        prof_dom[int(i*3)] = noland[1][i]                              
+        prof_doM[int(i*(12/12))] = tuller_hordiales[0][i]                              
+        prof_dom[int(i*(12/12))] = tuller_hordiales[1][i] 
+        prof_aug[int(i*(12/12))] = tuller_hordiales[2][i]                                      
         if i == 11:                                                                
-            incr_M = (noland[0][11] - _M[0]) / 3                    
-            incr_m = (noland[1][11] - _m[0]) / 3                     
+            incr_M = (tuller_hordiales[0][11] - _M[0]) / (12/12)                    
+            incr_m = (tuller_hordiales[1][11] - _m[0]) / (12/12)  
+            incr_aug = (tuller_hordiales[2][11] - _aug[0]) / (12/12)                     
         else:                                                                      
-            incr_M = (noland[0][11] - _M[i+1]) / 3                   
-            incr_m = (noland[1][11] - _m[i+1]) / 3                   
+            incr_M = (tuller_hordiales[0][i] - _M[i+1]) / (12/12)                   
+            incr_m = (tuller_hordiales[1][i] - _m[i+1]) / (12/12)
+            incr_aug = (tuller_hordiales[2][i] - _aug[i+1]) / (12/12)                               
         for j in range(1,2):                                             
-            prof_dom[int(i*3+j)] = noland[1][i] - j * incr_m                
+            prof_dom[int(i*(12/12)+j)-1] = tuller_hordiales[1][i] - j * incr_m                
     mean_profM = np.mean(prof_doM)                                                 
-    mean_profm = np.mean(prof_dom)                                                 
+    mean_profm = np.mean(prof_dom)  
+    mean_aug = np.mean(prof_aug)                                                    
     std_profM = np.std(prof_doM)                                                   
-    std_profm = np.std(prof_dom)                                                            
+    std_profm = np.std(prof_dom)  
+    std_aug = np.std(prof_aug)                                                                
     mean = np.mean(pcp)  
-    std = np.std(pcp)      
-    keyindex = -1                           
-    mx = -1                                  
-    mx2 = -1                       
-    scale = 'MAJOR'                    
+    std = np.std(pcp)                       
     maxM = -1                                 
     max2M = -1                                           
     keyiM = -1           
     maxm = -1                                                      
     max2min = -1            
-    keyim = -1                     
-    for shift in range(96):
+    keyim = -1  
+    maxaug = -1                                                      
+    max2aug = -1            
+    keyiaug = -1                         
+    for shift in range(12):
         corrM = correlation(pcp, mean, std, prof_doM, mean_profM, std_profM, shift)
         if corrM > maxM: 
             max2M = maxM           
@@ -1186,18 +1227,28 @@ def Key(pcp):
             max2min = maxm
             maxm = corrm
             keyim = shift
-    if maxM > maxm:
+        corraug = correlation(pcp, mean, std, prof_aug, mean_aug, std_aug, shift)
+        if corraug > maxaug:
+            max2aug = maxaug
+            maxaug = corraug
+            keyiaug = shift            
+    correlated = np.argmax([maxM,maxm,maxaug])
+    if correlated == 0:
         keyi = int(keyiM * 12 / 96 + 5)
         scale = 'MAJOR'
         maximum = maxM
         max2 = max2M
-    else:
+    elif correlated == 1:
         keyi = int(keyim * 12 / 96 + 5)
         scale = 'MINOR'
         maximum = maxm
         max2 = max2min
+    else:
+        keyi = int(keyiaug * 12 / 96 + 5)
+        scale = 'AUGMENTED'
+        maximum = maxaug
+        max2 = max2aug        
     key = key_names[keyi]
-    scale = 'major' if scale == 'MAJOR' else 'minor'
     firstto_2ndrelative_strength = (maximum - max2) / maximum
     return key, scale, firstto_2ndrelative_strength
 
@@ -1205,12 +1256,15 @@ def chord_sequence(song):
     song.M = 4096
     song.H = 2048
     song.N = 8192
-    hpcps = []
-    for frame in song.FrameGenerator():
+    def hpcp_frame(frame):                                                  
+        song.frame = frame
         song.window()
         song.Spectrum()
         song.spectral_peaks()
-        hpcps.append(hpcp(song,96))
+        hpcps =  hpcp(song,12)
+        return hpcps
+    pool = Pool(cpu_count())
+    hpcps = np.array(pool.map(hpcp_frame,list(song.FrameGenerator())))
     chords = ChordsDetection(np.array(hpcps), song)
     chord = [(sum(i[1] for i in group), key) for key, group in groupby(sorted(chords, key = lambda x: x[0]), key = lambda i: i[0])]
     mean_strength = []
@@ -1219,16 +1273,26 @@ def chord_sequence(song):
     if len(chord) == 1:                                         
         return chord[1] 
     strength = [] 
-    sorted_keys = ['Am', 'AM', 'A#m', 'A#M', 'Bm', 'BM', 'Cm', 'CM', 'C#m', 'C#M', 'Dm', 'D#M', 'Em', 'EM', 'Fm', 'FM', 'F#m', 'F#M', 'Gm', 'GM', 'G#m', 'G#M']        
+    sorted_keys = ['Am', 'AM','Aaug', 'A#m', 'A#M','A#aug', 'Bm', 'BM','Baug', 'Cm', 'CM','Caug', 'C#m', 'C#M', 'C#aug',
+    'Dm', 'DM','Daug', 'D#M','D#m','D#aug', 'Em', 'EM','Eaug', 'Fm', 'FM','Faug', 'F#m', 'F#M','F#aug', 'Gm', 'GM','Gaug',
+     'G#m', 'G#M','G#aug']        
     for i in sorted_keys:                                         
         for j in range(len(chord)):                                                          
-            if chord[j][1] == i:
-                strength.append([chord[j][1], mean_strength[j]])
+            if 'MINOR' in chord[j][1]:
+                C = chord[j][1].split('MINOR')[0]+'m'
+            if 'MAJOR' in chord[j][1]:
+                C = chord[j][1].split('MAJOR')[0]+'M'
+            if 'AUGMENTED' in chord[j][1]:
+                C = chord[j][1].split('AUGMENTED')[0]+'aug'                                
+            if C == i:
+                strength.append([C, mean_strength[j]])
             continue
-    max_strength = -1            
+    strength = np.unique(strength) 
+    max_strength = -1           
     chord_keys = []
+    mean_tone_strength = np.mean([i[1] for i in strength])
     for i in strength:
-        if i[1] > max_strength:
+        if i[1] > max_strength and not i[1] > mean_tone_strength:
             chord_keys.append(i[0]) #by means of correlation we still can get some good notes based on maximum strength. TODO: get chords by other degrees than thirds (fifth, fourth, seventh, ninth, etc.)
             max_strength = i[1]
     return chord_keys
@@ -1242,10 +1306,7 @@ def ChordsDetection(hpcps, song):
         mean_hpcp = np.mean(hpcps[int(istart):int(iend)], axis=1)
         try:
             key, scale, firstto_2ndrelative_strength = Key(mean_hpcp)
-            if scale == 'minor':
-                chords[i] = (key + 'm', firstto_2ndrelative_strength)
-            else:
-                chords[i] = (key + 'M', firstto_2ndrelative_strength)
+            chords[i] = (key + scale, firstto_2ndrelative_strength)
         except Exception as e:
             pass
     return chords    
