@@ -37,4 +37,4 @@ def attention_sgd(x,y,a=None):
             s1 = s(1.5,tau,x.shape[1])    
             ql =(s_max * np.abs(np.cosh(s1 * et)+1)) / (s1*np.abs(np.cosh(s1 * et)+1))
             a[tau] -= ql
-    return ql
+    return a
