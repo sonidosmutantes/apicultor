@@ -10,6 +10,7 @@ from .utils.algorithms import *
 from soundfile import read
 from collections import defaultdict, OrderedDict
 from .sonification.Sonification import hfc_onsets
+import random
 
 logging.basicConfig(level=logging.DEBUG)
 logger = logging.getLogger(__name__)  
@@ -70,7 +71,14 @@ def process_file(inputSoundFile, tag_dir, input_filename):
 
     retrieve.mel_bands_global()
 
-    retrieve.onsets_by_flux()
+    onsets = []                                                                                                          
+    for i in retrieve.FrameGenerator():                                                           
+        retrieve.window()                                                    
+        retrieve.Spectrum()                                                                                                       
+        retrieve.Phase(retrieve.fft(retrieve.frame))          
+        onsets.append(retrieve.detect_by_polar) 
+        
+    retrieve.onsets_by_polar_distance(onsets)
 
     # compute for all frames in our audio and add it to the pool
     pool = defaultdict(list)
@@ -80,6 +88,8 @@ def process_file(inputSoundFile, tag_dir, input_filename):
         retrieve.n_bands = 40                                                    
     else:                                                      
         retrieve_n_bands = 31 #we can't use 40 bands when fs is vinyl type, 31 is the limit  
+        
+    pcps = [] 
 
     for share in retrieve.spectrum_share():
     
@@ -116,6 +126,7 @@ def process_file(inputSoundFile, tag_dir, input_filename):
 
         # dissonance
         retrieve.spectral_peaks()
+        pcps.append(hpcp(retrieve,12))
         retrieve.fundamental_frequency()
         retrieve.harmonic_peaks()
         desc_name = namespace + '.dissonance'
@@ -169,16 +180,11 @@ def process_file(inputSoundFile, tag_dir, input_filename):
             retrieve.mel_bands_global()
             pool[desc_name].append(np.mean(retrieve.flux(retrieve.mel_dbs)))
 
-    #onsets by flux
+    #onsets by polar distance
     namespace = 'rhythm'
-    desc_name = namespace + '.onsets_flux'
+    desc_name = namespace + '.onsets_by_polar_distance'
     if (desc_name in descriptors and os.path.exists(json_output) is False) or (pending_descriptions != [] and desc_name in pending_descriptions):
-        try:
-            retrieve.mel_dbs
-            retrieve.onsets_by_flux()
-            pool[desc_name].append(np.mean(retrieve.onsets_indexes / retrieve.fs))
-        except Exception as e:
-            pool[desc_name].append(np.mean(retrieve.onsets_indexes / retrieve.fs))
+        pool[desc_name].append(onsets_indexes)
             
     #onsets by high frequency content
     namespace = 'rhythm'
@@ -189,15 +195,31 @@ def process_file(inputSoundFile, tag_dir, input_filename):
     #danceability
     namespace = 'highlevel'
     desc_name = namespace + '.danceability'
+    if tag_dir == 'electronic':                                
+        meany = np.loadtxt('means/y1.txt') #one more time
+    if tag_dir == 'pop':                                
+        meany = np.loadtxt('means/y2.txt') #you should be dancing
+    if tag_dir == 'rock':                                
+        meany = np.loadtxt('means/y3.txt') #sultans of swing
+    if tag_dir == 'mapuche':                                
+        meany = np.loadtxt('means/y4.txt') #mapuche dance
+    if tag_dir == 'reggaeton':                                
+        meany = np.loadtxt('means/y5.txt') #despacito
+    if tag_dir != 'reggaeton' and tag_dir != 'electronic' and tag_dir != 'pop' and tag_dir != 'rock' and tag_dir != 'mapuche':                                
+        meany = random.choice(['y1.txt','y2.txt','y3.txt','y4.txt','y5.txt'])
+        meany = np.loadtxt('means/'+meany)
     if (desc_name in descriptors and os.path.exists(json_output) is False) or (pending_descriptions != [] and desc_name in pending_descriptions):
-        pool[desc_name].append(danceability(retrieve.signal, retrieve.fs))        
+        pool[desc_name].append(danceability(retrieve.signal[retrieve.onsets_indexes[0]:retrieve.onsets_indexes[0]+(retrieve.fs*8)], meany, retrieve.fs))        
 
     #chords sequence
     namespace = 'highlevel'
     desc_name = namespace + '.chords_sequence'
     retrieve.audio_signal_spectrum = [] #empty the buffers to make chord analysis
-    if (desc_name in descriptors and os.path.exists(json_output) is False) or (pending_descriptions != [] and desc_name in pending_descriptions):
-        pool[desc_name].append(chord_sequence(retrieve)) 
+    if (desc_name in descriptors and os.path.exists(json_output) is False) or (pending_descriptions != [] and desc_name in pending_descriptions): 
+        try:                                     
+            pool[desc_name].append(chord_sequence(retrieve,pcps))
+        except Exception as e:
+            pool[desc_name].append('No chord') #drum loop, melody or tone 
 
     #duration
     namespace = 'metadata'
