@@ -32,7 +32,7 @@ descriptors = [
                 'lowlevel.spectral_flux',
                 'lowlevel.zero_crossing_rate',
                 'rhythm.onsets_hfc',
-                'rhythm.onsets_flux',
+                'rhythm.onsets_by_polar_distance',
                 'highlevel.chords_sequence',
                 'highlevel.danceability'
                 ]
