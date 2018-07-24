@@ -373,8 +373,8 @@ class MIR:
                     index -= 1
             buffer[int(index)] = detection_rm[int(index)]
             threshold = np.median(buffer) + 0.001 * np.mean(buffer)
-            self.onsets_indexes = np.where(detection_rm>threshold)[0]
-            self.audio_signal_spectrum = np.array(self.audio_signal_spectrum)[np.where(detection_rm>threshold)]
+        self.onsets_indexes = np.where(detection_rm>threshold)[0]
+        self.audio_signal_spectrum = np.array(self.audio_signal_spectrum)[np.where(detection_rm>threshold)]
 
     def onsets_by_flux(self):
         """Use this function to get only frames containing peak parts of the signal""" 
