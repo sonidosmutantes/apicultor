@@ -179,6 +179,10 @@ class MIR:
             if _tmp < self.frame[i]:                           
                 _tmp = (1.0 - _ga) * self.frame[i] + _ga * _tmp;
             else:                                               
+                 _tmp = (1.0 - _gr) * self.frame[i] + _gr * _tmp; 
+            self.envelope[i] = _tmp 
+            if _tmp == round(float(str(_tmp)), 308): #find out if the number is denormal 
+                _tmp = 0                                             
 
     def detect_by_polar(self):
         targetPhase = np.real(2*self.phase - self.phase)
