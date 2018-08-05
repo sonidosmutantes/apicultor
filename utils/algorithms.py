@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 # -*- coding: UTF-8 -*-
 
+import cmath
 from scipy.signal import *
 import numpy as np
 from librosa import util
@@ -18,7 +19,16 @@ import random
 from itertools import groupby
 from multiprocessing import Pool, cpu_count
 from collections import defaultdict
-import cmath
+from scipy.special import cotdg
+
+def compute_hfcs(hfcs): 
+    hfcs /= max(hfcs) 
+    song.hfcs = hfcs
+    fir = firwin(11, 1.0 / 8, window = "hamming")
+    song.filtered = np.convolve(hfcs, fir, mode="same")
+    song.climb_hills() 
+    return np.array([i for i, x in enumerate(song.Filtered) if x > 0]) * song.N
+
 
 def mono_stereo(input_signal): 
     input_signal = input_signal.astype(np.float32)   
@@ -183,7 +193,7 @@ class MIR:
                  _tmp = (1.0 - _gr) * self.frame[i] + _gr * _tmp; 
             self.envelope[i] = _tmp 
             if _tmp == round(float(str(_tmp)), 308): #find out if the number is denormal 
-                _tmp = 0                                             
+                _tmp = 0 
 
     def detect_by_polar(self):
         targetPhase = np.real(2*self.phase - self.phase)
@@ -377,9 +387,10 @@ class MIR:
                 if index == buffer.size:
                     index -= 1
             buffer[int(index)] = detection_rm[int(index)]
-            threshold = np.median(buffer) + 0.001 * np.mean(buffer)
+            threshold = np.median(buffer) + 0.00001 * np.mean(buffer)
+        detection_rm = detection_rm[:np.array(self.audio_signal_spectrum).shape[0]]
         self.onsets_indexes = np.where(detection_rm>threshold)[0]
-        self.audio_signal_spectrum = np.array(self.audio_signal_spectrum)[np.where(detection_rm>threshold)]
+        self.audio_signal_spectrum = np.array(self.audio_signal_spectrum)[np.where(detection_rm[:len(self.audio_signal_spectrum)]>threshold)]
 
     def onsets_by_flux(self):
         """Use this function to get only frames containing peak parts of the signal""" 
@@ -447,9 +458,9 @@ class MIR:
         dbs = 2 * (10 * np.log10(self.mel_bands))
         self.mfcc_seq = self.DCT(dbs)
 
-    def autocorrelation(self):
+    def autocorrelation(self,axis=0):
         try:               
-            self.N = (self.windowed_x[:,0].shape[0]+1) * 2
+            self.N = (self.windowed_x[:,axis].shape[0]+1) * 2
         except Exception as e:               
             self.N = (self.windowed_x.shape[0]+1) * 2            
         corr = np.fft.fftshift(ifft(fft(self.windowed_x, n = self.N)).real)                                   
@@ -638,7 +649,7 @@ class MIR:
         zcr /= len(self.signal)
         return zcr
 
-    def spectral_peaks(self):
+    def spectral_peaks(self, bounded = True):
         """Computes magnitudes and frequencies of a frame of the input signal by peak interpolation"""
         thresh = np.where(self.magnitude_spectrum[1:-1] > 0, self.magnitude_spectrum[1:-1], 0)            
         next_minor = np.where(self.magnitude_spectrum[1:-1] > self.magnitude_spectrum[2:], self.magnitude_spectrum[1:-1], 0)
@@ -651,18 +662,45 @@ class MIR:
         iploc = self.peaks_locations + 0.5 * (lval- rval) / (lval - 2 * val + rval)
         self.magnitudes = val - 0.25 * (lval - rval) * (iploc - self.peaks_locations)
         self.frequencies = (self.fs) * iploc / self.N 
-        bound = np.where(self.frequencies < 5000) #only get frequencies lower than 5000 Hz
+        if bounded == True:
+            bound = np.where(self.frequencies < 1000) #only get frequencies lower than 1000 Hz
+            self.magnitudes = self.magnitudes[bound][:100] #we use only 100 magnitudes and frequencies
+            self.frequencies = self.frequencies[bound][:100]
+            self.frequencies, indexes = np.unique(self.frequencies, return_index = True)
+            self.magnitudes = self.magnitudes[indexes]
+
+    def PeakDetection(self):
+        next_minor = np.where(self.correlation[1:-1] > self.correlation[2:], self.correlation[1:-1], 0)
+        prev_minor = np.where(self.correlation[1:-1] > self.correlation[:-2], self.correlation[1:-1], 0)
+        peaks_locations = -1e-06 * next_minor * prev_minor
+        self.peaks_locations = peaks_locations.nonzero()[0] + 1
+        self.peaks_locations = self.peaks_locations[self.peaks_locations<self.magnitude_spectrum.size-1]
+        val = self.magnitude_spectrum[self.peaks_locations]
+        lval = self.magnitude_spectrum[self.peaks_locations -1]
+        rval = self.magnitude_spectrum[self.peaks_locations + 1]
+        self.iploc = self.peaks_locations + 0.5 * (lval- rval) / (lval - 2 * val + rval)
+        self.iploc = np.int32(self.iploc[:100])
+        self.magnitudes = val[:100] - 0.25 * (lval[:100] - rval[:100]) * (self.iploc - self.peaks_locations[:100])
+        self.frequencies = (self.fs) * self.iploc / self.N   
+        bound = np.where(self.frequencies < 1000) #only get frequencies lower than 1000 Hz
         self.magnitudes = self.magnitudes[bound][:100] #we use only 100 magnitudes and frequencies
         self.frequencies = self.frequencies[bound][:100]
         self.frequencies, indexes = np.unique(self.frequencies, return_index = True)
-        self.magnitudes = self.magnitudes[indexes]
+        self.magnitudes = self.magnitudes[indexes] 
+        nonzero_f = self.frequencies >0,   
+        self.frequencies = self.frequencies[nonzero_f] 
+        self.magnitudes = self.magnitudes[nonzero_f] 
+        nonzero_m = self.magnitudes >0
+        self.magnitudes = self.magnitudes[nonzero_m]   
+        self.frequencies = self.frequencies[nonzero_m]          
+        return self
 
     def fundamental_frequency(self):
         """Compute the fundamental frequency of the frame frequencies and magnitudes"""
         f0c = np.array([])
         for i in range(len(self.frequencies)):
             for j in range(0, (4)*int(self.frequencies[i]), int(self.frequencies[i])): #list possible candidates based on all frequencies
-                if j < 5000 and j != 0 and int(j) == int(self.frequencies[i]):
+                if j < 1000 and j != 0 and int(j) == int(self.frequencies[i]):
                     f0c = np.append(f0c, self.frequencies[i])
  
         p = 0.5                    
@@ -835,22 +873,6 @@ class MIR:
                 lpc[j] = temp[j]
             E *= (1-pow(k,2))
         return lpc[1:]
-
-class sonify(MIR):                                
-    def __init__(self, audio, fs):
-        super(sonify, self).__init__(audio, fs)
-    def filter_by_valleys(self):
-        mag_y = np.copy(self.magnitude_spectrum)
-        for i in range(len(self.valleys)):
-            bandpass = (hann(len(self.contrast_bands[i])-1) * np.exp(self.valleys[i])) - np.exp(self.valleys[i]) #exponentiate to get a positive magnitude value
-            mag_y[self.contrast_bands[i][0]:self.contrast_bands[i][-1]] += bandpass #a small change can make a big difference, they said
-        return mag_y 
-    def reconstruct_signal_from_mfccs(self):
-        """Listen to the MFCCs in a signal by reconstructing the fourier transform of the mfcc sequence"""
-        bin_scaling = 1.0/np.maximum(0.0005, np.sum(np.dot(self.filter_coef.T, self.filter_coef), axis=0))
-        recon_stft = bin_scaling * np.dot(self.filter_coef.T,db2amp(self.table.T[:13].T.dot(self.mfcc_seq)))
-        output = self.ISTFT(recon_stft)
-        return output
     def climb_hills(self):
         """Do hill climbing to find good HFCs"""
         moving_points = np.arange(len(self.filtered))
@@ -880,6 +902,22 @@ class sonify(MIR):
         self.Filtered = [0] * len(self.filtered)         
         for x in set(stable_points):      
             self.Filtered[x] = self.filtered[x]
+
+class sonify(MIR):                                
+    def __init__(self, audio, fs):
+        super(sonify, self).__init__(audio, fs)
+    def filter_by_valleys(self):
+        mag_y = np.copy(self.magnitude_spectrum)
+        for i in range(len(self.valleys)):
+            bandpass = (hann(len(self.contrast_bands[i])-1) * np.exp(self.valleys[i])) - np.exp(self.valleys[i]) #exponentiate to get a positive magnitude value
+            mag_y[self.contrast_bands[i][0]:self.contrast_bands[i][-1]] += bandpass #a small change can make a big difference, they said
+        return mag_y 
+    def reconstruct_signal_from_mfccs(self):
+        """Listen to the MFCCs in a signal by reconstructing the fourier transform of the mfcc sequence"""
+        bin_scaling = 1.0/np.maximum(0.0005, np.sum(np.dot(self.filter_coef.T, self.filter_coef), axis=0))
+        recon_stft = bin_scaling * np.dot(self.filter_coef.T,db2amp(self.table.T[:13].T.dot(self.mfcc_seq)))
+        output = self.ISTFT(recon_stft)
+        return output
     def create_clicks(self, locations):
         """Create a clicking signal at specified sample locations"""
         angular_freq = 2 * np.pi * 1000 / float(self.fs)            
@@ -1285,7 +1323,7 @@ def correlation(v1, mean1, std1, v2, mean2, std2, shift):
         index -= 1         
     r += (v1[i] - mean1) * (v2[index] - mean2)                                                                          
   r /= std1*std2                                                                                                       
-  return r 
+  return r / size #output close to 1 or -1
 
 def Key(pcp):                                                                                                            
     slope = 0.6                                                                                                          
@@ -1343,7 +1381,7 @@ def Key(pcp):
     addMinorTriad(5, _m[5], m_chords) #subdominant of minor chord                  
     addMinorTriad(7, _m[7], m_chords) #dominant of minor chord              
     addAugTriad(0, _aug[0], aug_chords) 
-    addAugTriad(4, _aug[4], aug_chords)                   
+    addAugTriad(5, _aug[5], aug_chords)                   
     addAugTriad(8, _aug[8], aug_chords) 
     addJazzChords(0, _jazz[0], jazz_chords) 
     addJazzChords(5, _jazz[5], jazz_chords)                   
@@ -1356,12 +1394,12 @@ def Key(pcp):
     addSus2Triad(2, _sus2[2], sus2_chords)                   
     addSus2Triad(7, _sus2[7], sus2_chords) 
     addMinorSeventhTriad(0, _m7[0], m7_chords) 
-    addMinorSeventhTriad(3, _m7[3], m7_chords)                   
+    addMinorSeventhTriad(5, _m7[5], m7_chords)                   
     addMinorSeventhTriad(7, _m7[7], m7_chords)
     addMinorSeventhTriad(10, _m7[10], m7_chords)      
     addDimTriad(0, _m7[0], m7_chords) 
-    addDimTriad(3, _dim[3], dim_chords)                   
-    addDimTriad(6, _dim[6], dim_chords) 
+    addDimTriad(5, _dim[5], dim_chords)                   
+    addDimTriad(7, _dim[7], dim_chords) 
     addThirteenthChord(0, _13[0], thirteenth_chords) 
     addThirteenthChord(5, _13[5], thirteenth_chords)                   
     addThirteenthChord(7, _13[7], thirteenth_chords)   
@@ -1447,32 +1485,32 @@ def Key(pcp):
     mean = np.mean(pcp)  
     std = np.std(pcp)                       
     maxM = -1                                 
-    max2M = -1                                           
-    keyiM = -1           
-    maxm = -1                                                      
-    max2min = -1            
-    keyim = -1  
-    maxaug = -1                                                      
-    max2aug = -1            
-    keyiaug = -1 
-    maxjazz = -1                                                      
+    max2M = -1                                            
+    keyiM = 0           
+    maxm = -1                                                       
+    max2min = -1             
+    keyim = 0  
+    maxaug = -1                                                       
+    max2aug = -1             
+    keyiaug = 0 
+    maxjazz = -1                                                       
     max2jazz = -1            
-    keyijazz = -1 
-    maxsus4 = -1                                                      
-    max2sus4 = -1            
-    keyisus4 = -1
-    maxsus2 = -1                                                      
-    max2sus2 = -1            
-    keyisus2 = -1 
-    maxm7 = -1                                                      
-    max2m7 = -1            
-    keyim7 = -1     
-    maxdim = -1
-    max2dim = -1
-    keyidim = -1   
-    max13 = -1
-    max213 = -1
-    keyi13 = -1                                         
+    keyijazz = 0 
+    maxsus4 = -1                                                       
+    max2sus4 = -1             
+    keyisus4 = 0
+    maxsus2 =-1                                                       
+    max2sus2 = -1             
+    keyisus2 = 0 
+    maxm7 = -1                                                       
+    max2m7 = -1             
+    keyim7 = 0     
+    maxdim = -1 
+    max2dim = -1 
+    keyidim = 0   
+    max13 = -1 
+    max213 = -1 
+    keyi13 = 0                                         
     for shift in range(pcp.size):
         corrM = correlation(pcp, mean, std, prof_doM, mean_profM, std_profM, shift)
         if corrM > maxM: 
@@ -1565,12 +1603,12 @@ def Key(pcp):
         scale = 'THIRTEENTH'
         maximum = max13
         max2 = max213  
-    if keyi >= 11:
-        keyi -= 12                                                             
+    if keyi >= 12:
+        keyi -= 12                                                                     
     key = key_names[keyi]
     print(key,maximum,max2)        
     firstto_2ndrelative_strength = (maximum - max2) / maximum
-    return key, scale, firstto_2ndrelative_strength
+    return key, scale, maximum
 
 def chord_sequence(song,hpcps):
     #harmonic synthesis or enhancement will work for analysis because chord sequence will underrate short duration notes
@@ -1584,25 +1622,29 @@ def chord_sequence(song,hpcps):
             mean_strength[chord[i][0]].append(chord[i][1])
     keys = list()       
     for key in mean_strength.items():
-        keys.append((key[0],np.sum(np.float64(key[1]))))
-    prune_strongest = np.array(keys)[np.tanh(np.array(keys)[:,1].T) < 1.] #too high relative strength doesn't account
-    bad_assoc = []                         
-    for i in range(len(prune_strongest)):
-        try:
-            if float(prune_strongest[i+1][1]) - float(prune_strongest[i][1]) < 0: #local fix, we want a better matching
-                bad_assoc.append(i)
-        except IndexError:
-            break 
-    chords = np.delete(prune_strongest,bad_assoc,axis=0)[:,0]  
-    return chords
+        keys.append((key[0],np.mean(np.float64(key[1]))))
+    keys = np.array(keys)
+    keys[find_peaks(1/ np.cosh(np.array(keys)[:,1].astype(np.float64)))[0]] = False
+    assoc = []                         
+    for i in keys:
+        if not 'False' in i: #local fix, we want a better matching
+            assoc.append(i)
+    assoc = np.array(assoc)
+    cycling = cotdg(assoc[:,1].astype(np.float64))
+    relation = np.exp(cycling)
+    thres = 0.999988 #this account for the need of getting more strongly related to the next maximum correlations
+    if list(assoc[np.tanh(relation) < thres][:,0]) == []:
+        return assoc[:,0] 
+    else:
+        return assoc[np.tanh(relation) < thres][:,0]
     
 def ChordsDetection(hpcps, song):
     nframesm = int((2 * song.fs) / song.H) - 1
-    chords = [0] * int(hpcps.shape[0] / nframesm)
-    for i in range(len(chords)):   
+    chords = [0] * 200
+    for i in range(200):   
         istart = max(0, i - nframesm/2)
         iend = min(i + nframesm/2, hpcps.shape[0])
-        mean_hpcp = np.mean(hpcps[int(istart):int(iend)], axis=1)
+        mean_hpcp = np.mean(hpcps[int(istart):int(iend)], axis=1).T
         if mean_hpcp.size < 12:
             continue
         key, scale, firstto_2ndrelative_strength = Key(mean_hpcp)
