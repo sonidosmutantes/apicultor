@@ -135,7 +135,7 @@ if( ~host=="mac", {
 
 //Cutoff
 ~yaeltex.ctls['Cutoff'].onChange = {|val|
-	val = val.linlin(0,127,20,5000).asFloat;
+	val = val.linlin(0,127,10,15000).asFloat;
 	//("SYNTH: Cutoff "++val).postln;
 	~osc_server_SuperCollider.sendMsg(~fx_cutoff, val);
 

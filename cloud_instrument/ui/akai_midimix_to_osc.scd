@@ -229,7 +229,7 @@ if( ~host=="mac", {
 
 //Cutoff
 ~mpkmidimix.knobsC[1].onChange = {|val|
-	val = val.linlin(0,127,20,5000).asFloat;
+	val = val.linlin(0,127,20,15000).asFloat;
 	("SYNTH: Cutoff "++val).postln;
 	~osc_server_SuperCollider.sendMsg(~fx_cutoff, val);
 };
@@ -420,4 +420,4 @@ if( ~host=="mac", {
 ~noteon_recarm_8 = 24;
 */
 
-	
+
