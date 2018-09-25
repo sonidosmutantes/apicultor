@@ -9,7 +9,7 @@
   * Except from major refactorings or migrations use atomic branch (only one use case per each)
 
 * Python programming
-  * Respect PIP recomendations
+  * Respect PEP recomendations, in particular PEP8
   * Every method should have its test
   * Deprecate unused code
 
