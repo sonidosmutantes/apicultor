@@ -1,6 +1,7 @@
-# Requirements
+# Genearl requirements
 
-Right now Python 2.7 is still needed (planning to migrate).
+Python 3.6
+Note: old versión is Python 2.7 but is deprecated
 
 ### Operating System
 Tested under Linux, Mac OS (>10.11) and Windows 10.
@@ -8,18 +9,23 @@ Tested under Linux, Mac OS (>10.11) and Windows 10.
 Debian, Ubuntu 15.04 and 16.04 (and .10). And [Docker](docker.md) images.
 Raspian @ Raspberry Pi.
 
-# PIP (v2 and v3)
+# Install
+
+Optionally, create a virtualenv with python3 as binary
+
+    $ virtualenv -p python3 [SOME_PATH]/ApiCultor_dev
+    $ source [SOME_PATH]/ApiCultor_dev/bin/activate
+
+Install the apicultor module:
+
+    $ python setup.py install
+
+
+# Dependencies requeriments
+
+## Linux
 
     $ sudo apt-get install python3-pip python-pip
-
-### (optional) create a virtualenv
-
-    $ virtualenv apicultor_venv
-    $ source apicultor_venv/bin/activate
-
-### Dependencias via pip
-
-    $ pip install -i requirements.txt
 
 ## Mock RedPanal WebService 
 
@@ -42,7 +48,6 @@ If you want to run Pyo examples
 #enable-jack compilation
 
     $ sudo python setup.py --use-jack install
-
 
 # MIR
 
@@ -85,6 +90,12 @@ Luego de correr sudo apt-get install mysql-server:
     mysql> quit;
 
 Luego se puede usar `Fill_DB.py` para crear la base de datos del MIR
+
+# (old-deprectaed) Without installing the module
+
+### Dependencias viaa pip
+
+    $ pip install -i requirements.txt
 
 
 ### Analysis

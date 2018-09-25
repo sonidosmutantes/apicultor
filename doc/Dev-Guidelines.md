@@ -14,4 +14,4 @@
   * Deprecate unused code
 
 * Documentation in .md files using Markdown
-  * Convention: Names starts with a caps and spaces are replaced by '-'
+  * Convention: Names starts with a caps and spaces are replaced by '-'. Example: 'Dev-Guidelines.md'
