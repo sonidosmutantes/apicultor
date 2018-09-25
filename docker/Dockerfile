@@ -1,7 +1,8 @@
 # REPOSITORY    SIZE
 # apicultor     881.2 (FIXME)
 
-# docker build -t apicultor_v0.9 .
+# Build cmd: sudo docker build --netowork=host -t apicultor -f ./Dockerfile .
+
 
 # docker with apicultor webservice as entrypoint (default)
 # docker run -p 5000:5000 --name apicultor  -it --net="host" apicultor_v0.9
