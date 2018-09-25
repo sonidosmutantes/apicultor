@@ -8,12 +8,42 @@ from ..Sonification import write_file
 from soundfile import read
 import time
 
-#TODO: freeze effect (time scaling until achieving freeze)
 def experimental_random_segmentation(audio_input, segments, options, sr):
     """
 		(branch mir-dev en Sonidos Mutantes)
         Segmenta con valores aleatorios según opciones
     """
+
+    filename = audio_input
+    if not '.wav' in filename:
+        raise Exception("random_segmentation only process wav files")
+
+    outputPath = options['outputPath']    
+    min_dur,max_dur = options['duration']
+
+    #TODO: check if 'samples' dir exists (if not, create it)
+    try:
+        sr, wavsignal = wavfile.read(filename)
+        for i in range(segments):
+            while(1):
+                pos = random.uniform(0.,1.) #posición en el archivo normalizada    
+                dur = random.uniform(min_dur,max_dur) 
+                durSamples = dur*sr
+                posSamples = int( pos*len(wavsignal) )
+                if posSamples+durSamples<len(wavsignal):
+                    break
+
+            signalOut = wavsignal[pos:pos+durSamples]
+            baseName = os.path.splitext(filename)[0].split('/')[-1]
+            outputFilename = outputPath+'/'+baseName+'_sample'+str(i)+'.wav'
+            wavfile.write(outputFilename,sr,np.array(signalOut, dtype='int16'))
+            print("File generated: %s"%outputFilename)
+    except Exception, e:
+        #TODO: add standard logging output
+        print("Error: %s"%e)
+
+    sinusoidal_model_anal = SineModelAnal()
+    sinusoidal_model_synth = SineModelSynth()
     outputPath = options['outputPath']    
     min_dur,max_dur = options['duration']
 
