@@ -1,0 +1,361 @@
+{
+	"variables": [],
+	"info": {
+		"name": "APICultor",
+		"_postman_id": "7dd73491-e9e4-5d1d-adbf-976454b608fe",
+		"description": "",
+		"schema": "https://schema.getpostman.com/json/collection/v2.0.0/collection.json"
+	},
+	"item": [
+		{
+			"name": "Lista pistas DB",
+			"event": [
+				{
+					"listen": "test",
+					"script": {
+						"type": "text/javascript",
+						"exec": [
+							"tests[\"Body matches string\"] = responseBody.has(\"795.wav\");",
+							""
+						]
+					}
+				}
+			],
+			"request": {
+				"url": "http://apicultor:5000/list/pistas",
+				"method": "GET",
+				"header": [],
+				"body": {
+					"mode": "urlencoded",
+					"urlencoded": [
+						{
+							"key": "filePath",
+							"value": "/media/mnt/files/test2222-file.pdf",
+							"type": "text",
+							"enabled": true
+						}
+					]
+				},
+				"description": ""
+			},
+			"response": []
+		},
+		{
+			"name": "Lista samples DB",
+			"request": {
+				"url": "http://apicultor:5000/list/samples",
+				"method": "GET",
+				"header": [],
+				"body": {
+					"mode": "urlencoded",
+					"urlencoded": [
+						{
+							"key": "filePath",
+							"value": "/media/mnt/files/test2222-file.pdf",
+							"type": "text",
+							"enabled": true
+						}
+					]
+				},
+				"description": ""
+			},
+			"response": []
+		},
+		{
+			"name": "Get info de la pista (json)",
+			"request": {
+				"url": "http://apicultor:5000/pistas/126",
+				"method": "GET",
+				"header": [],
+				"body": {
+					"mode": "urlencoded",
+					"urlencoded": [
+						{
+							"key": "filePath",
+							"value": "/media/mnt/files/test2222-file.pdf",
+							"type": "text",
+							"enabled": true
+						}
+					]
+				},
+				"description": ""
+			},
+			"response": []
+		},
+		{
+			"name": "Get Audio file Path  by ID",
+			"request": {
+				"url": "http://apicultor:5000/pistas/126/audio",
+				"method": "GET",
+				"header": [],
+				"body": {
+					"mode": "urlencoded",
+					"urlencoded": [
+						{
+							"key": "filePath",
+							"value": "/media/mnt/files/test2222-file.pdf",
+							"type": "text",
+							"enabled": true
+						}
+					]
+				},
+				"description": ""
+			},
+			"response": []
+		},
+		{
+			"name": "Get full json desc by ID",
+			"event": [
+				{
+					"listen": "test",
+					"script": {
+						"type": "text/javascript",
+						"exec": [
+							"tests[\"Body matches string\"] = responseBody.has(\"lowlevel.dissonance.mean\");",
+							"tests[\"Body matches string\"] = responseBody.has(\"metadata.duration.mean\");"
+						]
+					}
+				}
+			],
+			"request": {
+				"url": "http://apicultor:5000/pistas/126/descriptor",
+				"method": "GET",
+				"header": [],
+				"body": {
+					"mode": "urlencoded",
+					"urlencoded": [
+						{
+							"key": "filePath",
+							"value": "/media/mnt/files/test2222-file.pdf",
+							"type": "text",
+							"enabled": true
+						}
+					]
+				},
+				"description": ""
+			},
+			"response": []
+		},
+		{
+			"name": "Get desc value by ID",
+			"request": {
+				"url": "http://apicultor:5000/pistas/126/descriptor/lowlevel.hfc.mean",
+				"method": "GET",
+				"header": [],
+				"body": {
+					"mode": "urlencoded",
+					"urlencoded": [
+						{
+							"key": "filePath",
+							"value": "/media/mnt/files/test2222-file.pdf",
+							"type": "text",
+							"enabled": true
+						}
+					]
+				},
+				"description": ""
+			},
+			"response": []
+		},
+		{
+			"name": "Search query",
+			"request": {
+				"url": "http://apicultor:5000/search/clarinete/10",
+				"method": "GET",
+				"header": [],
+				"body": {
+					"mode": "urlencoded",
+					"urlencoded": [
+						{
+							"key": "filePath",
+							"value": "/media/mnt/files/test2222-file.pdf",
+							"type": "text",
+							"enabled": true
+						}
+					]
+				},
+				"description": " max 10 (results)"
+			},
+			"response": []
+		},
+		{
+			"name": "Search last results",
+			"request": {
+				"url": "http://apicultor:5000/search/last/10",
+				"method": "GET",
+				"header": [],
+				"body": {
+					"mode": "urlencoded",
+					"urlencoded": [
+						{
+							"key": "filePath",
+							"value": "/media/mnt/files/test2222-file.pdf",
+							"type": "text",
+							"enabled": true
+						}
+					]
+				},
+				"description": " max 10 (results)"
+			},
+			"response": []
+		},
+		{
+			"name": "Search by tag",
+			"request": {
+				"url": "http://apicultor:5000/search/tag/bajo",
+				"method": "GET",
+				"header": [],
+				"body": {
+					"mode": "urlencoded",
+					"urlencoded": [
+						{
+							"key": "filePath",
+							"value": "/media/mnt/files/test2222-file.pdf",
+							"type": "text",
+							"enabled": true
+						}
+					]
+				},
+				"description": " max 10 (results)"
+			},
+			"response": []
+		},
+		{
+			"name": "Search MIR desc greater than (SAMPLES)",
+			"request": {
+				"url": "http://apicultor:5000/search/mir/samples/HFC/greaterthan/40000/5",
+				"method": "GET",
+				"header": [],
+				"body": {
+					"mode": "urlencoded",
+					"urlencoded": [
+						{
+							"key": "filePath",
+							"value": "/media/mnt/files/test2222-file.pdf",
+							"type": "text",
+							"enabled": true
+						}
+					]
+				},
+				"description": " max 10 (results)"
+			},
+			"response": []
+		},
+		{
+			"name": "Search MIR desc less than (SAMPLES)",
+			"event": [
+				{
+					"listen": "test",
+					"script": {
+						"type": "text/javascript",
+						"exec": [
+							"tests[\"Body matches string\"] = responseBody.has(\"126_sample2.wav\");"
+						]
+					}
+				}
+			],
+			"request": {
+				"url": "http://apicultor:5000/search/mir/samples/HFC/lessthan/1000/5",
+				"method": "GET",
+				"header": [],
+				"body": {
+					"mode": "urlencoded",
+					"urlencoded": [
+						{
+							"key": "filePath",
+							"value": "/media/mnt/files/test2222-file.pdf",
+							"type": "text",
+							"enabled": true
+						}
+					]
+				},
+				"description": " max 10 (results)"
+			},
+			"response": []
+		},
+		{
+			"name": "Search duration<1 (SAMPLES)",
+			"request": {
+				"url": "http://apicultor:5000/search/mir/samples/duration/lessthan/1000/5",
+				"method": "GET",
+				"header": [],
+				"body": {
+					"mode": "urlencoded",
+					"urlencoded": [
+						{
+							"key": "filePath",
+							"value": "/media/mnt/files/test2222-file.pdf",
+							"type": "text",
+							"enabled": true
+						}
+					]
+				},
+				"description": " max 10 (results)"
+			},
+			"response": []
+		},
+		{
+			"name": "Search duration>2s (SAMPLES)",
+			"request": {
+				"url": "http://apicultor:5000/search/mir/samples/duration/greaterthan/2000/10",
+				"method": "GET",
+				"header": [],
+				"body": {
+					"mode": "urlencoded",
+					"urlencoded": [
+						{
+							"key": "filePath",
+							"value": "/media/mnt/files/test2222-file.pdf",
+							"type": "text",
+							"enabled": true
+						}
+					]
+				},
+				"description": " max 10 (results)"
+			},
+			"response": []
+		},
+		{
+			"name": "GET HTML with API Documentation",
+			"request": {
+				"url": "http://apicultor:5000/documentation",
+				"method": "GET",
+				"header": [],
+				"body": {
+					"mode": "urlencoded",
+					"urlencoded": [
+						{
+							"key": "filePath",
+							"value": "/media/mnt/files/test2222-file.pdf",
+							"type": "text",
+							"enabled": true
+						}
+					]
+				},
+				"description": ""
+			},
+			"response": []
+		},
+		{
+			"name": "Samples MIR same cluster",
+			"request": {
+				"url": "http://apicultor:5000/search/mir/samples/samecluster/984_sample0/10",
+				"method": "GET",
+				"header": [],
+				"body": {
+					"mode": "urlencoded",
+					"urlencoded": [
+						{
+							"key": "filePath",
+							"value": "/media/mnt/files/test2222-file.pdf",
+							"type": "text",
+							"enabled": true
+						}
+					]
+				},
+				"description": " max 10 (results)"
+			},
+			"response": []
+		}
+	]
+}

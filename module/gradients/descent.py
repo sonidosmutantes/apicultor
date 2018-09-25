@@ -1,18 +1,40 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 # -*- coding: UTF-8 -*-
-
-from __future__ import division
+from .subproblem import s
 import numpy as np
-from sklearn.utils.extmath import safe_sparse_dot as ssd
+
+sigmoid = lambda x: 1 / (1 + np.e ** (-1 * x))
 
 #taken from Pegasos algorithm by avaitla
-def SGD(a, lab, Q, reg_param):
-    iterations = 1
-    for i in xrange(7):
-        for tau in xrange(len(a)):
-            wx = ssd(a, Q[tau,:], dense_output = True)
-            a = a * (1-1/iterations)
-            if(lab[tau]*wx < 1):
-                a[tau] = lab[tau]/(reg_param * iterations)
-            iterations += 1
+def SGD(a, lab, Q, lr):
+    for i in range(20):
+        iterations = 1
+        for tau in range(len(a)):
+            if a[tau] > 0:
+                wx = a @ Q[:,tau]
+                a[tau] *= (1 - 1/iterations)
+                if(lab[tau]*wx < 1):
+                    a[tau] += lab[tau]/(lr * iterations)
+                iterations += 1
+    return a
+
+def attention(Q, K, V):
+    num = np.array(Q.dot(K.T))
+    denum = np.sqrt(K.shape[0])
+    return sigmoid(num / denum) * V
+
+def attention_sgd(x,y,a=None):
+    if a == None:
+        a = np.zeros(x.shape[1])
+    else:
+        a = np.resize(a,x.shape[1])        
+    for i in range(5):
+        for tau in range(x.shape[1]):
+            gh = abs(1-np.min(attention(np.mat(x),np.mat(y),a[tau]))) * np.gradient(x.T*a[tau],axis=0)[tau]
+            s = lambda smax, b, B: 1/smax+(smax-(1/smax))*((b-1)/(B-1))
+            et = sigmoid(np.array(gh))
+            s_max = 1.5
+            s1 = s(1.5,tau,x.shape[1])    
+            ql =(s_max * np.abs(np.cosh(s1 * et)+1)) / (s1*np.abs(np.cosh(s1 * et)+1))
+            a[tau] -= ql
     return a
