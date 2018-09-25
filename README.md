@@ -18,15 +18,25 @@ The sound is processed digitally using different live-coding techniques. A pre-a
 
 Examples available with SuperCollider, Pyo and pure data.
 
-Contact: hordiales@gmail.com
-
 Spanish version: [README_es.md](README_es.md)
 
-## License
+# News
+
+* 2018
+  * Migration to Python3 and setup.py install thanks to MarsCrop!
+  * MusicEmotionMachine by MarsCrop (in development)
+  * Cloud Instrument ready to play with an external controller, running in a dedicated device like Raspberry Pi or Bela Platform
+* 2017: 
+  * SuperCollider patch to play in realtime using sounds from public repositories (databases on the web). Realtime synthesis, wav retrieving using MIR descriptors, OSC & MIDI communication between process and controllers.
+* 2016: First demos (extracting MIR features, database build, MIR State Machine, etc)
+
+# License
 
 Free Software shared with GPL v3, see [LICENSE](LICENSE).
 
-## Cloud Instrument
+# Cloud Instrument
+
+Using a desktop computer, a Raspberry pi or bela platform.
 
 See [cloud_instrument/README.md](cloud_instrument/README.md)
 
