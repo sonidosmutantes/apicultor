@@ -88,7 +88,7 @@ def get_list_of_files_comparing(FILES_PATH, querydescriptor, fixedfloatvalue, co
                 value = float(desc[querydescriptor])
                 if comp==">":
                     if value>comp_value:
-                        print filename+extension, value
+                        print(filename+extension, value)
                         # outlist += subdir+'/'+ f + "\n"
                         outlist.append(subdir+'/'+ filename + ".wav") #TODO: check if it's always a wav file (or filter it)
                 elif comp=="<":
