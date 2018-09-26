@@ -4,13 +4,13 @@ samples/*
 *.wav*
 *.mp3
 *.ogg
+*.flac
 *.aif*
 *.swp
 *.log
 *.json
 *.csv
 *.tmp
-
 
 # Byte-compiled / optimized / DLL files
 __pycache__/
