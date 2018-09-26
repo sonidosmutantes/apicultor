@@ -30,6 +30,10 @@ Spanish version: [README_es.md](README_es.md)
   * SuperCollider patch to play in realtime using sounds from public repositories (databases on the web). Realtime synthesis, wav retrieving using MIR descriptors, OSC & MIDI communication between process and controllers.
 * 2016: First demos (extracting MIR features, database build, MIR State Machine, etc)
 
+# Developers
+
+See [Development Guidelines](doc/Dev-Guidelines.md).
+
 # License
 
 Free Software shared with GPL v3, see [LICENSE](LICENSE).
