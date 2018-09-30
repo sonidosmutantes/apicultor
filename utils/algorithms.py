@@ -20,6 +20,7 @@ from itertools import groupby
 from multiprocessing import Pool, cpu_count
 from collections import defaultdict
 from scipy.special import cotdg
+from ..gradients.ascent import *
 
 def compute_hfcs(hfcs): 
     hfcs /= max(hfcs) 
@@ -37,6 +38,8 @@ def mono_stereo(input_signal):
         return input_signal
     else:                  
         return input_signal
+
+p = lambda r, n: (r * np.sqrt(n-2)) / np.sqrt(1-(r**2))
 
 db2amp = lambda value: 0.5*pow(10, value/10) 
 
@@ -156,9 +159,9 @@ class MIR:
         -type: the type of window to use"""
         self.signal = (mono_stereo(audio) if len(audio) == 2 else audio)
         self.fs = fs
-        self.N = 2048
-        self.M = 1024
-        self.H = 512
+        self.N = 4096
+        self.M = 2048
+        self.H = 1024
         self.n_bands = 40
         self.type = type
         self.nyquist = lambda hz: hz/(0.5*self.fs)
@@ -376,7 +379,7 @@ class MIR:
             yield self.magnitude_spectrum
 
     def onsets_by_polar_distance(self,onsets):
-        detection_rm = np.convolve(onsets/max(onsets), np.ones(1024), mode='valid')
+        detection_rm = np.convolve(onsets/max(onsets), np.ones(2048), mode='valid')
         index = 0
         buffer = np.zeros(len(detection_rm))
         for i in range(len(detection_rm)):
@@ -497,7 +500,7 @@ class MIR:
         self.envelope = np.maximum(0.0, self.envelope)
         channels = [slice(None)] 
         self.envelope = util.sync(self.envelope, channels, np.mean, True, 0)
-        pad_width = 1 + (2048//(2*self.H)) 
+        pad_width = 1 + (self.N//(2*self.H)) 
         self.envelope = np.pad(self.envelope, ([0, 0], [int(pad_width), 0]),mode='constant') 
         self.envelope = lfilter([1.,-1.], [1., -0.99], self.envelope, axis = -1) 
         self.envelope = self.envelope[:,:self.n_bands][0]  
@@ -932,8 +935,8 @@ class sonify(MIR):
                 click_signal[start:end] += click                    
         return click_signal
     def output_array(self, array):
-        self.M = 1024
-        self.H = 512
+        self.M = 2048
+        self.H = 1024
         output = np.zeros(len(self.signal)) 
         i = 0
         for frame in self.FrameGenerator():
@@ -968,13 +971,13 @@ class sonify(MIR):
         self.tempo_onsets = clicks(frames = self.ticks * self.fs, length = len(self.signal), sr = self.fs, hop_length = self.H)
         starts = self.ticks * self.fs
         for i in starts:
-            self.frame = self.signal[int(i):int(i)+1024]
+            self.frame = self.signal[int(i):int(i)+self.M]
             self.Envelope()
             self.AttackTime()
             self.ats.append(self.attack_time)
         starts = starts[np.where(self.ats < np.mean(self.ats))]
         self.ats = np.array(self.ats)[np.where(self.ats < np.mean(self.ats))]
-        attacks = np.int64((np.array(self.ats) * 44100) + starts)
+        attacks = np.int64((np.array(self.ats) * self.fs) + starts)
         self.attacks = self.create_clicks(attacks) 
         self.hfcs /= max(self.hfcs)
         fir = firwin(11, 1.0 / 8, window = "hamming")  
@@ -1139,221 +1142,212 @@ def addContributionHarmonics(pitchclass, contribution, M_chords):
         M_chords[int(iafter)] += pow(np.cos(0.5*np.pi*distance_after ),2)*weight                                         
     else:                                                                                                                
         M_chords[int(ibefore)] += weight                                                                                                                          
-    weight *= 0.6                                                                                                        
+    weight *= .74
+    return M_chords                                                                                                      
                                                                                                    
 def addMajorTriad(root, contribution, M_chords):                                                          
   # Root            
-  addContributionHarmonics(root, contribution, M_chords)                                                                                                                       
+  M_chords = addContributionHarmonics(root, contribution, M_chords)                                                                                                                       
   # Major 3rd                                                                                                            
   third = root + 4                                                                                                       
   if third > 11:                                                                                                         
     third -= 12                                                                                                          
-  addContributionHarmonics(third, contribution, M_chords)
+  M_chords = addContributionHarmonics(third, contribution, M_chords)
                                                                                                                            
   # Perfect 5th                                                                                                          
   fifth = root + 7                                                                                                       
   if fifth > 11:                                                                                                         
     fifth -= 12                                                                                                          
-  addContributionHarmonics(fifth, contribution, M_chords)                                                                
+  M_chords = addContributionHarmonics(fifth, contribution, M_chords)
+  return M_chords                                                                
 
 def addAugTriad(root, contribution, M_chords):                                                          
   # Root            
-  addContributionHarmonics(root, contribution, M_chords)                                                                                                                       
+  M_chords = addContributionHarmonics(root, contribution, M_chords)                                                                                                                       
   # Major 3rd                                                                                                            
   third = root + 4                                                                                                       
   if third > 11:                                                                                                         
     third -= 12                                                                                                          
-  addContributionHarmonics(third, contribution, M_chords)
+  M_chords = addContributionHarmonics(third, contribution, M_chords)
                                                                                                                            
   # augmented                                                                                                          
   fifth = root + 8                                                                                                       
   if fifth > 11:                                                                                                         
     fifth -= 12                                                                                                          
-  addContributionHarmonics(fifth, contribution, M_chords)  
+  M_chords = addContributionHarmonics(fifth, contribution, M_chords)  
+  return M_chords      
  
 def addMinorSeventhTriad(root, contribution, M_chords):                                                          
   # Root                                                                                                                 
-  addContributionHarmonics(root, contribution, M_chords)                                                                 
+  M_chords = addContributionHarmonics(root, contribution, M_chords)                                                                 
                                                                                                                          
   # Minor 3rd                                                                                                            
   third = root+3                                                                                                         
   if third > 11:                                                                                                         
     third -= 12                                                                    
-  addContributionHarmonics(third, contribution, M_chords)                          
+  M_chords = addContributionHarmonics(third, contribution, M_chords)                          
   # Perfect 5th                                                                    
   fifth = root+7                                                                   
   if fifth > 11:                                                                   
     fifth -= 12                                                                    
-  addContributionHarmonics(fifth, contribution, M_chords)  
+  M_chords = addContributionHarmonics(fifth, contribution, M_chords)  
   # 7th                                                                    
-  seventh = root+10                                                                   
-  if seventh > 10:                                                                   
+  seventh = root+11                                                                   
+  if seventh > 11:                                                                   
     seventh -= 12                                                                    
-  addContributionHarmonics(seventh, contribution, M_chords)   
+  M_chords = addContributionHarmonics(seventh, contribution, M_chords)   
+  return M_chords      
  
 def addSus4Triad(root, contribution, M_chords):                                                          
   # Root            
-  addContributionHarmonics(root, contribution, M_chords)                                                                                                                       
+  M_chords = addContributionHarmonics(root, contribution, M_chords)                                                                                                                       
   # 4th                                                                                                           
   third = root + 5                                                                                                       
   if third > 11:                                                                                                         
     third -= 12                                                                                                          
-  addContributionHarmonics(third, contribution, M_chords)
+  M_chords = addContributionHarmonics(third, contribution, M_chords)
                                                                                                                            
   # 3rd note (third from scale is suspended)                                                                                                        
   fifth = root + 7                                                                                                       
   if fifth > 11:                                                                                                         
     fifth -= 12                                                                                                          
-  addContributionHarmonics(fifth, contribution, M_chords)  
+  M_chords = addContributionHarmonics(fifth, contribution, M_chords)  
+  return M_chords      
 
 def addSus2Triad(root, contribution, M_chords):                                                          
   # Root            
-  addContributionHarmonics(root, contribution, M_chords)                                                                                                                       
+  M_chords = addContributionHarmonics(root, contribution, M_chords)                                                                                                                       
   # 4th                                                                                                           
   second = root + 2                                                                                                       
   if second > 11:                                                                                                         
     second -= 12                                                                                                          
-  addContributionHarmonics(second, contribution, M_chords)
+  M_chords = addContributionHarmonics(second, contribution, M_chords)
                                                                                                                            
   # 3rd note (third from scale is suspended)                                                                                                        
   fifth = root + 7                                                                                                       
   if fifth > 11:                                                                                                         
     fifth -= 12                                                                                                          
-  addContributionHarmonics(fifth, contribution, M_chords)  
-
+  M_chords = addContributionHarmonics(fifth, contribution, M_chords)  
+  return M_chords      
 
 def addJazzChords(root, contribution, M_chords):                                                          
   # Root            
-  addContributionHarmonics(root, contribution, M_chords)                                                                                                                       
-  # 4th                                                                                                           
-  third = root + 5                                                                                                       
-  if third > 11:                                                                                                         
-    third -= 12                                                                                                          
-  addContributionHarmonics(third, contribution, M_chords)
-                                                                                                                           
-  # 3rd note (third from scale is suspended)                                                                                                        
-  fifth = root + 7                                                                                                       
-  if fifth > 11:                                                                                                         
-    fifth -= 12                                                                                                          
-  addContributionHarmonics(fifth, contribution, M_chords)  
-                                                                                                        
-  ninth = root + 10                                                                                                       
-  if ninth > 11:                                                                                                         
-    ninth -= 12                                                                                                          
-  addContributionHarmonics(ninth, contribution, M_chords)  
+  M_chords = addContributionHarmonics(root, contribution, M_chords)                                                                                                                       
 
   # 2nd                                                                                                       
   second = root + 2                                                                                                       
   if second > 11:                                                                                                         
     second -= 12                                                                                                          
-  addContributionHarmonics(second, contribution, M_chords)  
+  M_chords = addContributionHarmonics(second, contribution, M_chords) 
+
+  # 4th                                                                                                           
+  third = root + 5                                                                                                       
+  if third > 11:                                                                                                         
+    third -= 12                                                                                                          
+  M_chords = addContributionHarmonics(third, contribution, M_chords)
+                                                                                                                           
+  #5th note (third from scale is suspended)                                                                                                        
+  fifth = root + 7                                                                                                       
+  if fifth > 11:                                                                                                         
+    fifth -= 12                                                                                                          
+  M_chords = addContributionHarmonics(fifth, contribution, M_chords)  
+                                                                                                        
+  ninth = root + 10                                                                                                       
+  if ninth > 11:                                                                                                         
+    ninth -= 12                                                                                                          
+  M_chords = addContributionHarmonics(ninth, contribution, M_chords)   
+  return M_chords      
   
 def addDimTriad(root, contribution, M_chords):                                                          
   # Root            
-  addContributionHarmonics(root, contribution, M_chords)                                                                                                                       
+  M_chords = addContributionHarmonics(root, contribution, M_chords)                                                                                                                       
   # diminished 3rd                                                                                                            
   third = root + 3                                                                                                       
   if third > 11:                                                                                                         
     third -= 12                                                                                                          
-  addContributionHarmonics(third, contribution, M_chords)
+  M_chords = addContributionHarmonics(third, contribution, M_chords)
                                                                                                                            
   # diminished 5th                                                                                                          
   fifth = root + 6                                                                                                       
   if fifth > 11:                                                                                                         
     fifth -= 12                                                                                                          
-  addContributionHarmonics(fifth, contribution, M_chords)
+  M_chords = addContributionHarmonics(fifth, contribution, M_chords)
+  return M_chords      
   
 def addThirteenthChord(root, contribution, M_chords):                                                          
   # Root            
-  addContributionHarmonics(root, contribution, M_chords)                                                                                                                       
-                                                                                                         
-  third = root + 4                                                                                                       
-  if third > 11:                                                                                                         
-    third -= 12                                                                                                          
-  addContributionHarmonics(third, contribution, M_chords)
-                                                                                                                                                                                                                                   
-  fifth = root + 7                                                                                                       
-  if fifth > 11:                                                                                                         
-    fifth -= 12                                                                                                          
-  addContributionHarmonics(fifth, contribution, M_chords) 
-  
-  extend = root + 10                                                                                                       
-  if extend > 11:                                                                                                         
-    extend -= 12                                                                                                          
-  addContributionHarmonics(extend, contribution, M_chords) 
-  
+  M_chords = addContributionHarmonics(root, contribution, M_chords)                                                                                                                       
+
   extend = root + 2                                                                                                      
   if extend > 11:                                                                                                         
     extend -= 12                                                                                                          
-  addContributionHarmonics(extend, contribution, M_chords)          
+  M_chords = addContributionHarmonics(extend, contribution, M_chords)  
+                                                                                                    
+  extend = root + 4                                                                                                      
+  if extend > 11:                                                                                                         
+    extend -= 12                                                                                                          
+  M_chords = addContributionHarmonics(extend, contribution, M_chords)  
 
   extend = root + 5                                                                                                       
   if extend > 11:                                                                                                         
     extend -= 12                                                                                                          
-  addContributionHarmonics(extend, contribution, M_chords) 
-  
+  M_chords = addContributionHarmonics(extend, contribution, M_chords) 
+                                                                                                                                                                                                                                   
+  fifth = root + 7                                                                                                       
+  if fifth > 11:                                                                                                         
+    fifth -= 12                                                                                                          
+  M_chords = addContributionHarmonics(fifth, contribution, M_chords) 
+ 
   extend = root + 9                                                                                                       
   if extend > 11:                                                                                                         
     extend -= 12                                                                                                          
-  addContributionHarmonics(extend, contribution, M_chords) 
+  M_chords = addContributionHarmonics(extend, contribution, M_chords) 
+  
+  extend = root + 11                                                                                                       
+  if extend > 11:                                                                                                         
+    extend -= 12                                                                                                          
+  M_chords = addContributionHarmonics(extend, contribution, M_chords)         
+
+  return M_chords      
                                                                                                                     
 def addMinorTriad(root, contribution, M_chords):                                                                         
   # Root                                                                                                                 
-  addContributionHarmonics(root, contribution, M_chords)                                                                 
+  M_chords = addContributionHarmonics(root, contribution, M_chords)                                                                 
                                                                                                                          
   # Minor 3rd                                                                                                            
   third = root+3                                                                                                         
   if third > 11:                                                                                                         
     third -= 12                                                                    
-  addContributionHarmonics(third, contribution, M_chords)                          
+  M_chords = addContributionHarmonics(third, contribution, M_chords)                          
   # Perfect 5th                                                                    
   fifth = root+7                                                                   
   if fifth > 11:                                                                   
     fifth -= 12                                                                    
-  addContributionHarmonics(fifth, contribution, M_chords)        
+  M_chords = addContributionHarmonics(fifth, contribution, M_chords) 
+  return M_chords       
 
 def correlation(v1, mean1, std1, v2, mean2, std2, shift):                                                                
-  r = 0.0                                                                                                                
-  size = (len(v1))                                                                                                       
-  for i in range(size):                                                                                                  
-    index = (i - shift) % size                                                                                                                         
-    if index < 0:                                                                                                        
-        index += size 
-    if index == size:                                                                                                        
-        index -= 1         
-    r += (v1[i] - mean1) * (v2[index] - mean2)                                                                          
-  r /= std1*std2                                                                                                       
-  return r / size #output close to 1 or -1
+  v1 = (v1 - mean1) / (std1 * len(v1))  
+  v2 = (v2 - mean2) / std2
+  return np.correlate(v1,np.roll(v2,shift))[0]                                                                                          
 
 def Key(pcp):                                                                                                            
     slope = 0.6                                                                                                          
     #M,m,aug,sus(Jazz),sus4,sus2
-    tuller_hordiales =  np.array([[1.        , 0.        , 0.07970044, 0.11365712, 0.10877776,
-       0.36621089, 0.02502536, 0.469842  , 0.20950151, 0.06540852,
-       0.09295253, 0.00188105],
-    [1.        , 0.09489373, 0.03009842, 0.37268564, 0.        ,
-       0.33602228, 0.05863082, 0.58744394, 0.23305194, 0.04754683,
-       0.09765843, 0.02959059], 
-    [1.        , 0.17706491, 0.06556756, 0.01620899, 0.2448181 , 0.39539417, 0.07605821, 0.        , 
-    0.71396226, 0.03195886, 0.14465802, 0.00201328],
-    [1.        , 0.10097367, 0.0977697 , 0.        , 0.68889616,
-       0.46660727, 0.14499055, 0.40802432, 0.30845697, 0.33547322,
-       0.10670692, 0.5693731 ],
-       [1.        , 0.0121699 , 0.06682322, 0.10715992, 0.02968415,
-       0.46392702, 0.00938089, 0.40636099, 0.191441  , 0.04768732,
-       0.12992613, 0.        ],
-       [1.        , 0.29250521, 0.0995357 , 0.14099503, 0.05379608,
-       0.30089182, 0.17968443, 0.71029348, 0.13515619, 0.08617162,
-       0.05722011, 0.        ],
-       [1.        , 0.09513679, 0.        , 0.61223628, 0.01521482,
-       0.36155314, 0.03164523, 0.69254728, 0.25139205, 0.03500999,
-       0.18056602, 0.0720791 ],
-       [1.        , 0.14328982, 0.04717347, 0.34793803, 0.        ,
-       0.38140704, 0.22036064, 0.04030427, 0.3093726 , 0.04476661,
-       0.14460977, 0.09164541],
-       [0.56707421, 0.1950194 , 0.62064613, 0.        , 1.        ,
-       0.46397092, 0.10135025, 0.28827229, 0.23941266, 0.57719603,
-       0.23877516, 0.22102566]])                    
+    tuller_hordiales =  np.array([[0.06540852, 0.09295253, 0.00188105,1., 0., 0.07970044, 0.11365712, 0.10877776,
+       0.36621089, 0.02502536, 0.469842  , 0.20950151],
+    [0.04754683,0.09765843, 0.02959059,1., 0.09489373, 0.03009842, 0.37268564, 0.,
+       0.33602228, 0.05863082, 0.58744394, 0.23305194], 
+    [0.71396226, 0.03195886, 0.14465802, 0.00201328,1. , 0.17706491, 0.06556756, 0.01620899, 0.2448181 , 0.39539417, 0.07605821, 0.],
+    [0.33547322, 0.10670692, 0.5693731,1., 0.10097367, 0.0977697 , 0., 0.68889616,
+       0.46660727, 0.14499055, 0.40802432, 0.30845697],
+    [0.04768732,0.12992613, 0.,1, 0.0121699 , 0.06682322, 0.10715992, 0.02968415,
+       0.46392702, 0.00938089, 0.40636099, 0.191441],
+    [0.08617162,0.05722011, 0.,1., 0.29250521, 0.0995357 , 0.14099503, 0.05379608,
+       0.30089182, 0.17968443, 0.71029348, 0.13515619],
+    [0.03500999,0.18056602, 0.0720791,1., 0.09513679, 0., 0.61223628, 0.01521482,0.36155314, 0.03164523, 0.69254728, 0.25139205],
+    [ 0.04476661,0.14460977, 0.09164541,1., 0.14328982, 0.04717347, 0.34793803, 0.,0.38140704, 0.22036064, 0.04030427, 0.3093726],
+    [0.1950194 , 0.62064613, 0.,1.,0.46397092, 0.10135025, 0.28827229, 0.23941266, 0.57719603,0.23877516, 0.22102566,0.56707421]])                    
     M_chords = np.zeros(pcp.size)                                                                                              
     m_chords = np.zeros(pcp.size) 
     aug_chords = np.zeros(pcp.size)                                                                                              
@@ -1373,39 +1367,121 @@ def Key(pcp):
     _m7 = tuller_hordiales[6] 
     _dim = tuller_hordiales[7] 
     _13 = tuller_hordiales[8]    
-    #TODO: build all key profiles                                                                                                    
-    addMajorTriad(0, _M[0], M_chords) #first argument accounts for key index, not scale degree, so first of all the tonic  
-    addMajorTriad(5, _M[5], M_chords) #subdominant (iv)            
-    addMajorTriad(7, _M[7], M_chords) #dominant (the famous 5th)                  
-    addMinorTriad(0, _m[0], m_chords) #tonic of minor chord                         
-    addMinorTriad(5, _m[5], m_chords) #subdominant of minor chord                  
-    addMinorTriad(7, _m[7], m_chords) #dominant of minor chord              
-    addAugTriad(0, _aug[0], aug_chords) 
-    addAugTriad(5, _aug[5], aug_chords)                   
-    addAugTriad(8, _aug[8], aug_chords) 
-    addJazzChords(0, _jazz[0], jazz_chords) 
-    addJazzChords(5, _jazz[5], jazz_chords)                   
-    addJazzChords(7, _jazz[7], jazz_chords) 
-    addJazzChords(2, _jazz[2], jazz_chords)
-    addSus4Triad(0, _sus4[0], sus4_chords) 
-    addSus4Triad(5, _sus4[5], sus4_chords)                   
-    addSus4Triad(7, _sus4[7], sus4_chords) 
-    addSus2Triad(0, _sus2[0], sus2_chords) 
-    addSus2Triad(2, _sus2[2], sus2_chords)                   
-    addSus2Triad(7, _sus2[7], sus2_chords) 
-    addMinorSeventhTriad(0, _m7[0], m7_chords) 
-    addMinorSeventhTriad(5, _m7[5], m7_chords)                   
-    addMinorSeventhTriad(7, _m7[7], m7_chords)
-    addMinorSeventhTriad(10, _m7[10], m7_chords)      
-    addDimTriad(0, _m7[0], m7_chords) 
-    addDimTriad(5, _dim[5], dim_chords)                   
-    addDimTriad(7, _dim[7], dim_chords) 
-    addThirteenthChord(0, _13[0], thirteenth_chords) 
-    addThirteenthChord(5, _13[5], thirteenth_chords)                   
-    addThirteenthChord(7, _13[7], thirteenth_chords)   
-    addThirteenthChord(10, _13[10], thirteenth_chords) 
-    addThirteenthChord(2, _13[2], thirteenth_chords)                   
-    addThirteenthChord(9, _13[9], thirteenth_chords)                                                                                         
+    #Do-Re-Mi-Fa-Sol-La-Si                                                                                               
+    M_chords = addMajorTriad(0, _M[0], M_chords) #first argument accounts for key index, not scale degree, so first of all the tonic   
+    M_chords = addContributionHarmonics(1, _M[1], M_chords) 
+    M_chords = addMinorTriad(2, _M[2], M_chords) 
+    M_chords = addContributionHarmonics(3, _M[3], M_chords) 
+    M_chords = addMinorTriad(4, _M[4], M_chords) #third   
+    M_chords = addMajorTriad(5, _M[5], M_chords)   
+    M_chords = addContributionHarmonics(6, _M[6], M_chords)         
+    M_chords = addMajorTriad(7, _M[7], M_chords) #dominant (the famous 5th)
+    M_chords = addContributionHarmonics(8, _M[8], M_chords)  
+    M_chords = addMinorTriad(9, _M[9], M_chords) 
+    M_chords = addContributionHarmonics(10, _M[10], M_chords) 
+    M_chords = addContributionHarmonics(11, _M[11], M_chords)                             
+    #Do,Re, Re#, Fa,Fa#, La, La#, Si
+    dim_chords = addDimTriad(0, _dim[0], dim_chords) 
+    dim_chords = addContributionHarmonics(1, _dim[1], dim_chords) 
+    dim_chords = addDimTriad(2, _dim[2], dim_chords) 
+    dim_chords = addMinorTriad(3, _dim[3], dim_chords)  
+    dim_chords = addContributionHarmonics(4, _dim[4], dim_chords)    
+    dim_chords = addMajorTriad(5, _dim[5], dim_chords)             
+    dim_chords = addAugTriad(6, _dim[6], dim_chords)   
+    dim_chords = addContributionHarmonics(7, _dim[7], dim_chords) 
+    dim_chords = addContributionHarmonics(8, _dim[8], dim_chords)
+    dim_chords = addAugTriad(9, _dim[9], dim_chords) 
+    dim_chords = addMajorTriad(10, _dim[10], dim_chords) 
+    dim_chords = addMajorTriad(11, _dim[11], dim_chords)        
+    #Do-Re-Re#-Fa-Sol-La-Si                                 
+    m_chords = addMinorTriad(0, _m[0], m_chords) #tonic of minor chord    
+    m_chords = addContributionHarmonics(1, _m[1], m_chords)   
+    m_chords = addDimTriad(2, _m[2], m_chords)     
+    m_chords = addContributionHarmonics(3, _m[3], m_chords)        
+    m_chords = addAugTriad(4, _m[4], m_chords) #subdominant of minor chord   
+    m_chords = addMinorTriad(5, _m[5], m_chords) 
+    m_chords = addContributionHarmonics(6, _m[6], m_chords) 
+    m_chords = addMajorTriad(7, _m[7], m_chords) #subdominant of minor chord            
+    m_chords = addContributionHarmonics(8, _m[8], m_chords) 
+    m_chords = addContributionHarmonics(9, _m[9], m_chords) 
+    m_chords = addContributionHarmonics(10, _m[10], m_chords)   
+    m_chords = addDimTriad(11, _m[11], m_chords)     
+    #Do-Mi-Sol#-Re#-Sol-Si   
+    aug_chords = addAugTriad(0, _aug[0], aug_chords) 
+    aug_chords = addContributionHarmonics(1, _aug[1], aug_chords) 
+    aug_chords = addContributionHarmonics(2, _aug[2], aug_chords) 
+    aug_chords = addAugTriad(3, _aug[3], aug_chords) 
+    aug_chords = addContributionHarmonics(4, _aug[4], aug_chords) 
+    aug_chords = addContributionHarmonics(5, _aug[5], aug_chords)  
+    aug_chords = addContributionHarmonics(6, _aug[6], aug_chords)   
+    aug_chords = addContributionHarmonics(7, _aug[7], aug_chords)                
+    aug_chords = addMinorSeventhTriad(8, _aug[8], aug_chords) 
+    aug_chords = addContributionHarmonics(9, _aug[9], aug_chords) 
+    aug_chords = addContributionHarmonics(10, _aug[10], aug_chords)  
+    aug_chords = addContributionHarmonics(11, _aug[11], aug_chords)    
+    #Do-Re-Fa-Sol-Si
+    jazz_chords = addJazzChords(0, _jazz[0], jazz_chords) 
+    jazz_chords = addContributionHarmonics(1, _jazz[1], jazz_chords)
+    jazz_chords = addMinorTriad(2, _jazz[2], jazz_chords)
+    jazz_chords = addContributionHarmonics(3, _jazz[3], jazz_chords)
+    jazz_chords = addContributionHarmonics(4, _jazz[4], jazz_chords)   
+    jazz_chords = addContributionHarmonics(5, _jazz[5], jazz_chords)       
+    jazz_chords = addContributionHarmonics(6, _jazz[6], jazz_chords)         
+    jazz_chords = addMinorSeventhTriad(7, _jazz[7], jazz_chords) 
+    jazz_chords = addContributionHarmonics(8, _jazz[8], jazz_chords)
+    jazz_chords = addContributionHarmonics(9, _jazz[9], jazz_chords)
+    jazz_chords = addContributionHarmonics(10, _jazz[10], jazz_chords)
+    jazz_chords = addDimTriad(11, _jazz[11], jazz_chords)    
+    #Do-Re-Fa-Sol-La# 
+    sus4_chords = addSus4Triad(0, _sus4[0], sus4_chords) 
+    sus4_chords = addContributionHarmonics(1, _sus4[1], sus4_chords) 
+    sus4_chords = addMinorTriad(2, _sus4[2], sus4_chords) 
+    sus4_chords = addContributionHarmonics(3, _sus4[3], sus4_chords) 
+    sus4_chords = addContributionHarmonics(4, _sus4[4], sus4_chords) 
+    sus4_chords = addContributionHarmonics(5, _sus4[5], sus4_chords)     
+    sus4_chords = addContributionHarmonics(6, _sus4[6], sus4_chords)               
+    sus4_chords = addDimTriad(7, _sus4[7], sus4_chords) 
+    sus4_chords = addContributionHarmonics(8, _sus4[8], sus4_chords)  
+    sus4_chords = addContributionHarmonics(9, _sus4[9], sus4_chords) 
+    sus4_chords = addContributionHarmonics(10, _sus4[10], sus4_chords)  
+    sus4_chords = addContributionHarmonics(11, _sus4[11], sus4_chords)                   
+    sus2_chords = addSus2Triad(0, _sus2[0], sus2_chords) 
+    sus2_chords = addContributionHarmonics(1, _sus2[1], sus2_chords) 
+    sus2_chords = addMinorTriad(2, _sus2[2], sus2_chords)     
+    sus2_chords = addContributionHarmonics(3, _sus2[3], sus2_chords)    
+    sus2_chords = addContributionHarmonics(4, _sus2[4], sus2_chords)   
+    sus2_chords = addContributionHarmonics(5, _sus2[5], sus2_chords)    
+    sus2_chords = addContributionHarmonics(6, _sus2[6], sus2_chords)       
+    sus2_chords = addDimTriad(7, _sus2[7], sus2_chords) 
+    sus2_chords = addContributionHarmonics(8, _sus2[8], sus2_chords) 
+    sus2_chords = addContributionHarmonics(9, _sus2[9], sus2_chords) 
+    sus2_chords = addContributionHarmonics(10, _sus2[10], sus2_chords)  
+    sus2_chords = addContributionHarmonics(11, _sus2[11], sus2_chords)         
+    m7_chords = addMinorSeventhTriad(0, _m7[0], m7_chords) 
+    m7_chords = addContributionHarmonics(1, _m7[1], m7_chords) 
+    m7_chords = addDimTriad(2, _m7[2], m7_chords)
+    m7_chords = addContributionHarmonics(3, _m7[3], m7_chords) 
+    m7_chords = addAugTriad(4, _m7[4], m7_chords)    
+    m7_chords = addMinorTriad(5, _m7[5], m7_chords)    
+    m7_chords = addContributionHarmonics(6, _m7[6], m7_chords)             
+    m7_chords = addMajorTriad(7, _m7[7], m7_chords)
+    m7_chords = addContributionHarmonics(8, _m7[8], m7_chords)  
+    m7_chords = addContributionHarmonics(9, _m7[9], m7_chords) 
+    m7_chords = addContributionHarmonics(10, _m7[10], m7_chords)  
+    m7_chords = addDimTriad(11, _m7[11], m7_chords)   
+    #Do-Mi-Sol-Si-Re-Fa-La         
+    thirteenth_chords = addThirteenthChord(0, _13[0], thirteenth_chords)
+    thirteenth_chords = addContributionHarmonics(1, _13[1], thirteenth_chords)  
+    thirteenth_chords = addMinorTriad(2, _13[2], thirteenth_chords) 
+    thirteenth_chords = addContributionHarmonics(3, _13[3], thirteenth_chords) 
+    thirteenth_chords = addMinorTriad(4, _13[4], thirteenth_chords) 
+    thirteenth_chords = addMajorTriad(5, _13[5], thirteenth_chords)     
+    thirteenth_chords = addContributionHarmonics(6, _13[6], thirteenth_chords)               
+    thirteenth_chords = addMajorTriad(7, _13[7], thirteenth_chords)  
+    thirteenth_chords = addContributionHarmonics(8, _13[8], thirteenth_chords)  
+    thirteenth_chords = addMinorTriad(9, _13[9], thirteenth_chords)  
+    thirteenth_chords = addContributionHarmonics(10, _13[10], thirteenth_chords) 
+    thirteenth_chords = addDimTriad(11, _13[11], thirteenth_chords)   
     _M = M_chords                                                 
     _m = m_chords 
     _aug = aug_chords 
@@ -1414,7 +1490,16 @@ def Key(pcp):
     _sus2 = sus2_chords               
     _m7 = m7_chords  
     _dim = dim_chords   
-    _13 = thirteenth_chords                                         
+    _13 = thirteenth_chords  
+    for n in range(12): 
+        dominant = n+7;
+        dominant = dominant % 12;
+        M_chords[n]= _M[n] + (1.0/3.0)*_M[dominant]
+        m_chords[n]= _m[n] + (1.0/3.0)*_m[dominant]  
+        m7_chords[n]= _m7[n] + (1.0/3.0)*_m7[dominant]
+        sus4_chords[n]= _sus4[n] + (1.0/3.0)*_sus4[dominant]  
+        sus2_chords[n]= _sus2[n] + (1.0/3.0)*_sus2[dominant]  
+        jazz_chords[n]= _jazz[n] + (1.0/3.0)*_jazz[dominant]                                                                                 
     prof_dom = np.zeros(pcp.size)                                                  
     prof_doM = np.zeros(pcp.size) 
     prof_aug = np.zeros(pcp.size)
@@ -1454,7 +1539,7 @@ def Key(pcp):
             incr_m7 = (tuller_hordiales[6][i] - _m7[i+1]) / (pcp.size/12) 
             incr_dim = (tuller_hordiales[7][i] - _dim[i+1]) / (pcp.size/12) 
             incr_13 = (tuller_hordiales[8][i] - _13[i+1]) / (pcp.size/12)                               
-        for j in range(1,2):                                             
+        for j in range(int(pcp.size/12)):                                             
             prof_dom[int(i*(pcp.size/12)+j)-1] = tuller_hordiales[1][i] - j * incr_m 
             prof_doM[int(i*(pcp.size/12)+j)-1] = tuller_hordiales[0][i] - j * incr_M
             prof_aug[int(i*(pcp.size/12)+j)-1] = tuller_hordiales[2][i] - j * incr_aug
@@ -1463,7 +1548,16 @@ def Key(pcp):
             prof_sus2[int(i*(pcp.size/12)+j)-1] = tuller_hordiales[5][i] - j * incr_sus2  
             prof_m7[int(i*(pcp.size/12)+j)-1] = tuller_hordiales[6][i] - j * incr_m7
             prof_dim[int(i*(pcp.size/12)+j)-1] = tuller_hordiales[7][i] - j * incr_dim 
-            prof_13[int(i*(pcp.size/12)+j)-1] = tuller_hordiales[8][i] - j * incr_13               
+            prof_13[int(i*(pcp.size/12)+j)-1] = tuller_hordiales[8][i] - j * incr_13   
+    prof_dom /= prof_dom.max()
+    prof_doM /= prof_doM.max()
+    prof_aug /= prof_aug.max()
+    prof_jazz /= prof_jazz.max()
+    prof_sus4 /= prof_sus4.max()
+    prof_sus2 /= prof_sus2.max()
+    prof_m7 /= prof_m7.max()
+    prof_dim /= prof_dim.max()
+    prof_13 /= prof_13.max()                         
     mean_profM = np.mean(prof_doM)                                                 
     mean_profm = np.mean(prof_dom)  
     mean_aug = np.mean(prof_aug) 
@@ -1510,54 +1604,75 @@ def Key(pcp):
     keyidim = 0   
     max13 = -1 
     max213 = -1 
-    keyi13 = 0                                         
+    keyi13 = 0
+    max_pcp = (attention_sga(np.mat(pcp),pcp)).max()                                         
     for shift in range(pcp.size):
+        pcpf = pcp[shift] / max_pcp
         corrM = correlation(pcp, mean, std, prof_doM, mean_profM, std_profM, shift)
-        if corrM > maxM: 
+        corrm = correlation(pcp, mean, std, prof_dom, mean_profm, std_profm, shift)
+        corraug = correlation(pcp, mean, std, prof_aug, mean_aug, std_aug, shift)
+        corrjazz = correlation(pcp, mean, std, prof_jazz, mean_jazz, std_jazz, shift)
+        corrsus4 = correlation(pcp, mean, std, prof_sus4, mean_sus4, std_sus4, shift)
+        corrsus2 = correlation(pcp, mean, std, prof_sus2, mean_sus2, std_sus2, shift)
+        corrm7 = correlation(pcp, mean, std, prof_m7, mean_m7, std_m7, shift)
+        corrdim = correlation(pcp, mean, std, prof_dim, mean_dim, std_dim, shift)
+        corr13 = correlation(pcp, mean, std, prof_13, mean_13, std_13, shift)
+        if .74 > pcpf: 
+            corrM *= (pcpf/.74)
+            corrm *= (pcpf/.74)
+            corraug *= (pcpf/.74)
+            corrjazz *= (pcpf/.74)
+            corrsus4 *= (pcpf/.74)
+            corrsus2 *= (pcpf/.74)  
+            corrm7 *= (pcpf/.74)
+            corrdim *= (pcpf/.74)
+            corr13 *= (pcpf/.74)
+        P = p(corrM,pcp.size)
+        if corrM > maxM and .01 > P: 
             max2M = maxM           
             maxM = corrM 
             keyiM = shift
-        corrm = correlation(pcp, mean, std, prof_dom, mean_profm, std_profm, shift)
-        if corrm > maxm:
+        P = p(corrm,pcp.size)
+        if corrm > maxm and .01 > P:
             max2min = maxm
             maxm = corrm
             keyim = shift
-        corraug = correlation(pcp, mean, std, prof_aug, mean_aug, std_aug, shift)
-        if corraug > maxaug:
+        P = p(corraug,pcp.size)
+        if corraug > maxaug and .01 > P:
             max2aug = maxaug
             maxaug = corraug
             keyiaug = shift  
-        corrjazz = correlation(pcp, mean, std, prof_jazz, mean_jazz, std_jazz, shift)
-        if corrjazz > maxjazz:
+        P = p(corrjazz,pcp.size)
+        if corrjazz > maxjazz and .01 > P:
             max2jazz = maxjazz
             maxjazz = corrjazz
             keyijazz = shift  
-        corrsus4 = correlation(pcp, mean, std, prof_sus4, mean_sus4, std_sus4, shift)
-        if corrsus4 > maxsus4:
+        P = p(corrsus4,pcp.size)
+        if corrsus4 > maxsus4 and .01 > P:
             max2sus4 = maxsus4
             maxsus4 = corrsus4
             keyisus4 = shift 
-        corrsus2 = correlation(pcp, mean, std, prof_sus2, mean_sus2, std_sus2, shift)
-        if corrsus2 > maxsus2:
-            max2sus2 = maxsus2
-            maxsus2 = corrsus2
-            keyisus2 = shift 
-        corrm7 = correlation(pcp, mean, std, prof_m7, mean_m7, std_m7, shift)
-        if corrm7 > maxm7:
-            max2m7 = maxm7
-            maxm7 = corrm7
-            keyim7 = shift  
-        corrdim = correlation(pcp, mean, std, prof_dim, mean_dim, std_dim, shift)
-        if corrdim > maxdim:
+        #P = p(corrsus2,pcp.size)
+        #if corrsus2 > maxsus2 and .01 > P:
+        #    max2sus2 = maxsus2
+        #    maxsus2 = corrsus2
+        #    keyisus2 = shift 
+        #P = p(corrm7,pcp.size)
+        #if corrm7 > maxm7 and .01 > P:
+        #    max2m7 = maxm7
+        #    maxm7 = corrm7
+        #    keyim7 = shift  
+        P = p(corrdim,pcp.size)
+        if corrdim > maxdim and .01 > P:
             max2dim = maxdim
             maxdim = corrdim
             keyidim = shift 
-        corr13 = correlation(pcp, mean, std, prof_13, mean_13, std_13, shift)
-        if corr13 > max13:
-            max213 = max13
-            max13 = corr13
-            keyi13 = shift                                                                                    
-    correlated = np.argmax([maxM,maxm,maxaug,maxjazz,maxsus4,maxm7,maxdim,max13])
+        #P = p(corr13,pcp.size)
+        #if corr13 > max13 and .01 > P:
+        #    max213 = max13
+        #    max13 = corr13
+        #    keyi13 = shift                                                                                    
+    correlated = np.argmax([maxM,maxm,maxaug,maxjazz,maxsus4,maxsus2,maxm7,maxdim,max13])
     if correlated == 0:
         keyi = int(keyiM * 12 / pcp.size + .5)
         scale = 'MAJOR'
@@ -1603,50 +1718,30 @@ def Key(pcp):
         scale = 'THIRTEENTH'
         maximum = max13
         max2 = max213  
-    if keyi >= 12:
+    if keyi >= 12: #keyi % 12
         keyi -= 12                                                                     
     key = key_names[keyi]
-    print(key,maximum,max2)        
+            
     firstto_2ndrelative_strength = (maximum - max2) / maximum
-    return key, scale, maximum
+    print(key,firstto_2ndrelative_strength)
+    return key, scale, firstto_2ndrelative_strength
 
 def chord_sequence(song,hpcps):
-    #harmonic synthesis or enhancement will work for analysis because chord sequence will underrate short duration notes
     chords = ChordsDetection(np.array(hpcps), song)
-    chord = [(key,np.float64(np.array(list(group))[:,1]).mean()) for key, group in groupby(chords, key = lambda i: i[0])]
-    mean_strength = defaultdict(list)
-    for i in range(len(chord)):
-        if chord[i][1] < 0: #we want the positive strength, obviously                                                                                             
-            continue               
-        else:             
-            mean_strength[chord[i][0]].append(chord[i][1])
-    keys = list()       
-    for key in mean_strength.items():
-        keys.append((key[0],np.mean(np.float64(key[1]))))
-    keys = np.array(keys)
-    keys[find_peaks(1/ np.cosh(np.array(keys)[:,1].astype(np.float64)))[0]] = False
-    assoc = []                         
-    for i in keys:
-        if not 'False' in i: #local fix, we want a better matching
-            assoc.append(i)
-    assoc = np.array(assoc)
-    cycling = cotdg(assoc[:,1].astype(np.float64))
-    relation = np.exp(cycling)
-    thres = 0.999988 #this account for the need of getting more strongly related to the next maximum correlations
-    if list(assoc[np.tanh(relation) < thres][:,0]) == []:
-        return assoc[:,0] 
-    else:
-        return assoc[np.tanh(relation) < thres][:,0]
+    return list(np.array(chords)[:,0])
     
 def ChordsDetection(hpcps, song):
     nframesm = int((2 * song.fs) / song.H) - 1
-    chords = [0] * 200
-    for i in range(200):   
+    chords = [] 
+    for i in range(nframesm):   
         istart = max(0, i - nframesm/2)
         iend = min(i + nframesm/2, hpcps.shape[0])
-        mean_hpcp = np.mean(hpcps[int(istart):int(iend)], axis=1).T
+        mean_hpcp = np.mean(hpcps[int(istart):int(iend)], axis=0).T
+        mean_hpcp /= mean_hpcp.max()
         if mean_hpcp.size < 12:
             continue
         key, scale, firstto_2ndrelative_strength = Key(mean_hpcp)
-        chords[i] = (key + scale, firstto_2ndrelative_strength)
+        if float(firstto_2ndrelative_strength) <= 0:
+            continue
+        chords.append((key + scale, firstto_2ndrelative_strength))
     return chords   
