@@ -1367,7 +1367,7 @@ def Key(pcp):
     _m7 = tuller_hordiales[6] 
     _dim = tuller_hordiales[7] 
     _13 = tuller_hordiales[8]    
-    #Do-Re-Mi-Fa-Sol-La-Si                                                                                               
+    #Do-Re-Mi-Fa-Sol-La-Si                                                                                                     
     M_chords = addMajorTriad(0, _M[0], M_chords) #first argument accounts for key index, not scale degree, so first of all the tonic   
     M_chords = addContributionHarmonics(1, _M[1], M_chords) 
     M_chords = addMinorTriad(2, _M[2], M_chords) 
@@ -1377,7 +1377,7 @@ def Key(pcp):
     M_chords = addContributionHarmonics(6, _M[6], M_chords)         
     M_chords = addMajorTriad(7, _M[7], M_chords) #dominant (the famous 5th)
     M_chords = addContributionHarmonics(8, _M[8], M_chords)  
-    M_chords = addMinorTriad(9, _M[9], M_chords) 
+    M_chords = addContributionHarmonics(9, _M[9], M_chords) 
     M_chords = addContributionHarmonics(10, _M[10], M_chords) 
     M_chords = addContributionHarmonics(11, _M[11], M_chords)                             
     #Do,Re, Re#, Fa,Fa#, La, La#, Si
@@ -1390,9 +1390,9 @@ def Key(pcp):
     dim_chords = addAugTriad(6, _dim[6], dim_chords)   
     dim_chords = addContributionHarmonics(7, _dim[7], dim_chords) 
     dim_chords = addContributionHarmonics(8, _dim[8], dim_chords)
-    dim_chords = addAugTriad(9, _dim[9], dim_chords) 
-    dim_chords = addMajorTriad(10, _dim[10], dim_chords) 
-    dim_chords = addMajorTriad(11, _dim[11], dim_chords)        
+    dim_chords = addContributionHarmonics(9, _dim[9], dim_chords) 
+    dim_chords = addContributionHarmonics(10, _dim[10], dim_chords) 
+    dim_chords = addContributionHarmonics(11, _dim[11], dim_chords)        
     #Do-Re-Re#-Fa-Sol-La-Si                                 
     m_chords = addMinorTriad(0, _m[0], m_chords) #tonic of minor chord    
     m_chords = addContributionHarmonics(1, _m[1], m_chords)   
@@ -1405,17 +1405,17 @@ def Key(pcp):
     m_chords = addContributionHarmonics(8, _m[8], m_chords) 
     m_chords = addContributionHarmonics(9, _m[9], m_chords) 
     m_chords = addContributionHarmonics(10, _m[10], m_chords)   
-    m_chords = addDimTriad(11, _m[11], m_chords)     
-    #Do-Mi-Sol#-Re#-Sol-Si   
+    m_chords = addContributionHarmonics(11, _m[11], m_chords)     
+    #Do-Re#-Mi-Sol-Sol# 
     aug_chords = addAugTriad(0, _aug[0], aug_chords) 
     aug_chords = addContributionHarmonics(1, _aug[1], aug_chords) 
     aug_chords = addContributionHarmonics(2, _aug[2], aug_chords) 
     aug_chords = addAugTriad(3, _aug[3], aug_chords) 
-    aug_chords = addContributionHarmonics(4, _aug[4], aug_chords) 
+    aug_chords = addAugTriad(4, _aug[4], aug_chords) 
     aug_chords = addContributionHarmonics(5, _aug[5], aug_chords)  
     aug_chords = addContributionHarmonics(6, _aug[6], aug_chords)   
     aug_chords = addContributionHarmonics(7, _aug[7], aug_chords)                
-    aug_chords = addMinorSeventhTriad(8, _aug[8], aug_chords) 
+    aug_chords = addMajorTriad(8, _aug[8], aug_chords) 
     aug_chords = addContributionHarmonics(9, _aug[9], aug_chords) 
     aug_chords = addContributionHarmonics(10, _aug[10], aug_chords)  
     aug_chords = addContributionHarmonics(11, _aug[11], aug_chords)    
@@ -1425,9 +1425,9 @@ def Key(pcp):
     jazz_chords = addMinorTriad(2, _jazz[2], jazz_chords)
     jazz_chords = addContributionHarmonics(3, _jazz[3], jazz_chords)
     jazz_chords = addContributionHarmonics(4, _jazz[4], jazz_chords)   
-    jazz_chords = addContributionHarmonics(5, _jazz[5], jazz_chords)       
+    jazz_chords = addSus2Triad(5, _jazz[5], jazz_chords)       
     jazz_chords = addContributionHarmonics(6, _jazz[6], jazz_chords)         
-    jazz_chords = addMinorSeventhTriad(7, _jazz[7], jazz_chords) 
+    jazz_chords = addMajorTriad(7, _jazz[7], jazz_chords) 
     jazz_chords = addContributionHarmonics(8, _jazz[8], jazz_chords)
     jazz_chords = addContributionHarmonics(9, _jazz[9], jazz_chords)
     jazz_chords = addContributionHarmonics(10, _jazz[10], jazz_chords)
@@ -1438,24 +1438,24 @@ def Key(pcp):
     sus4_chords = addMinorTriad(2, _sus4[2], sus4_chords) 
     sus4_chords = addContributionHarmonics(3, _sus4[3], sus4_chords) 
     sus4_chords = addContributionHarmonics(4, _sus4[4], sus4_chords) 
-    sus4_chords = addContributionHarmonics(5, _sus4[5], sus4_chords)     
+    sus4_chords = addSus2Triad(5, _sus4[5], sus4_chords)     
     sus4_chords = addContributionHarmonics(6, _sus4[6], sus4_chords)               
-    sus4_chords = addDimTriad(7, _sus4[7], sus4_chords) 
+    sus4_chords = addMajorTriad(7, _sus4[7], sus4_chords) 
     sus4_chords = addContributionHarmonics(8, _sus4[8], sus4_chords)  
     sus4_chords = addContributionHarmonics(9, _sus4[9], sus4_chords) 
-    sus4_chords = addContributionHarmonics(10, _sus4[10], sus4_chords)  
+    sus4_chords = addMajorTriad(10, _sus4[10], sus4_chords)  
     sus4_chords = addContributionHarmonics(11, _sus4[11], sus4_chords)                   
     sus2_chords = addSus2Triad(0, _sus2[0], sus2_chords) 
     sus2_chords = addContributionHarmonics(1, _sus2[1], sus2_chords) 
     sus2_chords = addMinorTriad(2, _sus2[2], sus2_chords)     
     sus2_chords = addContributionHarmonics(3, _sus2[3], sus2_chords)    
     sus2_chords = addContributionHarmonics(4, _sus2[4], sus2_chords)   
-    sus2_chords = addContributionHarmonics(5, _sus2[5], sus2_chords)    
+    sus2_chords = addSus2Triad(5, _sus2[5], sus2_chords)    
     sus2_chords = addContributionHarmonics(6, _sus2[6], sus2_chords)       
-    sus2_chords = addDimTriad(7, _sus2[7], sus2_chords) 
+    sus2_chords = addMajorTriad(7, _sus2[7], sus2_chords) 
     sus2_chords = addContributionHarmonics(8, _sus2[8], sus2_chords) 
     sus2_chords = addContributionHarmonics(9, _sus2[9], sus2_chords) 
-    sus2_chords = addContributionHarmonics(10, _sus2[10], sus2_chords)  
+    sus2_chords = addMajorTriad(10, _sus2[10], sus2_chords)  
     sus2_chords = addContributionHarmonics(11, _sus2[11], sus2_chords)         
     m7_chords = addMinorSeventhTriad(0, _m7[0], m7_chords) 
     m7_chords = addContributionHarmonics(1, _m7[1], m7_chords) 
@@ -1481,7 +1481,19 @@ def Key(pcp):
     thirteenth_chords = addContributionHarmonics(8, _13[8], thirteenth_chords)  
     thirteenth_chords = addMinorTriad(9, _13[9], thirteenth_chords)  
     thirteenth_chords = addContributionHarmonics(10, _13[10], thirteenth_chords) 
-    thirteenth_chords = addDimTriad(11, _13[11], thirteenth_chords)   
+    thirteenth_chords = addDimTriad(11, _13[11], thirteenth_chords)  
+    for n in range(12): 
+        dominant = n+7;
+        if dominant > 11:
+            dominant -= 12
+        M_chords[n]= _M[n] + (1.0/3.0)*_M[dominant]
+        m_chords[n]= _m[n] + (1.0/3.0)*_m[dominant]  
+        m7_chords[n]= _m7[n] + (1.0/3.0)*_m7[dominant]
+        dim_chords[n]= _dim[n] + (1.0/3.0)*_dim[dominant]
+        sus4_chords[n]= _sus4[n] + (1.0/3.0)*_sus4[dominant]  
+        sus2_chords[n]= _sus2[n] + (1.0/3.0)*_sus2[dominant]  
+        jazz_chords[n]= _jazz[n] + (1.0/3.0)*_jazz[dominant] 
+        thirteenth_chords[n]= _13[n] + (1.0/3.0)*_13[dominant]       
     _M = M_chords                                                 
     _m = m_chords 
     _aug = aug_chords 
@@ -1490,16 +1502,7 @@ def Key(pcp):
     _sus2 = sus2_chords               
     _m7 = m7_chords  
     _dim = dim_chords   
-    _13 = thirteenth_chords  
-    for n in range(12): 
-        dominant = n+7;
-        dominant = dominant % 12;
-        M_chords[n]= _M[n] + (1.0/3.0)*_M[dominant]
-        m_chords[n]= _m[n] + (1.0/3.0)*_m[dominant]  
-        m7_chords[n]= _m7[n] + (1.0/3.0)*_m7[dominant]
-        sus4_chords[n]= _sus4[n] + (1.0/3.0)*_sus4[dominant]  
-        sus2_chords[n]= _sus2[n] + (1.0/3.0)*_sus2[dominant]  
-        jazz_chords[n]= _jazz[n] + (1.0/3.0)*_jazz[dominant]                                                                                 
+    _13 = thirteenth_chords                                                                               
     prof_dom = np.zeros(pcp.size)                                                  
     prof_doM = np.zeros(pcp.size) 
     prof_aug = np.zeros(pcp.size)
@@ -1520,44 +1523,35 @@ def Key(pcp):
         prof_dim[int(i*(pcp.size/12))] = tuller_hordiales[7][i] 
         prof_13[int(i*(pcp.size/12))] = tuller_hordiales[8][i]                                      
         if i == 11:                                                                
-            incr_M = (tuller_hordiales[0][11] - _M[0]) / (pcp.size/12)                    
-            incr_m = (tuller_hordiales[1][11] - _m[0]) / (pcp.size/12)  
-            incr_aug = (tuller_hordiales[2][11] - _aug[0]) / (pcp.size/12)  
-            incr_jazz = (tuller_hordiales[3][11] - _jazz[0]) / (pcp.size/12)  
-            incr_sus4 = (tuller_hordiales[4][11] - _sus4[0]) / (pcp.size/12)  
-            incr_sus2 = (tuller_hordiales[5][11] - _sus2[0]) / (pcp.size/12) 
-            incr_m7 = (tuller_hordiales[6][11] - _m7[0]) / (pcp.size/12)  
-            incr_dim = (tuller_hordiales[7][11] - _dim[0]) / (pcp.size/12) 
-            incr_13 = (tuller_hordiales[8][11] - _13[0]) / (pcp.size/12)                     
+            incr_M = (_M[11] - _M[0]) / (pcp.size/12)                    
+            incr_m = (_m[11] - _m[0]) / (pcp.size/12)  
+            incr_aug = (_aug[11] - _aug[0]) / (pcp.size/12)  
+            incr_jazz = (_jazz[11] - _jazz[0]) / (pcp.size/12)  
+            incr_sus4 = (_sus4[11] - _sus4[0]) / (pcp.size/12)  
+            incr_sus2 = (_sus2[11] - _sus2[0]) / (pcp.size/12) 
+            incr_m7 = (_m7[11] - _m7[0]) / (pcp.size/12)  
+            incr_dim = (_dim[11] - _dim[0]) / (pcp.size/12) 
+            incr_13 = (_13[11] - _13[0]) / (pcp.size/12)                     
         else:                                                                      
-            incr_M = (tuller_hordiales[0][i] - _M[i+1]) / (pcp.size/12)                   
-            incr_m = (tuller_hordiales[1][i] - _m[i+1]) / (pcp.size/12)
-            incr_aug = (tuller_hordiales[2][i] - _aug[i+1]) / (pcp.size/12)  
-            incr_jazz = (tuller_hordiales[3][i] - _jazz[i+1]) / (pcp.size/12)
-            incr_sus4 = (tuller_hordiales[4][i] - _sus4[i+1]) / (pcp.size/12)
-            incr_sus2 = (tuller_hordiales[5][i] - _sus2[i+1]) / (pcp.size/12) 
-            incr_m7 = (tuller_hordiales[6][i] - _m7[i+1]) / (pcp.size/12) 
-            incr_dim = (tuller_hordiales[7][i] - _dim[i+1]) / (pcp.size/12) 
-            incr_13 = (tuller_hordiales[8][i] - _13[i+1]) / (pcp.size/12)                               
+            incr_M = (_M[i] - _M[i+1]) / (pcp.size/12)                   
+            incr_m = (_m[i] - _m[i+1]) / (pcp.size/12)
+            incr_aug = (_aug[i] - _aug[i+1]) / (pcp.size/12)  
+            incr_jazz = (_jazz[i] - _jazz[i+1]) / (pcp.size/12)
+            incr_sus4 = (_sus4[i] - _sus4[i+1]) / (pcp.size/12)
+            incr_sus2 = (_sus2[i] - _sus2[i+1]) / (pcp.size/12) 
+            incr_m7 = (_m7[i] - _m7[i+1]) / (pcp.size/12) 
+            incr_dim = (_dim[i] - _dim[i+1]) / (pcp.size/12) 
+            incr_13 = (_13[i] - _13[i+1]) / (pcp.size/12)                               
         for j in range(int(pcp.size/12)):                                             
-            prof_dom[int(i*(pcp.size/12)+j)-1] = tuller_hordiales[1][i] - j * incr_m 
-            prof_doM[int(i*(pcp.size/12)+j)-1] = tuller_hordiales[0][i] - j * incr_M
-            prof_aug[int(i*(pcp.size/12)+j)-1] = tuller_hordiales[2][i] - j * incr_aug
-            prof_jazz[int(i*(pcp.size/12)+j)-1] = tuller_hordiales[3][i] - j * incr_jazz
-            prof_sus4[int(i*(pcp.size/12)+j)-1] = tuller_hordiales[4][i] - j * incr_sus4  
-            prof_sus2[int(i*(pcp.size/12)+j)-1] = tuller_hordiales[5][i] - j * incr_sus2  
-            prof_m7[int(i*(pcp.size/12)+j)-1] = tuller_hordiales[6][i] - j * incr_m7
-            prof_dim[int(i*(pcp.size/12)+j)-1] = tuller_hordiales[7][i] - j * incr_dim 
-            prof_13[int(i*(pcp.size/12)+j)-1] = tuller_hordiales[8][i] - j * incr_13   
-    prof_dom /= prof_dom.max()
-    prof_doM /= prof_doM.max()
-    prof_aug /= prof_aug.max()
-    prof_jazz /= prof_jazz.max()
-    prof_sus4 /= prof_sus4.max()
-    prof_sus2 /= prof_sus2.max()
-    prof_m7 /= prof_m7.max()
-    prof_dim /= prof_dim.max()
-    prof_13 /= prof_13.max()                         
+            prof_dom[int(i*(pcp.size/12)+j)] = _m[i] - j * incr_m 
+            prof_doM[int(i*(pcp.size/12)+j)] = _M[i] - j * incr_M
+            prof_aug[int(i*(pcp.size/12)+j)] = _aug[i] - j * incr_aug
+            prof_jazz[int(i*(pcp.size/12)+j)] = _jazz[i] - j * incr_jazz
+            prof_sus4[int(i*(pcp.size/12)+j)] = _sus4[i] - j * incr_sus4  
+            prof_sus2[int(i*(pcp.size/12)+j)] = _sus2[i] - j * incr_sus2  
+            prof_m7[int(i*(pcp.size/12)+j)] = _m7[i] - j * incr_m7
+            prof_dim[int(i*(pcp.size/12)+j)] = _dim[i] - j * incr_dim 
+            prof_13[int(i*(pcp.size/12)+j)] = _13[i] - j * incr_13                          
     mean_profM = np.mean(prof_doM)                                                 
     mean_profm = np.mean(prof_dom)  
     mean_aug = np.mean(prof_aug) 
@@ -1604,29 +1598,44 @@ def Key(pcp):
     keyidim = 0   
     max13 = -1 
     max213 = -1 
-    keyi13 = 0
-    max_pcp = (attention_sga(np.mat(pcp),pcp)).max()                                         
+    keyi13 = 0                                        
     for shift in range(pcp.size):
-        pcpf = pcp[shift] / max_pcp
         corrM = correlation(pcp, mean, std, prof_doM, mean_profM, std_profM, shift)
+        pcpfM = pcp[shift] / (attention_sga(np.mat(pcp),prof_doM)*pcp).max() 
         corrm = correlation(pcp, mean, std, prof_dom, mean_profm, std_profm, shift)
+        pcpfm = pcp[shift] / (attention_sga(np.mat(pcp),prof_dom)*pcp).max() 
         corraug = correlation(pcp, mean, std, prof_aug, mean_aug, std_aug, shift)
+        pcpfaug = pcp[shift] / (attention_sga(np.mat(pcp),prof_aug)*pcp).max() 
         corrjazz = correlation(pcp, mean, std, prof_jazz, mean_jazz, std_jazz, shift)
+        pcpfjazz = pcp[shift] /(attention_sga(np.mat(pcp),prof_jazz)*pcp).max() 
         corrsus4 = correlation(pcp, mean, std, prof_sus4, mean_sus4, std_sus4, shift)
+        pcpfsus4 = pcp[shift] /(attention_sga(np.mat(pcp),prof_sus4)*pcp).max() 
         corrsus2 = correlation(pcp, mean, std, prof_sus2, mean_sus2, std_sus2, shift)
+        pcpfsus2 = pcp[shift] /(attention_sga(np.mat(pcp),prof_sus2)*pcp).max() 
         corrm7 = correlation(pcp, mean, std, prof_m7, mean_m7, std_m7, shift)
+        pcpfm7 = pcp[shift] /(attention_sga(np.mat(pcp),prof_m7)*pcp).max() 
         corrdim = correlation(pcp, mean, std, prof_dim, mean_dim, std_dim, shift)
+        pcpfdim = pcp[shift] /(attention_sga(np.mat(pcp),prof_dim)*pcp).max() 
         corr13 = correlation(pcp, mean, std, prof_13, mean_13, std_13, shift)
-        if .74 > pcpf: 
-            corrM *= (pcpf/.74)
-            corrm *= (pcpf/.74)
-            corraug *= (pcpf/.74)
-            corrjazz *= (pcpf/.74)
-            corrsus4 *= (pcpf/.74)
-            corrsus2 *= (pcpf/.74)  
-            corrm7 *= (pcpf/.74)
-            corrdim *= (pcpf/.74)
-            corr13 *= (pcpf/.74)
+        pcpf13 = pcp[shift] /(attention_sga(np.mat(pcp),prof_13)*pcp).max() 
+        if .74 > pcpfM: 
+            corrM *= (pcpfM/.74)
+        if .74 > pcpfm: 
+            corrm *= (pcpfm/.74)
+        if .74 > pcpfaug: 
+            corraug *= (pcpfaug/.74)
+        if .74 > pcpfjazz: 
+            corrjazz *= (pcpfjazz/.74)
+        if .74 > pcpfsus4: 
+            corrsus4 *= (pcpfsus4/.74)
+        if .74 > pcpfsus2: 
+            corrsus2 *= (pcpfsus2/.74)  
+        if .74 > pcpfm7: 
+            corrm7 *= (pcpfm7/.74)
+        if .74 > pcpfdim: 
+            corrdim *= (pcpfdim/.74)
+        if .74 > pcpf13: 
+            corr13 *= (pcpf13/.74)
         P = p(corrM,pcp.size)
         if corrM > maxM and .01 > P: 
             max2M = maxM           
@@ -1652,26 +1661,26 @@ def Key(pcp):
             max2sus4 = maxsus4
             maxsus4 = corrsus4
             keyisus4 = shift 
-        #P = p(corrsus2,pcp.size)
-        #if corrsus2 > maxsus2 and .01 > P:
-        #    max2sus2 = maxsus2
-        #    maxsus2 = corrsus2
-        #    keyisus2 = shift 
-        #P = p(corrm7,pcp.size)
-        #if corrm7 > maxm7 and .01 > P:
-        #    max2m7 = maxm7
-        #    maxm7 = corrm7
-        #    keyim7 = shift  
+        P = p(corrsus2,pcp.size)
+        if corrsus2 > maxsus2 and .01 > P:
+            max2sus2 = maxsus2
+            maxsus2 = corrsus2
+            keyisus2 = shift 
+        P = p(corrm7,pcp.size)
+        if corrm7 > maxm7 and .01 > P:
+            max2m7 = maxm7
+            maxm7 = corrm7
+            keyim7 = shift  
         P = p(corrdim,pcp.size)
         if corrdim > maxdim and .01 > P:
             max2dim = maxdim
             maxdim = corrdim
             keyidim = shift 
-        #P = p(corr13,pcp.size)
-        #if corr13 > max13 and .01 > P:
-        #    max213 = max13
-        #    max13 = corr13
-        #    keyi13 = shift                                                                                    
+        P = p(corr13,pcp.size)
+        if corr13 > max13 and .01 > P:
+            max213 = max13
+            max13 = corr13
+            keyi13 = shift                                                                                    
     correlated = np.argmax([maxM,maxm,maxaug,maxjazz,maxsus4,maxsus2,maxm7,maxdim,max13])
     if correlated == 0:
         keyi = int(keyiM * 12 / pcp.size + .5)
