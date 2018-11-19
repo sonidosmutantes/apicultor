@@ -1,7 +1,6 @@
 #!/usr/bin/env python3
 # -*- coding: UTF-8 -*-
 
-import cmath
 from scipy.signal import *
 import numpy as np
 from librosa import util
@@ -12,24 +11,12 @@ from librosa.beat import __last_beat as last_beat
 from librosa.beat import __trim_beats as trim_beats
 from scipy.fftpack import fft, ifft
 from collections import Counter
-from sklearn.linear_model import SGDRegressor
 from ..machine_learning.cache import memoize
-from ..gradients.descent import attention_sgd
-import random
-from itertools import groupby
-from multiprocessing import Pool, cpu_count
-from collections import defaultdict
-from scipy.special import cotdg
 from ..gradients.ascent import *
+from ..gradients.descent import *
+import random
 
-def compute_hfcs(hfcs): 
-    hfcs /= max(hfcs) 
-    song.hfcs = hfcs
-    fir = firwin(11, 1.0 / 8, window = "hamming")
-    song.filtered = np.convolve(hfcs, fir, mode="same")
-    song.climb_hills() 
-    return np.array([i for i, x in enumerate(song.Filtered) if x > 0]) * song.N
-
+p = lambda r, n: (r * np.sqrt(n-2)) / np.sqrt(1-(r**2))
 
 def mono_stereo(input_signal): 
     input_signal = input_signal.astype(np.float32)   
@@ -38,8 +25,6 @@ def mono_stereo(input_signal):
         return input_signal
     else:                  
         return input_signal
-
-p = lambda r, n: (r * np.sqrt(n-2)) / np.sqrt(1-(r**2))
 
 db2amp = lambda value: 0.5*pow(10, value/10) 
 
@@ -159,9 +144,9 @@ class MIR:
         -type: the type of window to use"""
         self.signal = (mono_stereo(audio) if len(audio) == 2 else audio)
         self.fs = fs
-        self.N = 4096
-        self.M = 2048
-        self.H = 1024
+        self.N = 2048
+        self.M = 1024
+        self.H = 512
         self.n_bands = 40
         self.type = type
         self.nyquist = lambda hz: hz/(0.5*self.fs)
@@ -193,18 +178,11 @@ class MIR:
             if _tmp < self.frame[i]:                           
                 _tmp = (1.0 - _ga) * self.frame[i] + _ga * _tmp;
             else:                                               
-                 _tmp = (1.0 - _gr) * self.frame[i] + _gr * _tmp; 
-            self.envelope[i] = _tmp 
-            if _tmp == round(float(str(_tmp)), 308): #find out if the number is denormal 
-                _tmp = 0 
+                 _tmp = (1.0 - _gr) * self.frame[i] + _gr * _tmp;
+            self.envelope[i] = _tmp
+            if _tmp == round(float(str(_tmp)), 308): #find out if the number is denormal
+                _tmp = 0
 
-    def detect_by_polar(self):
-        targetPhase = np.real(2*self.phase - self.phase)
-        targetPhase = np.mod(targetPhase + np.pi, -2 * np.pi) + np.pi;
-
-        distance = np.abs(np.array([cmath.polar(self.magnitude_spectrum[i] + (self.phase[i]-targetPhase[i]*1j)) for i in range(len(targetPhase))]))
-        return distance.sum();      
-      
     def AttackTime(self): 
         start_at = 0.0;               
         cutoff_start_at = max(self.envelope) * 0.2 #initial start time
@@ -238,8 +216,7 @@ class MIR:
             nyquist_hi = self.nyquist(cutoffHz[1])                
             Wn = [nyquist_low, nyquist_hi] 
         else:                
-            Wn = self.nyquist(cutoffHz)    
-        Wn = max(1e-4,min(Wn,0.9))                            
+            Wn = self.nyquist(cutoffHz)                   
         b,a = iirfilter(1, Wn, btype = type, ftype = 'butter')          
         output = lfilter(b,a,array) #use a time-freq compromised filter
         return output 
@@ -367,33 +344,13 @@ class MIR:
         """Computes magnitude spectrum of windowed frame""" 
         self.spectrum = self.fft(self.windowed_x) 
         self.magnitude_spectrum = np.array([np.sqrt(pow(self.spectrum[i].real, 2) + pow(self.spectrum[i].imag, 2)) for i in range(self.H + 1)]).ravel() / self.H
-        try:
-            self.audio_signal_spectrum.append(self.magnitude_spectrum)
-        except Exception as e:
-            self.audio_signal_spectrum = np.append(self.magnitude_spectrum)
+        self.audio_signal_spectrum.append(self.magnitude_spectrum)
 
     def spectrum_share(self):
         """Give back all stored computations of spectrums of different frames. This is a generator""" 
         for spectrum in self.audio_signal_spectrum:        
             self.magnitude_spectrum = spectrum 
             yield self.magnitude_spectrum
-
-    def onsets_by_polar_distance(self,onsets):
-        detection_rm = np.convolve(onsets/max(onsets), np.ones(2048), mode='valid')
-        index = 0
-        buffer = np.zeros(len(detection_rm))
-        for i in range(len(detection_rm)):
-            index = i+1 % len(buffer)
-            if index == 0:
-                buffer[:int(index)] = detection_rm[:int(index)] 
-            else:
-                if index == buffer.size:
-                    index -= 1
-            buffer[int(index)] = detection_rm[int(index)]
-            threshold = np.median(buffer) + 0.00001 * np.mean(buffer)
-        detection_rm = detection_rm[:np.array(self.audio_signal_spectrum).shape[0]]
-        self.onsets_indexes = np.where(detection_rm>threshold)[0]
-        self.audio_signal_spectrum = np.array(self.audio_signal_spectrum)[np.where(detection_rm[:len(self.audio_signal_spectrum)]>threshold)]
 
     def onsets_by_flux(self):
         """Use this function to get only frames containing peak parts of the signal""" 
@@ -461,12 +418,9 @@ class MIR:
         dbs = 2 * (10 * np.log10(self.mel_bands))
         self.mfcc_seq = self.DCT(dbs)
 
-    def autocorrelation(self,axis=0):
-        try:               
-            self.N = (self.windowed_x[:,axis].shape[0]+1) * 2
-        except Exception as e:               
-            self.N = (self.windowed_x.shape[0]+1) * 2            
-        corr = np.fft.fftshift(ifft(fft(self.windowed_x, n = self.N)).real)                                   
+    def autocorrelation(self):
+        self.N = (self.windowed_x[:,0].shape[0]+1) * 2
+        corr = ifft(fft(self.windowed_x, n = self.N))                                   
         self.correlation = util.normalize(corr, norm = np.inf)
         subslice = [slice(None)] * np.array(self.correlation).ndim
         subslice[0] = slice(self.windowed_x.shape[0])                   
@@ -475,11 +429,6 @@ class MIR:
         if not np.iscomplexobj(self.correlation):               
             self.correlation = self.correlation.real
         return self.correlation
-
-    def percival_enhance_harm(self):
-        for i in range(int(self.correlation.size/4)):
-            self.correlation[i] += self.correlation[2*i] + self.correlation[4*i]
-        return self
 
     def mel_bands_global(self):
         mel_bands = []   
@@ -500,7 +449,7 @@ class MIR:
         self.envelope = np.maximum(0.0, self.envelope)
         channels = [slice(None)] 
         self.envelope = util.sync(self.envelope, channels, np.mean, True, 0)
-        pad_width = 1 + (self.N//(2*self.H)) 
+        pad_width = 1 + (2048//(2*self.H)) 
         self.envelope = np.pad(self.envelope, ([0, 0], [int(pad_width), 0]),mode='constant') 
         self.envelope = lfilter([1.,-1.], [1., -0.99], self.envelope, axis = -1) 
         self.envelope = self.envelope[:,:self.n_bands][0]  
@@ -575,7 +524,7 @@ class MIR:
             if b_pow_sum == 0 or a_pow_sum == 0:                                                                            
                 centroid = 0                                                
             else:                                                                   
-                centroid = (np.sqrt(b_pow_sum) / np.sqrt(a_pow_sum)) * (44100/np.pi)
+                centroid = (np.sqrt(b_pow_sum) / np.sqrt(a_pow_sum)) * (self.fs/np.pi)
         return centroid
 
     def contrast(self):
@@ -635,24 +584,8 @@ class MIR:
     def Loudness(self):
         """Computes Loudness of a frame""" 
         self.loudness = pow(sum(abs(self.frame)**2), 0.67)
-        
-    def zcr(self):
-        zcr = 0    
-        val = self.signal[0]
-        if abs(val) < 0:
-            val = 0       
-        was_positive = val > 0  
-        for i in range(self.signal.size):
-            val = self.signal[i]      
-            if abs(val) <= 0: val = 0
-            is_positive = val > 0      
-            if was_positive != is_positive:
-                zcr += 1              
-                was_positive = is_positive
-        zcr /= len(self.signal)
-        return zcr
 
-    def spectral_peaks(self, bounded = True):
+    def spectral_peaks(self):
         """Computes magnitudes and frequencies of a frame of the input signal by peak interpolation"""
         thresh = np.where(self.magnitude_spectrum[1:-1] > 0, self.magnitude_spectrum[1:-1], 0)            
         next_minor = np.where(self.magnitude_spectrum[1:-1] > self.magnitude_spectrum[2:], self.magnitude_spectrum[1:-1], 0)
@@ -664,46 +597,19 @@ class MIR:
         rval = self.magnitude_spectrum[self.peaks_locations + 1]
         iploc = self.peaks_locations + 0.5 * (lval- rval) / (lval - 2 * val + rval)
         self.magnitudes = val - 0.25 * (lval - rval) * (iploc - self.peaks_locations)
-        self.frequencies = (self.fs) * iploc / self.N 
-        if bounded == True:
-            bound = np.where(self.frequencies < 1000) #only get frequencies lower than 1000 Hz
-            self.magnitudes = self.magnitudes[bound][:100] #we use only 100 magnitudes and frequencies
-            self.frequencies = self.frequencies[bound][:100]
-            self.frequencies, indexes = np.unique(self.frequencies, return_index = True)
-            self.magnitudes = self.magnitudes[indexes]
-
-    def PeakDetection(self):
-        next_minor = np.where(self.correlation[1:-1] > self.correlation[2:], self.correlation[1:-1], 0)
-        prev_minor = np.where(self.correlation[1:-1] > self.correlation[:-2], self.correlation[1:-1], 0)
-        peaks_locations = -1e-06 * next_minor * prev_minor
-        self.peaks_locations = peaks_locations.nonzero()[0] + 1
-        self.peaks_locations = self.peaks_locations[self.peaks_locations<self.magnitude_spectrum.size-1]
-        val = self.magnitude_spectrum[self.peaks_locations]
-        lval = self.magnitude_spectrum[self.peaks_locations -1]
-        rval = self.magnitude_spectrum[self.peaks_locations + 1]
-        self.iploc = self.peaks_locations + 0.5 * (lval- rval) / (lval - 2 * val + rval)
-        self.iploc = np.int32(self.iploc[:100])
-        self.magnitudes = val[:100] - 0.25 * (lval[:100] - rval[:100]) * (self.iploc - self.peaks_locations[:100])
-        self.frequencies = (self.fs) * self.iploc / self.N   
-        bound = np.where(self.frequencies < 1000) #only get frequencies lower than 1000 Hz
+        self.frequencies = (self.fs/2) * iploc / self.N 
+        bound = np.where(self.frequencies < 5000) #only get frequencies lower than 5000 Hz
         self.magnitudes = self.magnitudes[bound][:100] #we use only 100 magnitudes and frequencies
         self.frequencies = self.frequencies[bound][:100]
         self.frequencies, indexes = np.unique(self.frequencies, return_index = True)
-        self.magnitudes = self.magnitudes[indexes] 
-        nonzero_f = self.frequencies >0,   
-        self.frequencies = self.frequencies[nonzero_f] 
-        self.magnitudes = self.magnitudes[nonzero_f] 
-        nonzero_m = self.magnitudes >0
-        self.magnitudes = self.magnitudes[nonzero_m]   
-        self.frequencies = self.frequencies[nonzero_m]          
-        return self
+        self.magnitudes = self.magnitudes[indexes]
 
     def fundamental_frequency(self):
         """Compute the fundamental frequency of the frame frequencies and magnitudes"""
         f0c = np.array([])
         for i in range(len(self.frequencies)):
             for j in range(0, (4)*int(self.frequencies[i]), int(self.frequencies[i])): #list possible candidates based on all frequencies
-                if j < 1000 and j != 0 and int(j) == int(self.frequencies[i]):
+                if j < 5000 and j != 0 and int(j) == int(self.frequencies[i]):
                     f0c = np.append(f0c, self.frequencies[i])
  
         p = 0.5                    
@@ -876,6 +782,22 @@ class MIR:
                 lpc[j] = temp[j]
             E *= (1-pow(k,2))
         return lpc[1:]
+
+class sonify(MIR):                                
+    def __init__(self, audio, fs):
+        super(sonify, self).__init__(audio, fs)
+    def filter_by_valleys(self):
+        mag_y = np.copy(self.magnitude_spectrum)
+        for i in range(len(self.valleys)):
+            bandpass = (hann(len(self.contrast_bands[i])-1) * np.exp(self.valleys[i])) - np.exp(self.valleys[i]) #exponentiate to get a positive magnitude value
+            mag_y[self.contrast_bands[i][0]:self.contrast_bands[i][-1]] += bandpass #a small change can make a big difference, they said
+        return mag_y 
+    def reconstruct_signal_from_mfccs(self):
+        """Listen to the MFCCs in a signal by reconstructing the fourier transform of the mfcc sequence"""
+        bin_scaling = 1.0/np.maximum(0.0005, np.sum(np.dot(self.filter_coef.T, self.filter_coef), axis=0))
+        recon_stft = bin_scaling * np.dot(self.filter_coef.T,db2amp(self.table.T[:13].T.dot(self.mfcc_seq)))
+        output = self.ISTFT(recon_stft)
+        return output
     def climb_hills(self):
         """Do hill climbing to find good HFCs"""
         moving_points = np.arange(len(self.filtered))
@@ -905,22 +827,6 @@ class MIR:
         self.Filtered = [0] * len(self.filtered)         
         for x in set(stable_points):      
             self.Filtered[x] = self.filtered[x]
-
-class sonify(MIR):                                
-    def __init__(self, audio, fs):
-        super(sonify, self).__init__(audio, fs)
-    def filter_by_valleys(self):
-        mag_y = np.copy(self.magnitude_spectrum)
-        for i in range(len(self.valleys)):
-            bandpass = (hann(len(self.contrast_bands[i])-1) * np.exp(self.valleys[i])) - np.exp(self.valleys[i]) #exponentiate to get a positive magnitude value
-            mag_y[self.contrast_bands[i][0]:self.contrast_bands[i][-1]] += bandpass #a small change can make a big difference, they said
-        return mag_y 
-    def reconstruct_signal_from_mfccs(self):
-        """Listen to the MFCCs in a signal by reconstructing the fourier transform of the mfcc sequence"""
-        bin_scaling = 1.0/np.maximum(0.0005, np.sum(np.dot(self.filter_coef.T, self.filter_coef), axis=0))
-        recon_stft = bin_scaling * np.dot(self.filter_coef.T,db2amp(self.table.T[:13].T.dot(self.mfcc_seq)))
-        output = self.ISTFT(recon_stft)
-        return output
     def create_clicks(self, locations):
         """Create a clicking signal at specified sample locations"""
         angular_freq = 2 * np.pi * 1000 / float(self.fs)            
@@ -935,8 +841,8 @@ class sonify(MIR):
                 click_signal[start:end] += click                    
         return click_signal
     def output_array(self, array):
-        self.M = 2048
-        self.H = 1024
+        self.M = 1024
+        self.H = 512
         output = np.zeros(len(self.signal)) 
         i = 0
         for frame in self.FrameGenerator():
@@ -971,7 +877,7 @@ class sonify(MIR):
         self.tempo_onsets = clicks(frames = self.ticks * self.fs, length = len(self.signal), sr = self.fs, hop_length = self.H)
         starts = self.ticks * self.fs
         for i in starts:
-            self.frame = self.signal[int(i):int(i)+self.M]
+            self.frame = self.signal[int(i):int(i)+1024]
             self.Envelope()
             self.AttackTime()
             self.ats.append(self.attack_time)
@@ -985,7 +891,56 @@ class sonify(MIR):
         self.climb_hills()
         self.hfc_locs = np.array([i for i, x in enumerate(self.Filtered) if x > 0]) * self.H
         self.hfc_locs = self.create_clicks(self.hfc_locs)
-        
+
+def danceability(audio, target, fs):        
+    frame_size = int(0.01 * fs)
+    audio = audio[:fs * 3]
+    nframes = audio.size / frame_size
+    S = []
+    for i in range(int(nframes)):
+        fbegin = i * frame_size
+        fend = min((i+1) * frame_size, audio.size)
+        S.append(np.std(audio[fbegin:fend]))
+    for i in range(int(nframes)):
+        S[i] -= np.mean(S) 
+    for i in range(len(S)):      
+        S[i] += S[i-1]           
+    tau = []                     
+    for i in range(310, 3300):   
+        i *= 1.1              
+        tau.append(int(i/10)) 
+    tau = np.unique(tau) 
+    F = np.zeros(len(tau))                                                            
+    nfvalues = 0            
+    for i in range(len(tau)):        
+        jump = max(tau[i]/50, 1)                                                                                       
+        if nframes >= tau[i]:                                                                              
+            k = jump                  
+            while k < int(nframes-tau[i]):
+                fbegin = int(k)                        
+                fend = int(k + tau[i])           
+                w = attention_sgd(np.mat(S[fbegin:fend]),target[fbegin:fend])    
+                reg = S[fbegin:fend] * w
+                F[i] += np.sum((target[fbegin:fend]-reg)**2)
+                k += jump        
+            if nframes == tau[i]:
+                F[i] = 0         
+            else:              
+                F[i] = np.sqrt(F[i] / ((nframes - tau[i])/jump)) 
+            nfvalues += 1
+        else:      
+            break    
+
+    dfa = np.zeros(len(tau))
+    for i in range(nfvalues):
+        if F[i+1] != 0:
+            dfa[i] = np.log10(F[i+1] / F[i]) / np.log10( (tau[i+1]+3.0) / (tau[i]+3.0))
+        else:
+            break
+    motion = dfa[np.nan_to_num(dfa) > 0]
+    motion = motion[motion < 1.5]    
+    return 1/(motion.sum() / len(motion))
+
 def hpcp(song, nbins):
     def add_contribution(freq, mag, bounded_hpcp):
         for i in range(len(harmonic_peaks)):
@@ -1049,82 +1004,6 @@ def hpcp(song, nbins):
     for i in range(len(hpcps)):
         hpcps[i] = hpcp_LO[i] + hpcp_HIGH[i]
     return hpcps
-    
-def residual_error(signal, start, end):
-    size = end - start
-    meanx = (size -1) * 0.5
-    meany = np.mean(signal[start: end])
-    ssxx = 0
-    ssyy = 0
-    ssxy = 0
-    def addError(i, ssxx, ssxy, ssyy, meanx, meany):
-        dx = i - meanx
-        dy = signal[i +start] - meany
-        ssxx += pow(dx, 2)
-        ssxy += dx * dy
-        ssyy += pow(dy, 2)
-        return ssxx, ssxy, ssyy
-    for i in range(8, size -8):
-        ssxx, ssxy, ssyy = addError(i, ssxx, ssxy, ssyy, meanx, meany)
-        ssxx, ssxy, ssyy = addError(i+1, ssxx, ssxy, ssyy, meanx, meany)
-        ssxx, ssxy, ssyy = addError(i+2, ssxx, ssxy, ssyy, meanx, meany)
-        ssxx, ssxy, ssyy = addError(i+3, ssxx, ssxy, ssyy, meanx, meany)
-        ssxx, ssxy, ssyy = addError(i+4, ssxx, ssxy, ssyy, meanx, meany)
-        ssxx, ssxy, ssyy = addError(i+5, ssxx, ssxy, ssyy, meanx, meany)
-        ssxx, ssxy, ssyy = addError(i+6, ssxx, ssxy, ssyy, meanx, meany)
-        ssxx, ssxy, ssyy = addError(i+7, ssxx, ssxy, ssyy, meanx, meany)
-    for i in range(size):
-        ssxx, ssxy, ssyy = addError(i, ssxx, ssxy, ssyy, meanx, meany)
-    return (ssyy - ssxy * ssxy / ssxx) / size
-    
-def danceability(audio, target, fs):        
-    frame_size = int(0.01 * fs)
-    audio = audio[:fs * 3]
-    nframes = audio.size / frame_size
-    S = []
-    for i in range(int(nframes)):
-        fbegin = i * frame_size
-        fend = min((i+1) * frame_size, audio.size)
-        S.append(np.std(audio[fbegin:fend]))
-    for i in range(int(nframes)):
-        S[i] -= np.mean(S) 
-    for i in range(len(S)):      
-        S[i] += S[i-1]           
-    tau = []                     
-    for i in range(310, 3300):   
-        i *= 1.1              
-        tau.append(int(i/10)) 
-    tau = np.unique(tau) 
-    F = np.zeros(len(tau))                                                            
-    nfvalues = 0            
-    for i in range(len(tau)):        
-        jump = max(tau[i]/50, 1)                                                                                       
-        if nframes >= tau[i]:                                                                              
-            k = jump                  
-            while k < int(nframes-tau[i]):
-                fbegin = int(k)                        
-                fend = int(k + tau[i])           
-                w = attention_sgd(np.mat(S[fbegin:fend]),target[fbegin:fend])    
-                reg = S[fbegin:fend] * w
-                F[i] += np.sum((target[fbegin:fend]-reg)**2)
-                k += jump        
-            if nframes == tau[i]:
-                F[i] = 0         
-            else:              
-                F[i] = np.sqrt(F[i] / ((nframes - tau[i])/jump)) 
-            nfvalues += 1
-        else:      
-            break    
-
-    dfa = np.zeros(len(tau))
-    for i in range(nfvalues):
-        if F[i+1] != 0:
-            dfa[i] = np.log10(F[i+1] / F[i]) / np.log10( (tau[i+1]+3.0) / (tau[i]+3.0))
-        else:
-            break
-    motion = dfa[np.nan_to_num(dfa) > 0]
-    motion = motion[motion < 1.5]    
-    return 1/(motion.sum() / len(motion))
 
 def addContributionHarmonics(pitchclass, contribution, M_chords):                                                        
   weight = contribution                                                                                                  
