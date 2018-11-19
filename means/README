@@ -1,0 +1,6 @@
+### y vectors for danceability regression
+
+Linear regression with stochastic gradient ascent based on attention is used for detrended fluctuation analysis. y vectors are prebuilt from popular danceable songs.
+More details about the model in this paper https://arxiv.org/abs/1801.01423
+
+This folder contains the y vector text files for parsing and regression
