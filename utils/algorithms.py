@@ -357,6 +357,24 @@ class MIR:
         self.onsets_indexes = np.where(self.flux(self.mel_dbs) > 80)[0]
         self.audio_signal_spectrum = np.array(self.audio_signal_spectrum)[self.onsets_indexes]
 
+    def onsets_by_polar_distance(self,onsets):
+        detection_rm = np.convolve(onsets/max(onsets), np.ones(2048), mode='valid')
+        index = 0
+        buffer = np.zeros(len(detection_rm))
+        for i in range(len(detection_rm)):
+            index = i+1 % len(buffer)
+            if index == 0:
+                buffer[:int(index)] = detection_rm[:int(index)] 
+            else:
+                if index == buffer.size:
+                    index -= 1
+            buffer[int(index)] = detection_rm[int(index)]
+            threshold = np.median(buffer) + 0.00001 * np.mean(buffer)
+        detection_rm = detection_rm[:np.array(self.audio_signal_spectrum).shape[0]]
+        self.onsets_indexes = np.where(detection_rm>threshold)[0]
+        self.audio_signal_spectrum = np.array(self.audio_signal_spectrum)[np.where(detection_rm[:len(self.audio_signal_spectrum)]>threshold)]
+        
+        
     def calculate_filter_freq(self):       
         band_freq = np.zeros(self.n_bands+2)
         low_mf = hz_to_m(0)
