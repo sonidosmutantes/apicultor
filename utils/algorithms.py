@@ -726,6 +726,12 @@ class MIR:
         else:
             return num/(den*f0)
 
+    def detect_by_polar(self):
+        targetPhase = np.real(2*self.phase - self.phase)
+        targetPhase = np.mod(targetPhase + np.pi, -2 * np.pi) + np.pi;
+        distance = np.abs(np.array([cmath.polar(self.magnitude_spectrum[i] + (self.phase[i]-targetPhase[i]*1j)) for i in range(len(targetPhase))]))
+        return distance.sum();             
+        
     def dissonance(self):
         """Computes the Dissonance based on sensory and consonant relationships between pairs of frequencies"""
         a_weight_factor = a_weight(self.frequencies) 
