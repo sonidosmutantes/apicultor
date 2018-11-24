@@ -15,7 +15,8 @@ import random
 logging.basicConfig(level=logging.DEBUG)
 logger = logging.getLogger(__name__)  
 
-ext_filter = ['.mp3','.ogg','.undefined','.wav','.wma','.mid', '.amr']
+ext_filter = ['.mp3','.ogg','.wav','.wma', '.amr'] # check if all extensions are supported by the library
+#ext_filter = ['.mp3','.ogg','.undefined','.wav','.wma','.mid', '.amr'] # .mid is not an audio file, why is the reason to have .undefined extension?
 
 # descriptores de interés
 descriptors = [ 

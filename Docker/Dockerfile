@@ -1,20 +1,20 @@
 # REPOSITORY    SIZE
 # apicultor     881.2 (FIXME)
 
-# Build cmd: sudo docker build --netowork=host -t apicultor -f ./Dockerfile .
+# Build cmd: docker build  api.cultor -f ./Dockerfile .
 
 
 # docker with apicultor webservice as entrypoint (default)
-# docker run -p 5000:5000 --name apicultor  -it --net="host" apicultor_v0.9
+# docker run -p 5000:5000 --name apicultor  -it --net="host" apicultor
 
 # docker with bash entrypoint
-# docker run -p 5000:5000 --name apicultor  -it --net="host" --entrypoint /bin/bash apicultor_v0.9
+# docker run -p 5000:5000 --name apicultor  -it --net="host" --entrypoint /bin/bash apicultor
 
 # link samples dir
 # -v ./samples:/srv/apicultor/samples
 
 # Bash entrypoint + (--rm) to automatically remove the container when it exits.
-# docker run -p 5000:5000 --name apicultor  -it --rm --net="host" --entrypoint /bin/bash apicultor_v0.9 /bin/bash
+# docker run -p 5000:5000 --name apicultor  -it --rm --net="host" --entrypoint /bin/bash apicultor
 
 FROM gcr.io/google_containers/ubuntu-slim:0.6
 
@@ -48,23 +48,28 @@ RUN apt-get install -y \
 	git \
 	curl
 
-RUN pip2 install --upgrade pip
-RUN pip2 install flask flask-autodoc
+RUN pip install --upgrade pip
+RUN pip install flask flask-autodoc
+
+RUN pip install scipy
 
 WORKDIR /srv
 
 # APICultor code
 RUN git clone https://github.com/sonidosmutantes/apicultor
 
+# Essentia
+RUN pip install essentia
 # Essentia build
-RUN git clone https://github.com/MTG/essentia
-WORKDIR /srv/essentia
-RUN python waf configure --mode=release --build-static --with-python --with-cpptests --with-examples --with-vamp
-RUN python waf install
+#RUN git clone https://github.com/MTG/essentia
+#WORKDIR /srv/essentia
+#RUN python waf configure --mode=release --build-static --with-python --with-cpptests --with-examples --with-vamp
+#RUN python waf install
+
 
 # (optional) ssh server
-RUN apt-get install -y openssh-server
+#RUN apt-get install -y openssh-server
 
 EXPOSE 5000
 WORKDIR /srv/apicultor
-ENTRYPOINT python MockRedPanalAPI_service.py
+#ENTRYPOINT python examples/MockRedPanalAPI_service.py

@@ -39,18 +39,18 @@ def fixed_segmentation(filename, segments, options):
             outputFilename = outputPath+'/'+baseName+'_sample'+str(i)+'.wav'
             wavfile.write(outputFilename,sr,np.array(signalOut, dtype='int16'))
             print("File generated: %s"%outputFilename)
-    except Exception, e:
+    except Exception as e:
         #TODO: add standard logging output
         print("Error: %s"%e)
 
 #TODO: take files dir as parameter
-files_dir = "../data"
+files_dir = "./wavs/"
 segments = 5
 ext_filter = ['.wav'] #valid audio files FIXME: convert to wav or support read other formats
 sr = 44100
 options = dict()
-options['outputPath'] = 'samples'
-options['duration'] = 10.
+options['outputPath'] = './segmented-samples'
+options['duration'] = 5
 for subdir, dirs, files in os.walk(files_dir):
     for f in files:
         if not os.path.splitext(f)[1] in ext_filter:

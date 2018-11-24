@@ -53,6 +53,17 @@ If you want to run Pyo examples
 
 ### Essentia (http://essentia.upf.edu/)
 
+	$ pip install essentia
+
+#### MAC
+
+	brew tap MTG/essentia
+	brew install essentia
+
+Reference: https://github.com/MTG/homebrew-essentia
+
+#### Linux build
+
     $ git clone https://github.com/MTG/essentia.git
 
 You can install those dependencies on a Debian/Ubuntu system from official repositories using the commands provided below:
