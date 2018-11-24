@@ -4,7 +4,7 @@
 import pykov # Markov chains helpers
 import time
 import random
-import urllib2
+import urllib.request, urllib.error, urllib.parse
 import OSC
 import sys
 import os.path
@@ -152,7 +152,7 @@ def external_synth(new_file):
         Sends OSC
         Sends OSC to external synthesis engine like SuperCollider or pd
     """
-    print("\tPlaying %s"%new_file)
+    print(("\tPlaying %s"%new_file))
     msg = OSC.OSCMessage()
     msg.setAddress("/play")
 
@@ -161,7 +161,7 @@ def external_synth(new_file):
 
     try:
         osc_client.send(msg)
-    except Exception,e:
+    except Exception as e:
         print(e)
     #TODO: get duration from msg (via API)
     time.sleep(duration)
@@ -210,7 +210,7 @@ Usage = "./StateMachine.py [StateComposition.json]"
 if __name__ == '__main__':
       
     if len(sys.argv) < 2:
-        print("\nBad amount of input arguments\n\t", Usage, "\n")
+        print(("\nBad amount of input arguments\n\t", Usage, "\n"))
         sys.exit(1)
     
     logfile = "apicultor.log"
@@ -224,7 +224,7 @@ if __name__ == '__main__':
     config = ""
     try:
         config = json.load( open(".apicultor_config.json",'r') )
-    except Exception, e:
+    except Exception as e:
         print(e)
         print("No json config file or error.")
         sys.exit(3)
@@ -240,7 +240,7 @@ if __name__ == '__main__':
     else:
         print("Bad api key config")
         sys.exit(4)
-    print("Using "+api_type+" API")
+    print(("Using "+api_type+" API"))
 
     api.av_conv = config["av_conv"]
 
@@ -251,7 +251,7 @@ if __name__ == '__main__':
         # with open(json_file,'r') as file:
         #     json_data = json.load( file )
         json_data = json.load( open(json_comp_file,'r') )
-    except Exception, e:
+    except Exception as e:
         print(e)
         print("JSON composition file error.")
         sys.exit(2)
@@ -283,7 +283,7 @@ if __name__ == '__main__':
 
     try:
         T.stochastic() #check
-    except Exception,e:
+    except Exception as e:
         print(e)
         exit(1)
 
@@ -306,7 +306,7 @@ if __name__ == '__main__':
     # events = 10 # or loop with while(1)
     # for i in range(events):
     while(1):
-        print( "State: %s"%state ) # TODO: call the right method for the state here
+        print(( "State: %s"%state )) # TODO: call the right method for the state here
         #(optional) change sound in the same state or not (add as json config file)
         if state!=previous_state:
             #retrieve new sound
@@ -321,10 +321,10 @@ if __name__ == '__main__':
 
 
             mir_state = states_mirdef[ state ]
-            print("MIR State: "+str(mir_state))
+            print(("MIR State: "+str(mir_state)))
             file_chosen, autor, sound_id  = api.get_one_by_mir(mir_state)
 
-            print( os.path.getsize(file_chosen) )
+            print(( os.path.getsize(file_chosen) ))
             if os.path.exists( file_chosen ) and os.path.getsize(file_chosen)>1000: #FIXME: prior remove 'silence' sounds from DB (ETL)
                 print(file_chosen)
                 log.write(file_chosen+" by "+ autor + " - id: "+str(sound_id)+"\n") #WARNING: bad realtime practice (writing file) TODO: add to a memory buffer and write before exit. FIXME

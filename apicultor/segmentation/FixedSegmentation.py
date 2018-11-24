@@ -1,6 +1,6 @@
 #! /usr/bin/env python
 # -*- coding: utf-8 -*-
-  
+
 import random
 import os
 import numpy as np
@@ -50,7 +50,8 @@ ext_filter = ['.wav'] #valid audio files FIXME: convert to wav or support read o
 sr = 44100
 options = dict()
 options['outputPath'] = './segmented-samples'
-options['duration'] = 5
+options['duration'] = 5. # 3, 5, 10 seconds, etc
+>>>>>>> efc0f016583e7b5e7ff853d54507f3d2ddba6067
 for subdir, dirs, files in os.walk(files_dir):
     for f in files:
         if not os.path.splitext(f)[1] in ext_filter:

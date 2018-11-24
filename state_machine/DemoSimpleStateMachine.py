@@ -10,7 +10,7 @@
 import pykov # Markov chains helpers
 import time
 import random
-import urllib2
+import urllib.request, urllib.error, urllib.parse
 import OSC
 import sys
 
@@ -49,7 +49,7 @@ T['inharmonic','inharmonic'] = .1
 
 try:
     T.stochastic() #check
-except Exception,e:
+except Exception as e:
     print(e)
     exit(1)
 
@@ -64,23 +64,23 @@ while(1):
       print( state ) # TODO: call the right method for the state here
       if state=='harmonic':
         call = '/list/samples' #gets only wav files because SuperCollider
-        response = urllib2.urlopen(URL_BASE + call).read()
+        response = urllib.request.urlopen(URL_BASE + call).read()
         audioFiles = list()
         for file in response.split('\n'):
             if len(file)>0: #avoid null paths
                 audioFiles.append(file)
                 # print file
         file_chosen = audioFiles[ random.randint(0,len(audioFiles)-1) ]
-        print("\tPlaying %s"%file_chosen)
+        print(("\tPlaying %s"%file_chosen))
         msg = OSC.OSCMessage()
         msg.setAddress("/play")
 
         #mac os
-        msg.append( "/Users/hordia/Documents/apicultor"+file_chosen.split('.')[1]+'.wav' )
+        msg.append( sys.argv[1]+'/'+file_chosen.split('.')[1]+'.wav' )#path should be chosen at start
 
         try:
             osc_client.send(msg)
-        except Exception,e:
+        except Exception as e:
             print(e)
         #TODO: get duration from msg (via API)
         time.sleep(duration)
