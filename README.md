@@ -46,6 +46,8 @@ See [cloud_instrument/README.md](cloud_instrument/README.md)
 
 Interactive __DEMO__: [Cloud Instrument](https://www.youtube.com/watch?v=SCYEEpfct_Y). Interactive demo retrieving sounds from the Cloud using MIR descriptors and processing them in realtime (using raspicultor aka raspberry pi + apicultor).
 
+![](doc/IMG_20181101_002941_HDR.jpg)
+
 ### UI
 [Open Stage Control](https://osc.ammd.net/) User Interface
 

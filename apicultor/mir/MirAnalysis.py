@@ -16,18 +16,33 @@ logger = logging.getLogger(__name__)
 #ext_filter = ['.mp3','.ogg','.undefined','.wav','.wma','.mid', '.amr', '.au]
 ext_filter = ['.mp3','.ogg', '.wav', '.au']
 
+"""
+    enabled_descriptors = [
+        "duration",
+        "bpm",
+        "hfc.mean",
+        "spectral_complexity.mean",
+        "spectral_centroid.mean",
+        "pitch_centroid.mean",
+        "pitch.mean",
+        "inharmonicity.mean",
+        "dissonance.mean",
+        "pitch_salience.mean",
+        "chords_strength.mean",
+    ]
+"""
 # descriptores de interés
 descriptors = [ 
+                'metadata.duration',
                 'lowlevel.spectral_centroid',
-                'lowlevel.spectral_contrast',
+                # 'lowlevel.spectral_contrast',
                 'lowlevel.dissonance',
                 'lowlevel.hfc',
-                'lowlevel.mfcc',
-                'loudness.level',
-                'sfx.logattacktime',  
+                # 'lowlevel.mfcc',
+                # 'loudness.level',
+                # 'sfx.logattacktime',  
                 'sfx.inharmonicity', 
-                'rhythm.bpm',
-                'metadata.duration'
+                'rhythm.bpm'
                 ]
 
 sampleRate = 44100
