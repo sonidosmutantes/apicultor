@@ -1,4 +1,4 @@
-# Genearl requirements
+# General requirements
 
 Python 3.6
 Note: old versión is Python 2.7 but is deprecated
