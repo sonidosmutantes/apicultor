@@ -73,10 +73,6 @@ def main():
             do_segmentation( audio_input, audio_input_from_filename = True, audio_input_from_array = False, sec_len = segment_length, save_file = True)
             # do_segmentation( audio_input)                            
 
-    except Exception, e:
-        print(e)
-        exit(1)
-
 # def main():
 #     if len(sys.argv) < 2:
 #         print(("\nBad amount of input arguments\n", Usage, "\n"))
