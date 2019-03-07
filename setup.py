@@ -42,5 +42,5 @@ setup(name='apicultor',
         'audio2ogg = apicultor.helper.convert_to_ogg:main',
         'smcomposition = apicultor.state_machine.SMComposition:main'
     ]},
-    install_requires=['numpy', 'wget', 'colorama', 'pysoundfile', 'librosa', 'scipy', 'matplotlib', 'scikit-learn', 'bs4', 'pandas']
+    install_requires=['numpy', 'wget', 'colorama', 'transitions','pysoundfile', 'librosa', 'scipy', 'matplotlib', 'scikit-learn', 'bs4', 'pandas']
      )
