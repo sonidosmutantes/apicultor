@@ -259,7 +259,7 @@ class deep_support_vector_machines(object):
             raise Exception("Two labels classification for music is not allowed here")
 
         if multiclass == True:
-            self.instances = list(combinations(range(self.n_class), 2))
+            self.instances = list(combinations(list(range(self.n_class)), 2))
             self.classes = np.unique(self.targets)
             self.classifications = len(self.instances)
             self.classesm = defaultdict(list) 
@@ -531,11 +531,11 @@ class svm_layers(deep_support_vector_machines):
         for i in range(len(self.kernel_configs)):
             print ("Calculating values for prediction")
             best_estimator = GridSearch(self, features, labels, Cs, reg_params, [self.kernel_configs[i]])
-            print(("Best estimators are: ") + str(best_estimator['C'][0]) + " for C and " + str(best_estimator['reg_param'][0]) + " for regularization parameter")
+            print((("Best estimators are: ") + str(best_estimator['C'][0]) + " for C and " + str(best_estimator['reg_param'][0]) + " for regularization parameter"))
             self.fit_model(features, labels, self.kernel_configs[i][0], self.kernel_configs[i][1], best_estimator['C'][0][0], best_estimator['reg_param'][0][0], 1./features.shape[1], 0.8)
             print ("Predicting")
             pred_c = self.predictions(features, labels)
-            print(("Predicted"), pred_c)
+            print((("Predicted"), pred_c))
             err = score(labels, pred_c)
             self.scores.append(err)
             if err < 0.5:
@@ -581,7 +581,7 @@ class svm_layers(deep_support_vector_machines):
         d = defaultdict(list) 
         for i in range(len(files)):
             d[files[i]] = self.targets_outputs[i] 
-        array = pandas.DataFrame(d, index = range(1))
+        array = pandas.DataFrame(d, index = list(range(1)))
         array.to_csv(output_dir + '/attention_labels.csv')  
 
 def best_kernels_output(best_estimator, kernel_configs):
@@ -616,8 +616,8 @@ class main_svm(deep_support_vector_machines):
         self.output_dir = output_dir
         self.fit_model(self._S, lab, kernels_config[0], kernels_config[1], C, reg_param, gamma, 0.8)
         self._labels = self.predictions(self._S, lab)
-        print(self._labels)
-        print(score(lab, self._labels))
+        print((self._labels))
+        print((score(lab, self._labels)))
                                                     
     def neg_and_pos(self, files):
         """
@@ -707,7 +707,7 @@ def multitag_emotions_dir(tags_dirs, files_dir, generator):
                  if t.split('.')[0] == f.split('.')[0]:
                      if not f in list(os.walk(str().join((files_dir,emotions_folder[c])), topdown=False)):
                          shutil.copy(os.path.join(tag, f), os.path.join(files_dir+emotions_folder[c], f))     
-                         print(str().join((str(f),' evokes ',emotions[c])))
+                         print((str().join((str(f),' evokes ',emotions[c]))))
                          break
 
 from transitions import Machine
@@ -940,52 +940,52 @@ class MusicEmotionStateMachine(object):
         while True:
             state = self.state()            
             if state == 'happy':                             
-                print("ENTERING STATE " + state.upper())                                  
+                print(("ENTERING STATE " + state.upper()))                                  
                 self.happy_music_remix(files_dir+'/emotions/happy', files, decisions, files_dir, harmonic = None)
-                print("ENTERED STATE " + state.upper()) 
-                print("EXITING STATE " + state.upper())                        
+                print(("ENTERED STATE " + state.upper())) 
+                print(("EXITING STATE " + state.upper()))                        
             if state == 'sad':                       
-                print("ENTERING STATE " + state.upper())                                   
+                print(("ENTERING STATE " + state.upper()))                                   
                 self.sad_music_remix(files_dir+'/emotions/sad', files, decisions, files_dir, harmonic = None)
-                print("ENTERED STATE " + state.upper()) 
-                print("EXITING STATE " + state.upper()) 
+                print(("ENTERED STATE " + state.upper())) 
+                print(("EXITING STATE " + state.upper())) 
             if state == 'angry':                             
-                print("ENTERING STATE " + state.upper())                                  
+                print(("ENTERING STATE " + state.upper()))                                  
                 self.angry_music_remix(files_dir+'/emotions/angry', files, decisions, files_dir)
-                print("ENTERED STATE " + state.upper()) 
-                print("EXITING STATE " + state.upper()) 
+                print(("ENTERED STATE " + state.upper())) 
+                print(("EXITING STATE " + state.upper())) 
             if state == 'relaxed':                           
-                print("ENTERING STATE " + state.upper())                                  
+                print(("ENTERING STATE " + state.upper()))                                  
                 self.relaxed_music_remix(files_dir+'/emotions/relaxed', files, decisions, files_dir)
-                print("ENTERED STATE " + state.upper()) 
-                print("EXITING STATE " + state.upper()) 
+                print(("ENTERED STATE " + state.upper())) 
+                print(("EXITING STATE " + state.upper())) 
             if state == 'not happy':                         
-                print("ENTERING STATE " + state.upper())                                  
+                print(("ENTERING STATE " + state.upper()))                                  
                 self.not_happy_music_remix([files_dir+'/emotions/sad', files_dir+'/emotions/angry', files_dir+'/emotions/relaxed'], files, decisions, files_dir)
-                print("ENTERED STATE " + state.upper()) 
-                print("EXITING STATE " + state.upper()) 
+                print(("ENTERED STATE " + state.upper())) 
+                print(("EXITING STATE " + state.upper())) 
             if state == 'not sad':                           
-                print("ENTERING STATE " + state.upper())                                  
+                print(("ENTERING STATE " + state.upper()))                                  
                 self.not_sad_music_remix([files_dir+'/emotions/happy', files_dir+'/emotions/angry', files_dir+'/emotions/relaxed'], files, decisions, files_dir)
-                print("ENTERED STATE " + state.upper()) 
-                print("EXITING STATE " + state.upper()) 
+                print(("ENTERED STATE " + state.upper())) 
+                print(("EXITING STATE " + state.upper())) 
             if state == 'not angry':                         
-                print("ENTERING STATE " + state.upper())                                  
+                print(("ENTERING STATE " + state.upper()))                                  
                 self.not_angry_music_remix([files_dir+'/emotions/happy', files_dir+'/emotions/sad', files_dir+'/emotions/relaxed'], files, decisions, files_dir)
-                print("ENTERED STATE " + state.upper()) 
-                print("EXITING STATE " + state.upper()) 
+                print(("ENTERED STATE " + state.upper())) 
+                print(("EXITING STATE " + state.upper())) 
             if state == 'not relaxed':                       
-                print("ENTERING STATE " + state.upper())                                 
+                print(("ENTERING STATE " + state.upper()))                                 
                 self.not_relaxed_music_remix([files_dir+'/emotions/happy', files_dir+'/emotions/sad', files_dir+'/emotions/angry'], files, decisions, files_dir)
-                print("ENTERED STATE " + state.upper()) 
-                print("EXITING STATE " + state.upper()) 
+                print(("ENTERED STATE " + state.upper())) 
+                print(("EXITING STATE " + state.upper())) 
                             
 
 Usage = "./MusicEmotionMachine.py [FILES_DIR] [OUTPUT_DIR] [MULTITAG PROBLEM FalseNone/True] [TRANSITION a/r/s]"
 
 def main():  
     if (len(sys.argv) < 5) or (len(sys.argv) == 5  and (sys.argv[3] == 'False' or sys.argv[3] == 'None')):
-        print("\nBad amount of input arguments\n", Usage, "\n")
+        print(("\nBad amount of input arguments\n", Usage, "\n"))
         sys.exit(1)
 
     try:
@@ -1001,7 +1001,7 @@ def main():
                 files = descriptors_and_keys(tags_dir, True)._files  
                 features = descriptors_and_keys(tags_dir, True)._features
                 fscaled = feature_scaling(features)
-                print (len(fscaled))
+                print((len(fscaled)))
                 del features                 
                 labels = KMeans_clusters(fscaled)
                 layers = svm_layers()
