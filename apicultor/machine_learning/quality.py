@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 # -*- coding: UTF-8 -*-
 
+import librosa
 from ..constraints.dynamic_range import dyn_constraint_satis
 from ..utils.algorithms import *
 from ..sonification.Sonification import normalize, write_file
@@ -27,13 +28,118 @@ to_coef = lambda at, sr: np.exp((np.log(9)*-1) / (sr * at)) #convert attack and 
 
 #hiss removal (a noise reduction algorithm working on signal samples to reduce its hissings)
 
+def width_interpolation(w_idx):
+    w_interp = []
+    for i in range(1):
+        w_interp.append((w_idx[i]*( 1-((np.sin(2*np.pi*1/3)+1)/2.0) ) ) + ( w_idx[i-1]*((np.sin(2*np.pi*1/3)+1)/2.0)))
+    return w_interp
+    
+w = np.load('width.npy')
+
+w_inter = width_interpolation(w)    
+
+def lstm_synth_predict(audio):
+    stft = librosa.stft(audio,hop_length=1024,win_length=2048).T
+    output = librosa.istft((stft*w_inter).T,hop_length=1024)
+    return librosa.util.normalize(output)
+
+def greatestCommonDivisor(x, y,epsilon): 
+  if (x<y):  
+      return greatestCommonDivisor(y,x,epsilon); 
+  if (x==0): 
+      return 0; 
+  error = 2147483647 
+  ratio = 2147483647 
+  bpmDistance(x,y,error,ratio); 
+  if (abs(error)<epsilon): 
+      return y; 
+  a = int(x+0.5); 
+  b = int(y+0.5); 
+  while (abs(error) > epsilon): 
+    bpmDistance(a,b,error,ratio); 
+    remainder = a%b; 
+    a=b; 
+    b=remainder; 
+  return a; 
+
+def bpmDistance(x,y, error, ratio): 
+  ratio = x/y; 
+  error = -1; 
+  if (ratio < 1): 
+    ratio = round(1./ratio); 
+    error=(x*ratio-y)/min(y,Real(x*ratio))*100; 
+  else: 
+    ratio = round(ratio); 
+    error = (x-y*ratio)/min(x,Real(y*ratio))*100; 
+  return error, ratio 
+
+def areEqual(a, b, tolerance): 
+  error=0; 
+  ratio=0; 
+  bpmDistance(a,b,error,ratio); 
+  return (abs(error)<tolerance) and (int(ratio)==1);
+
+def HarmonicBpm():
+  harmonicBpms = np.zeros(bpms.size);
+  harmonicRatios = np.zeros(bpms.size);
+  for i in range(bpms.size):
+    ratio = _bpm/bpms[i];
+    if (ratio < 1): ratio = 1.0/ratio;
+    gcd = greatestCommonDivisor(_bpm, bpms[i], _tolerance);
+    if (gcd > _threshold):
+      harmonicBpms[i] = bpms[i]
+      if (gcd < mingcd): mingcd = gcd;
+    
+  harmonicBpms = np.sort(harmonicBpms)
+  i=0;
+  prevBestBpm = -1;
+  while i<harmonicBpms.size:
+    prevBpm = harmonicBpms[i];
+    while i < harmonicBpms.size:
+      areEqual(prevBpm,harmonicBpms[i], _tolerance) 
+      error=0
+      r=0;
+      bpmDistance(_bpm, harmonicBpms[i], error, r);
+      error = abs(error);
+      if (error < minError):
+        bestBpm = harmonicBpms[i];
+        minError = error;
+    i += 1 
+    if not areEqual(prevBestBpm, bestBpm, _tolerance): bestHarmonicBpms[bestBpm]
+    else:
+      e1=0, 
+      e2=0, 
+      r1=0, 
+      r2=0;
+      bpmDistance(_bpm, bestHarmonicBpms[bestHarmonicBpms.size-1], e1, r1);
+      bpmDistance(_bpm, bestBpm, e2, r2);
+      e1 = abs(e1);
+      e2 = abs(e2);
+      if (e1 > e2):
+        bestHarmonicBpms[bestHarmonicBpms.size()-1] = bestBpm;
+    prevBestBpm = bestBpm;
+  return bestHarmonicBpms
+
+def constantQ_transform(audio):
+    pin = 0                
+    output = np.zeros(audio.size)
+    pend = audio.size
+    while pin < pend:
+        selection = pin+2048
+        song.frame = audio[pin:selection] 
+        constantQ = constantq.cqt(song.frame,sr=song.fs,hop_length=1024,n_bins=113)
+        output[pin:selection] = constantq.icqt(constantQ,sr=song.fs,hop_length=1024)
+        pin += 1024
+    return output
+
+
 def hiss_removal(audio):
     pend = len(audio)-(4410+1102)
     song = sonify(audio, 44100) 
     song.FrameGenerator().__next__()
     song.window() 
     song.Spectrum()
-    noise_fft = song.fft(song.windowed_x)[:song.H+1]
+    noise_fft = song.fft(song.windowed_x,fft=False)[:song.H+1]
     noise_power = np.log10(np.abs(noise_fft + 2 ** -16))
     noise_floor = np.exp(2.0 * noise_power.mean())                                    
     mn = song.magnitude_spectrum
@@ -155,25 +261,27 @@ def main():
                 print(( "Rewriting without hissing in %s"%f ))          
                 audio = read(DATA_PATH+'/'+f)[0] 
                 audio = mono_stereo(audio)              
-                hissless = hiss_removal(audio) #remove hiss             
-                print(( "Rewriting without crosstalk in %s"%f ))        
-                hrtf = read(sys.argv[2])[0] #load the hrtf wav file                                          
-                b = firwin(2, [0.05, 0.95], width=0.05, pass_zero=False)            
-                convolved = fftconvolve(hrtf, b[np.newaxis, :], mode='valid') 
-                left = convolved[:int(convolved.shape[0]/2), :] 
-                right = convolved[int(convolved.shape[0]/2):, :]    
-                h_sig_L = lfilter(left.flatten(), 1., audio)             
-                h_sig_R = lfilter(right.flatten(), 1., audio)            
-                del hissless  
-                result = np.float32([h_sig_L, h_sig_R]).T               
-                neg_angle = result[:,(1,0)]         
-                panned = result + neg_angle
-                normalized = normalize(panned)  
-                del normalized                                          
-                audio = mono_stereo(audio)          
+                #hissless = hiss_removal(audio) #remove hiss             
+                #print(( "Rewriting without crosstalk in %s"%f ))        
+                #hrtf = read(sys.argv[2])[0] #load the hrtf wav file                                          
+                #b = firwin(2, [0.05, 0.95], width=0.05, pass_zero=False)  
+
+                #convolved = fftconvolve(hrtf, b, mode='valid') 
+                #convolved = np.vstack((convolved,convolved))
+                #left = convolved[:int(convolved.shape[0]/2), :] 
+                #right = convolved[int(convolved.shape[0]/2):, :]   
+                #h_sig_L = lfilter(left.flatten(), 1., audio)             
+                #h_sig_R = lfilter(right.flatten(), 1., audio)            
+                #del hissless  
+                #result = np.float32([h_sig_L, h_sig_R]).T               
+                #neg_angle = result[:,(1,0)]         
+                #panned = result + neg_angle
+                #normalized = normalize(panned)  
+                #del normalized                                          
+                #audio = mono_stereo(audio)          
                 print(( "Rewriting without aliasing in %s"%f ))         
                 song = sonify(audio, 44100)                     
-                audio = song.IIR(audio, 44100/2, 'lowpass') #anti-aliasing filtering: erase frequencies higher than the sample rate being used
+                audio = song.IIR(audio, 20000, 'lowpass') #anti-aliasing filtering: erase frequencies higher than the sample rate being used
                 print(( "Rewriting without DC in %s"%f ))                                  
                 audio = song.IIR(audio, 40, 'highpass') #remove direct current on audio signal                       
                 print(( "Rewriting with Equal Loudness contour in %s"%f ))                                
