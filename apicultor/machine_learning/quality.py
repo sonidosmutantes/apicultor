@@ -28,9 +28,9 @@ to_coef = lambda at, sr: np.exp((np.log(9)*-1) / (sr * at)) #convert attack and 
 
 #hiss removal (a noise reduction algorithm working on signal samples to reduce its hissings)
 
-def width_interpolation(w_idx):
+def width_interpolation(w_idx,size):
     w_interp = []
-    for i in range(1):
+    for i in range(size):
         w_interp.append((w_idx[i]*( 1-((np.sin(2*np.pi*1/3)+1)/2.0) ) ) + ( w_idx[i-1]*((np.sin(2*np.pi*1/3)+1)/2.0)))
     return w_interp
     
@@ -41,7 +41,7 @@ w_inter = width_interpolation(w)
 def lstm_synth_predict(audio):
     stft = librosa.stft(audio,hop_length=1024,win_length=2048).T
     output = librosa.istft((stft*w_inter).T,hop_length=1024)
-    return librosa.util.normalize(output)
+    return output
 
 def greatestCommonDivisor(x, y,epsilon): 
   if (x<y):  
@@ -263,44 +263,44 @@ def main():
                 audio = mono_stereo(audio)              
                 #hissless = hiss_removal(audio) #remove hiss             
                 #print(( "Rewriting without crosstalk in %s"%f ))        
-                #hrtf = read(sys.argv[2])[0] #load the hrtf wav file                                          
-                #b = firwin(2, [0.05, 0.95], width=0.05, pass_zero=False)  
+                hrtf = read(sys.argv[2])[0] #load the hrtf wav file                                          
+                b = firwin(2, [0.05, 0.95], width=0.05, pass_zero=False)  
 
-                #convolved = fftconvolve(hrtf, b, mode='valid') 
-                #convolved = np.vstack((convolved,convolved))
-                #left = convolved[:int(convolved.shape[0]/2), :] 
-                #right = convolved[int(convolved.shape[0]/2):, :]   
-                #h_sig_L = lfilter(left.flatten(), 1., audio)             
-                #h_sig_R = lfilter(right.flatten(), 1., audio)            
-                #del hissless  
-                #result = np.float32([h_sig_L, h_sig_R]).T               
-                #neg_angle = result[:,(1,0)]         
-                #panned = result + neg_angle
-                #normalized = normalize(panned)  
-                #del normalized                                          
-                #audio = mono_stereo(audio)          
-                print(( "Rewriting without aliasing in %s"%f ))         
+                convolved = fftconvolve(hrtf, b, mode='valid') 
+                convolved = np.vstack((convolved,convolved))
+                left = convolved[:int(convolved.shape[0]/2), :] 
+                right = convolved[int(convolved.shape[0]/2):, :]   
+                h_sig_L = lfilter(left.flatten(), 1., audio)             
+                h_sig_R = lfilter(right.flatten(), 1., audio)            
+                del hissless  
+                result = np.float32([h_sig_L, h_sig_R]).T               
+                neg_angle = result[:,(1,0)]         
+                panned = result + neg_angle
+                normalized = normalize(panned)  
+                del normalized                                          
+                audio = mono_stereo(audio)          
+                #print(( "Rewriting without aliasing in %s"%f ))         
                 song = sonify(audio, 44100)                     
                 audio = song.IIR(audio, 20000, 'lowpass') #anti-aliasing filtering: erase frequencies higher than the sample rate being used
-                print(( "Rewriting without DC in %s"%f ))                                  
+                #print(( "Rewriting without DC in %s"%f ))                                  
                 audio = song.IIR(audio, 40, 'highpass') #remove direct current on audio signal                       
-                print(( "Rewriting with Equal Loudness contour in %s"%f ))                                
+                #print(( "Rewriting with Equal Loudness contour in %s"%f ))                                
                 audio = song.EqualLoudness(audio) #Equal-Loudness Contour  
-                print(( "Rewriting with RIAA filter applied in %s"%f )) 
-                riaa_filtered = biquad_filter(audio, abz)  #riaa filter 
-                del audio
-                normalized_riaa = normalize(riaa_filtered)                   
-                del riaa_filtered                           
-                print(( "Rewriting with Hum removal applied in %s"%f ))
+                #print(( "Rewriting with RIAA filter applied in %s"%f )) 
+                #riaa_filtered = biquad_filter(audio, abz)  #riaa filter 
+                #del audio
+                normalized_riaa = normalize(audio)                   
+                del audio                          
+                #print(( "Rewriting with Hum removal applied in %s"%f ))
                 song.signal = np.float32(normalized_riaa)                
                 without_hum = song.BandReject(np.float32(normalized_riaa), 50, 16) #remove undesired 50 hz hum     
                 del normalized_riaa                                     
-                print(( "Rewriting with subsonic rumble removal applied in %s"%f ))                          
+                #print(( "Rewriting with subsonic rumble removal applied in %s"%f ))                          
                 song.signal = without_hum                               
                 without_rumble = song.IIR(song.signal, 20, 'highpass') #remove subsonic rumble                  
                 del without_hum                                         
                 db_mag = 20 * np.log10(abs(without_rumble)) #calculate silence if present in audio signal                         
-                print(( "Rewriting without silence in %s"%f ))
+                #print(( "Rewriting without silence in %s"%f ))
                 silence_threshold = -130 #complete silence              
                 loud_audio = np.delete(without_rumble, np.where(db_mag < silence_threshold))#remove it
                 write_file(subdir+'/'+os.path.splitext(f)[0], 44100, loud_audio)                                                              
@@ -312,3 +312,4 @@ def main():
 
 if __name__ == '__main__': 
     main()
+
