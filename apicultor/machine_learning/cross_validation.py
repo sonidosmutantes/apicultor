@@ -80,11 +80,10 @@ def GridSearch(model, features, targets, Cs, reg_params, kernel_configs):
                 print(str().join(("Training time is: ", str(training_time))))      
                 clf_predictions_train = model.predictions(features_train, targets_train)                    
                 train_scores['scorings'][i].append(score(targets_train, clf_predictions_train)) 
-                instances = list(combinations(list(range(np.unique(targets_train)), 2))    
-                for inst in instances: 
+                for inst in model.instances: 
                     y_pred = np.hstack((clf_predictions_train[targets_train==inst[0]],clf_predictions_train[targets_train==inst[1]])) 
-                    y = np.hstack((labels[targets_train==inst[0]],predicted[targets_train==inst[1]])) 
-                    protection_val_rule_train = p_rule(y_pred,y,inst[0],inst[1])) 
+                    y = np.hstack((targets_train[targets_train==inst[0]],clf_predictions_train[targets_train==inst[1]])) 
+                    protection_val_rule_train = p_rule(y_pred,y,inst[0],inst[1]) 
                     if type(protection_val_rule_train) == float and protection_val_rule_train >= .8: 
                         pass             
                     else: 
@@ -93,10 +92,9 @@ def GridSearch(model, features, targets, Cs, reg_params, kernel_configs):
                 print(str().join(("Train Scoring Error is: ", str(train_scores['scorings'][i][j]))))
                 clf_predictions_test = model.predictions(features_test, targets_test)                      
                 test_scores['scorings'][i].append(score(targets_test, clf_predictions_test))       
-                instances = list(combinations(list(range(np.unique(targets_test)), 2))    
-                for inst in instances: 
+                for inst in model.instances: 
                     y_pred = np.hstack((clf_predictions_test[targets_test==inst[0]],clf_predictions_test[targets_test==inst[1]])) 
-                    y = np.hstack((labels[targets_test==inst[0]],predicted[targets_test==inst[1]])) 
+                    y = np.hstack((targets_test[targets_test==inst[0]],clf_predictions_test[targets_test==inst[1]])) 
                     protection_val_rule_test = p_rule(y_pred,y,inst[0],inst[1])                                                             
                     if type(protection_val_rule_test) == float and protection_val_rule_test >= .8: 
                         pass             
@@ -109,21 +107,22 @@ def GridSearch(model, features, targets, Cs, reg_params, kernel_configs):
                 clf_time = np.abs(clf_time - time.time())                      
                 timing['classifier times'][i].append(clf_time)            
                 print(str().join(("Classification time is: ", str(clf_time))))     
-                clf_predictions = model.predictions(features, targets)          
-                instances = list(combinations(list(range(np.unique(targets)), 2))    
-                for inst in instances: 
+                clf_predictions = model.predictions(features, targets)            
+                for inst in model.instances: 
                     y_pred = np.hstack((clf_predictions[targets==inst[0]],clf_predictions[targets==inst[1]])) 
-                    y = np.hstack((labels[targets==inst[0]],predicted[targets==inst[1]])) 
-                    protection_val_rule = p_rule(y_pred,y,inst[0],inst[1])    
+                    y = np.hstack((targets[targets==inst[0]],clf_predictions[targets==inst[1]])) 
+                    protection_val_rule = p_rule(y_pred,y,inst[0],inst[1]) 
+                    print("Non protected group is ",inst[1]," and protected group is ",inst[0])                         
                     if type(protection_val_rule) == float and protection_val_rule >= .8: 
                         pass             
                     else: 
-                        print(ValueError("Discrimination and false information at classification"))          
+                        print(ValueError("Discrimination and false information at classification"))
+                        print("Current error is :",protection_val_rule)       
                         continue            
                 scores['scorings'][i].append(score(targets, clf_predictions))                                                                    
                 print(str().join(("Scoring error is: ", str(scores['scorings'][i][j]))))    
             except Exception as e:                                       
-                print("Something happened! Continuing...")
+                print("Something happened! Continuing...",e)
                 if len(train_scores['scorings'][i])-1 == j: train_scores['scorings'][i].pop(j)
                 if len(train_scores['scorings'][i])-1 != j: train_scores['scorings'][i].append(2)
                 if len(test_scores['scorings'][i])-1 == j: test_scores['scorings'][i].pop(j)
