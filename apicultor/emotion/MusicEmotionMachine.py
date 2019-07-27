@@ -122,9 +122,10 @@ def KMeans_clusters(fscaled):
     KMeans clustering for features                                                           
     :param fscaled: scaled features                                                                                         
     :returns:                                                                                                         
-      - labels: classes         
+      - labels: features cathegorized based on music emotion: anger,fear,relaxed,tender,happy (confusion should strongly relate
+      relaxation and tenderness)     
     """
-    labels = (KMeans(init = pca(n_components = 4).fit(fscaled).components_, n_clusters=4, n_init=1, precompute_distances = True, random_state = 0, n_jobs = -1).fit(fscaled).labels_)
+    labels = (KMeans(init = pca(n_components = 5).fit(fscaled).components_, n_clusters=5, n_init=1, precompute_distances = True, random_state = 0, n_jobs = -1).fit(fscaled).labels_)
     return labels
 
 class deep_support_vector_machines(object):
@@ -255,7 +256,12 @@ class deep_support_vector_machines(object):
         self.svs = defaultdict(list)
         self.ns = defaultdict(list)
         self.nvs = defaultdict(list)
-        self.dual_coefficients = [[] for i in range(self.n_class - 1)]
+        self.dual_coefficients = [[] for i in range(self.classifications)]
+
+        def update_A_dict(index):
+            if not True in [dc in self.ns[i][j] for i in range(len(self.ns)) for j in range(len(self.ns[i]))]: 
+                self.ns[c][index].append(dc) 
+                self.dual_coefficients[c][index].append(a[dc]) 
 
         for c in range(self.classifications):   
 
@@ -294,7 +300,7 @@ class deep_support_vector_machines(object):
 
             iterations = 0                                            
             diff = 1. + reg_param 
-            for i in range(20):
+            for i in range(10):
                 a0 = a.copy()
                 for j in range(min(p1.size, p2.size)): 
                     g1 = g(lab[p1[j]], a, self.Q[p1[j]])
@@ -314,12 +320,12 @@ class deep_support_vector_machines(object):
                 iterations += 1
                 if (diff < reg_param):
                     break
+                    
+            self.A = a.copy()
 
             #alphas are automatically signed and those with no incidence in the hyperplane are 0 complex or -0 complex, so alphas != 0 are taken 
-            a = SGD(a, lab, self.Q * lab, self.learning_rate)
-            a = ha(a, class_weight[self.classesm[c]], self.C) #keep up with the penalty boundary
-            a = ha(a * -1, class_weight[self.classesm[c]], self.C)
-            a *= -1
+            a = attention_sgd(self.trained_features[c],self.classesm[c],self.A)
+            #a *= -1
                               
             self.ns[c].append([])
             self.ns[c].append([])
@@ -340,22 +346,37 @@ class deep_support_vector_machines(object):
             ns[j].append(self.ns[i][0])
             ns[m].append(self.ns[i][1])
 
-        self.ns = [np.unique(np.concatenate(ns[i])) for i in range(len(ns))]
+        self.ns = [[]for i in range(len(ns))] 
+        for i in range(len(ns)): 
+             for j in range(len(ns[i])): 
+                 for m in ns[i][j]: 
+                     if not True in [m in self.ns[i] for i in range(len(ns))]: 
+                         self.ns[i].append(m) 
+
+        unqs0 = [] 
+        for i, (j,m) in enumerate(self.instances):     
+            if j == 0:        
+                 unqs0.append(np.where(np.isin(self.indices_features[i], self.ns[j]))) 
+        cs = Counter(list(np.hstack(unqs0)[0])) 
+        self.ns[0] = list(np.where(np.array(list(cs.values())) == 3)[0])
 
         self.dual_coefficients = [[] for i in range(self.n_class)]
-        for i, (j,m) in enumerate(self.instances):           
-            self.dual_coefficients[j].append(self.a[i][np.where(np.isin(self.indices_features[i], self.ns[j]))])
-            self.dual_coefficients[m].append(self.a[i][np.where(np.isin(self.indices_features[i], self.ns[m]))])
+        for i, (j,m) in enumerate(self.instances):    
+            if j == 0:       
+                self.dual_coefficients[j].append(np.array(self.a[i])[self.ns[j]])
+            else:
+                self.dual_coefficients[j].append(np.array(self.a[i])[np.where(np.isin(self.indices_features[i], self.ns[j]))])
+            self.dual_coefficients[m].append(np.array(self.a[i])[np.where(np.isin(self.indices_features[i], self.ns[m]))])
 
-        self.dual_coefficients = np.hstack([np.vstack(self.dual_coefficients[i]) for i in range(len(self.dual_coefficients))])
+        self.dual_coefficients = np.hstack([np.vstack(np.array(self.dual_coefficients)[i]) for i in range(self.n_class-1)])
 
-        self.nvs = [len(i) for i in self.ns]
+        self.nvs = [len(i) for i in self.ns][:self.n_class]
         
-        self.ns = np.concatenate(self.ns).astype(np.uint8)
+        self.ns = np.hstack(self.ns).astype(np.uint8)
 
         self.svs = features[self.ns] #update support vectors
 
-        self.sv_locs = np.cumsum(np.hstack([[0], self.nvs]))
+        self.sv_locs = np.hstack(([0],np.cumsum(self.nvs)-1))
 
         self.w = [] #update weights given common support vectors, the other values helped making sure it wasn't restarting
 
@@ -372,26 +393,20 @@ class deep_support_vector_machines(object):
                 # dual coef for class2 SVs:
                 alpha2 = self.dual_coefficients[class1, self.sv_locs[class2]:self.sv_locs[class2 + 1]]
                 # build weight for class1 vs class2
-                dccp_cons = dccp_constraint(sv1.T,ssd(alpha1, sv1))
                 fair_ij = ind_fairness(sv1,ssd(alpha1, sv1),ys1)
                 fair_group = fair_ij ** 2
-                
-                if not type(dccp_cons) == float:                   
-                    dccp_cons = dccp_constraint(sv2.T,ssd(alpha2, sv2)) 
-                    if not type(dccp_cons) == float: 
-                        self.w.append(ssd(alpha1, sv1)+ ssd(alpha2, sv2)) 
-                        print("Group fairness for class 1: "+str(fair_group)) 
-                        fair_ij = ind_fairness(sv2,ssd(alpha2, sv2),ys2)
-                        fair_group = fair_ij ** 2
-                        print("Group fairness for class 2: "+str(fair_group)) 
-                        old_loss = np.mean((ys1-(ssd(alpha1, sv1)*sv1).T)**2) 
-                        unprot1 = unprotection_score(old_loss,(ssd(alpha1, sv1)*sv1).T,ys1)
-                        old_loss = np.mean((ys2-(ssd(alpha2, sv2)*sv2).T)**2) 
-                        unprot2 = unprotection_score(old_loss,(ssd(alpha2, sv2)*sv2).T,ys2)
-                    else: 
-                        raise ValueError("Insensitive slope from its support features against its features")                   
-                else:                  
-                    raise ValueError("Insensitive slope from its support features against its features")
+                self.w.append(ssd(alpha1, sv1)+ ssd(alpha2, sv2)) 
+                print("Group fairness for class 1: "+str(fair_group)) 
+                try: 
+                            fair_ij = ind_fairness(sv2,ssd(alpha2, sv2),ys2) 
+                            fair_group = fair_ij ** 2 
+                            print("Group fairness for class 2: "+str(fair_group))  
+                            old_loss = np.mean((ys1-(ssd(alpha1, sv1)*sv1).T)**2)  
+                            unprot1 = unprotection_score(old_loss,(ssd(alpha1, sv1)*sv1).T,ys1) 
+                            old_loss = np.mean((ys2-(ssd(alpha2, sv2)*sv2).T)**2)  
+                            unprot2 = unprotection_score(old_loss,(ssd(alpha2, sv2)*sv2).T,ys2) 
+                except Exception as e: 
+                            raise ValueError("Can't compute individual fairness with empty support values")
 
         if self.kernel1 == "poly":
             kernel1 = self.polynomial_kernel
@@ -479,7 +494,7 @@ class deep_support_vector_machines(object):
         #scale
         return votes + sum_of_confidences * scale
 
-    def predictions(self, features, targts): 
+    def predictions(self, features): 
         """
         Prediction output                                               
         :param features: your features dataset                          
@@ -501,7 +516,7 @@ class svm_layers(deep_support_vector_machines):
     """ 
     def __init__(self):
         super(deep_support_vector_machines, self).__init__()
-    def layer_computation(self, features, labels, kernel_configs):
+    def layer_computation(self, features, labels, features_test, labels_test, kernel_configs):
         """
         Computes vector outputs and labels                              
         :param features: scaled features                                
@@ -513,29 +528,32 @@ class svm_layers(deep_support_vector_machines):
         self.fxs = []
         self.targets_outputs = []
         self.scores = []
+        features_test = np.float64(features_test)
         sample_weight = float(len(features)) / (len(np.array(list(set(labels)))) * np.bincount(labels))
         Cs = [1./0.001, 1./0.01, 1./0.04, 1./0.06, 1./0.08, 1./0.1, 1./0.12, 1./0.2, 1./0.3, 1./0.4, 1./0.5, 1./0.6, 1./0.8, 1./2]
         reg_params = [0.001, 0.01, 0.04, 0.06, 0.08, 0.1, 0.12, 0.2, 0.3, 0.4, 0.5, 0.6, 0.8, 2]
         self.kernel_configs = kernel_configs
         for i in range(len(self.kernel_configs)):
-            print ("Calculating values for prediction")
-            best_estimator = GridSearch(self, features, labels, Cs, reg_params, [self.kernel_configs[i]])
+            print ("******LAYER ",i,"******")
+            best_estimator = GridSearch(self, features, labels, features_test, labels_test, Cs, reg_params, [self.kernel_configs[i]])
             print((("Best estimators are: ") + str(best_estimator['C'][0]) + " for C and " + str(best_estimator['reg_param'][0]) + " for regularization parameter"))
-            self.fit_model(features, labels, self.kernel_configs[i][0], self.kernel_configs[i][1], best_estimator['C'][0][0], best_estimator['reg_param'][0][0], 1./features.shape[1], 0.8)
+            try:
+                self.fit_model(features, labels, self.kernel_configs[i][0], self.kernel_configs[i][1], best_estimator['C'][0][0], 
+                best_estimator['reg_param'][0][0], 1./features.shape[1], .002)
+            except Exception as e:
+                print("BAD PARAMETERS, TRYING ANOTHER CONFIGURATION")
+                continue
             print ("Predicting")
-            pred_c = self.predictions(features, labels)
+            pred_c = self.predictions(np.float64(features_test))
             print((("Predicted"), pred_c))
-            err = score(labels, pred_c)
+            err = score(labels_test[:pred_c.size], pred_c)
             self.scores.append(err)
-            for inst in self.instances: 
-                y_pred = np.hstack((pred_c[labels==inst[0]],pred_c[labels==inst[1]])) 
-                y = np.hstack((labels[labels==inst[0]],labels[labels==inst[1]])) 
-                protection_val = p_rule(y_pred,y,inst[0],inst[1])    
-                if type(protection_val) == float and protection_val >= .8: 
-                    print("Current P Rule is: ",protection_val)            
-                else: 
-                    print(ValueError("Discrimination and false information at classification"))
-                    continue                  
+            fairness = p_rule(pred_c,labels[:pred_c.size], self.w,features,self.proba)    
+            if fairness is False: 
+                print("Biased results from the covariance threshold")  
+                continue
+            else: 
+                print("Fairness is: ",fairness)                     
             if err < 0.5:
                 self.fxs.append(self.decision)            
                 self.targets_outputs.append(pred_c)
@@ -991,12 +1009,11 @@ def main():
 
         if sys.argv[3] in ('True'):
             if not 't' in sys.argv[5]:                 
-                features = np.array(pd.read_csv(sys.argv[5]))
-                files = list(range(len(features)))           
-                lut = np.sort(np.unique(features[:,-3]))  
-                ind = np.searchsorted(lut,features[:,-3])  
-                features[:,-3] = ind  
-                features = features.T[:-1].T 
+                features = np.array(pd.read_csv('snd-segmented-dataset-from-plain-json.csv')) 
+                files = list(range(len(features)))            
+                features = np.hstack((features.T[1:6].T,features.T[9:11].T))
+                fscaled = features 
+                fscaled_test = fscaled[7500:]
             else:     
                 tags_dir = tags_dirs(files_dir)                
                 files = descriptors_and_keys(tags_dir, True)._files  
@@ -1004,17 +1021,34 @@ def main():
             if not 'r' in sys.argv[4]:     
                 fscaled = feature_scaling(features)
                 print((len(fscaled)))
-                del features                 
+                #del features       
                 labels = KMeans_clusters(fscaled)
+                labels_test = KMeans_clusters(fscaled_test)
+                zeros = np.where(-24 <= features[:,0]) 
+                ones = np.where(features[:,2] <= 120)                
+                threes = np.where((features[:,0] <= -48) & (-72 <= features[:,0])) 
+                fours = np.where(features[:,2] >= 120)
+                labels[np.array(zeros[0])[zeros[0] < 5000]] = 0
+                labels[np.array(ones[0])[5000 < ones[0]]] = 1            
+                labels[np.array(threes[0])[15000 < threes[0]]] = 2
+                labels[np.array(fours[0])] = 3
+                x = np.vstack((fscaled[np.where(labels==0)][:1000],fscaled[np.where(labels==1)][1000:2000],
+                fscaled[np.where(labels==2)],fscaled[np.where(labels==3)]))[:4011]
+                y = np.hstack((labels[np.where(labels==0)][:1000],labels[np.where(labels==1)][1000:2000],
+                labels[np.where(labels==2)],labels[np.where(labels==3)]))[:4011]
+                x_test = np.vstack((fscaled_test[np.where(labels_test==0)][:1000],fscaled_test[np.where(labels_test==1)][1000:2000],
+                fscaled_test[np.where(labels_test==2)][2000:3000],fscaled_test[np.where(labels_test==3)][3000:4000]))[:4011]
+                y_test = np.hstack((labels_test[np.where(labels_test==0)][:1000],labels_test[np.where(labels_test==1)][1000:2000],
+                labels_test[np.where(labels_test==2)][2000:3000],labels_test[np.where(labels_test==3)]))[:4011]
+
                 layers = svm_layers()
-                permute = [('linear', 'poly'),
-                            ('linear', 'rbf'),                      
+                permute = [('linear', 'rbf'),                      
                             ('linear', 'sigmoid'),                       
                             ('rbf', 'linear'),
                             ('sigmoid', 'linear'),
                             ('sigmoid', 'poly'),
                             ('sigmoid', 'rbf')] 
-                layers.layer_computation(fscaled, labels, permute)
+                layers.layer_computation(x, y, x_test, y_test, permute)
                                        
                 labl = layers.best_labels()
                 layers.attention() 
