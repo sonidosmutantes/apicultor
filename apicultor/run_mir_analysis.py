@@ -38,6 +38,8 @@ descriptors = [
                 'highlevel.danceability'
                 ]
 
+#.2s takes for the human brain to be aware of the signals in an environment
+
 def process_file(inputSoundFile, tag_dir, input_filename):
     descriptors_dir = (tag_dir+'/'+'descriptores')
 
@@ -77,7 +79,7 @@ def process_file(inputSoundFile, tag_dir, input_filename):
         retrieve.window()                                                    
         retrieve.Spectrum()                                                                                                       
         retrieve.Phase(retrieve.fft(retrieve.frame))          
-        onsets.append(retrieve.detect_by_polar) 
+        onsets.append(retrieve.detect_by_polar()) 
         
     retrieve.onsets_by_polar_distance(onsets)
 
@@ -91,6 +93,18 @@ def process_file(inputSoundFile, tag_dir, input_filename):
         retrieve_n_bands = 31 #we can't use 40 bands when fs is vinyl type, 31 is the limit  
         
     pcps = [] 
+
+    #bpm
+    namespace = 'rhythm'
+    desc_name = namespace + '.bpm'
+    if (desc_name in descriptors and os.path.exists(json_output) is False) or (pending_descriptions != [] and desc_name in pending_descriptions):
+        try: 
+            retrieve.onsets_strength() 
+            retrieve.bpm() 
+            pool[desc_name].append(retrieve.tempo) 
+            pool['rhythm.bpm_ticks'].append(retrieve.ticks / retrieve.M)
+        except Exception as e: 
+            raise ValueError('No correlation for BPM computation')
 
     for share in retrieve.spectrum_share():
     
@@ -153,15 +167,6 @@ def process_file(inputSoundFile, tag_dir, input_filename):
         else: 
             i += 1
             print ("Processing Frame " + str(i))            
-
-    #bpm
-    namespace = 'rhythm'
-    desc_name = namespace + '.bpm'
-    if (desc_name in descriptors and os.path.exists(json_output) is False) or (pending_descriptions != [] and desc_name in pending_descriptions):
-        retrieve.onsets_strength()
-        retrieve.bpm()
-        pool[desc_name].append(retrieve.tempo)
-        pool['rhythm.bpm_ticks'].append(retrieve.ticks / retrieve.M)
 
     #zero crossing rate
     namespace = 'lowlevel'
