@@ -1,10 +1,10 @@
 #!/usr/bin/env python3
 # -*- coding: UTF-8 -*-
-
 from scipy.signal import *
 import numpy as np
 from librosa import util
-from librosa import magphase, clicks, time_to_frames
+
+from librosa import magphase, clicks, time_to_frames, constantq
 from librosa.onset import onset_detect
 from librosa.beat import __beat_track_dp as dp
 from librosa.beat import __last_beat as last_beat
@@ -12,7 +12,14 @@ from librosa.beat import __trim_beats as trim_beats
 from scipy.fftpack import fft, ifft
 from collections import Counter
 from ..machine_learning.cache import memoize
+from ..gradients.ascent import *
+from ..gradients.descent import *
 import random
+import cmath
+
+p = lambda r, n: (r * np.sqrt(n-2)) / np.sqrt(1-(r**2))
+
+#TODO: Sintesis de transientes: DCT->FFT->IFFT-IDCT
 
 def mono_stereo(input_signal): 
     input_signal = input_signal.astype(np.float32)   
@@ -21,6 +28,15 @@ def mono_stereo(input_signal):
         return input_signal
     else:                  
         return input_signal
+
+def hanning_NSGCQ(_window,M):
+  for i in range(int(M/2)):
+    _window[i] = 0.5 + 0.5 * np.cos(2.0*np.pi*i / M);
+  
+  for i in range(int(M/2+1),int(M)):
+    _window[i] = 0.5 + 0.5 * np.cos(-2.0*np.pi*i / M);
+  
+  return _window
 
 db2amp = lambda value: 0.5*pow(10, value/10) 
 
@@ -33,6 +49,156 @@ a_weight = lambda f: 1.25893 * pow(12200,2) * pow(f, 4) / ((pow(f, 2) + pow(20.6
 bark_critical_bandwidth = lambda bark: 52548.0 / (pow(bark,2) - 52.56 * bark + 690.39) #compute a critical bandwidth with Bark frequencies
 
 rms = lambda signal: np.sqrt(np.mean(np.power(signal,2))) 
+
+def NSGConstantQ(signal):                       
+    fftres = signal.fs / 4096;
+    nf = signal.fs / 2
+    Q = pow(2,(1/48)) - pow(2,(-1/48)); 
+    _gamma = 0         
+    _minFrequency = 65.41
+    b = int(np.floor(48 * np.log2(6000/65))); 
+    _baseFreqs = np.zeros(b + 1);                       
+                      
+    cqtbw = np.zeros(b + 1);                         
+    for j in range(int(b)-1):                         
+        _baseFreqs[j] = (_minFrequency * pow(2,j / 48)) ;
+        cqtbw[j] = Q * _baseFreqs[j] + _gamma;
+    _binsNum = _baseFreqs.size  
+    _baseFreqs = np.append(_baseFreqs,0)     
+    _baseFreqs = np.append(_baseFreqs,22050) 
+
+    for j in reversed(range(_binsNum)):                                                 
+         _baseFreqs = np.append(_baseFreqs,signal.fs -_baseFreqs[j])
+
+    bw = []                 
+    bw.append(2*_minFrequency)
+    bw.insert(0,cqtbw[-1])
+    #bw.append(_baseFreqs[_binsNum+2] - _baseFreqs[_binsNum-1])
+    for j in list(reversed(range(cqtbw.size-1))):
+        bw.append(cqtbw[j])  
+    
+    _baseFreqs /= fftres
+    bw = np.array(bw) / fftres
+
+    posit = np.zeros(_baseFreqs.size);
+
+    for j in range(_binsNum+1): 
+      posit[j] = np.floor(_baseFreqs[j])
+    for j in range(_binsNum+2,_baseFreqs.size): 
+      posit[j] = np.ceil(_baseFreqs[j])
+
+    _shifts = np.zeros(_baseFreqs.size);
+    _shifts[0] = np.fmod( - posit[_baseFreqs.size-1] , 4096)
+
+    for j in range(1,_baseFreqs.size): 
+      _shifts[j] = posit[j] - posit[j-1]
+      
+    bw += 5
+
+    _winsLen = np.zeros(_baseFreqs.size)
+    _winsLen[:bw.size] = np.copy(bw)
+
+    for j in range(_baseFreqs.size):
+        if _winsLen[j] < 128:
+            _winsLen[j] = 128
+
+    _freqWins = [[] for i in range(_baseFreqs.size)]
+    for j in range(_baseFreqs.size):
+        inputWin = np.ones(_winsLen.size) 
+        _freqWins[j] = hanning_NSGCQ(inputWin,int(_winsLen[j]))
+    _freqWins = np.array(_freqWins)
+
+    _windowSizeFactor = 1              
+     
+    _winsLen += -1                      
+    _winsLen /= _windowSizeFactor    
+    _winsLen += 1                    
+                                 
+    for j in range(int(_binsNum)+1):
+      if ( _winsLen[j] > _winsLen[j+1] ):
+          _freqWins[j] = _winsLen[j]
+          _freqWins[j+1:] = _freqWins[j] + _winsLen[j]/2 - _winsLen[j+1]/2
+          _freqWins[j] /= np.sqrt(_winsLen[j])   
+    _binsNum = int(_baseFreqs.size / 2 - 1)
+
+    normalizeWeights = np.ones(_binsNum+2)
+
+    rasterizeIdx = _winsLen.size;
+
+    for j in range(1,int(_binsNum)):
+        rasterizeIdx -= 1;
+        _winsLen[j] = _winsLen[_binsNum];
+        _winsLen[rasterizeIdx] = _winsLen[_binsNum];
+
+    for j in range(_winsLen.size):
+        _winsLen[j] += (_winsLen[j] % 2)
+    
+    normalizeWeights[0] = _winsLen[0] + _binsNum+2
+   
+    normalizeWeights[0] *= normalizeWeights[-1] * 2 / 4096;
+
+    for j in reversed(range(_binsNum)):
+        normalizeWeights = np.append(normalizeWeights,normalizeWeights[j]);
+    
+    _freqWins *= normalizeWeights
+
+    N = _shifts.size;
+
+    fourier = np.fft.fft(signal.signal[:2048],4096)
+  
+    for i in list(reversed(range(int(4096/2-1)))):
+      fourier[i] = np.conj(fourier[i])
+    fill = _shifts[0] - 4096 ;
+
+    posit.resize(N);
+    posit[0] = _shifts[0];
+
+    for j in range(1,N): 
+      posit[j] = posit[j-1] + _shifts[j];
+      
+    fill += sum(_shifts[1:N])
+
+    posit -= _shifts[0];
+
+    #fourier = np.insert(fourier, np.zeros(fill));
+
+    Lg = np.zeros(_freqWins.shape[0])
+    for j in range(_freqWins.shape[0]):
+      Lg[j] = _freqWins[j].size
+
+      if ((posit[j] - Lg[j]/2) <= float(4096 + fill)/2):
+        N = j+1;
+ 
+    constantQ = [[] for i in range(N)]
+    win_range = []
+    for j in range(N):
+      idx = []
+      for i in range(int(np.ceil(Lg[j]/2.0))):
+        if i < Lg[j]:
+          idx.append(i);
+      for i in range(int(np.ceil(Lg[j]/2))):
+        idx.append(i);
+      for i in range(int(-Lg[j]/2), int(np.ceil(Lg[j] / 2))):
+        winComp = (posit[j] + i) % (4096 + fill);
+        if (winComp >= fourier.size):
+          winComp = (4096 + fill) - winComp;
+        win_range.append( abs(winComp));
+      product_idx = []
+      for i in range(int(_winsLen[j] - (Lg[j] )/2),int(_winsLen[j] + int(Lg[j])/2 + .5)):      
+                product_idx.append(np.fmod(i, _winsLen[j]));
+      product = np.complex128(np.zeros(int(_winsLen[j])));
+      for i in range(len(idx)):
+              product[int(product_idx[i])] = fourier[int(win_range[i])] * _freqWins[j][idx[i]];
+      displace = (posit[j] - ((posit[j] / _winsLen[j]) * _winsLen[j])) % len(product);
+      product = np.roll(product,-1)
+      constantQ[j] = np.fft.fft(product,int(_winsLen[j])) 
+      constantQ[j] = list(reversed(constantQ[j]))
+      constantQ[j] = constantQ[j] / len(constantQ[j])
+      
+    constantQ = np.array(constantQ)
+
+    return constantQ,constantQ[0],constantQ[N-1:]
+
 
 def polar_to_cartesian(m, p): 
     real = m * np.cos(p) 
@@ -140,9 +306,9 @@ class MIR:
         -type: the type of window to use"""
         self.signal = (mono_stereo(audio) if len(audio) == 2 else audio)
         self.fs = fs
-        self.N = 2048
-        self.M = 1024
-        self.H = 512
+        self.N = 4096
+        self.M = 2048
+        self.H = 1024
         self.n_bands = 40
         self.type = type
         self.nyquist = lambda hz: hz/(0.5*self.fs)
@@ -164,6 +330,23 @@ class MIR:
                 continue  
             else:           
                 yield self.frame
+
+    def zcr(self):
+          zero_crossing_rate = 0         
+          if self.signal[0] < 1e-16:
+              val = 0;
+          else:
+              val = self.signal[0]          
+          was_positive = val > 0.0 
+          for i in range(self.signal.size):
+            val = self.signal[i];
+            if abs(val) <= 1e-16:
+                val = 0;
+            is_positive = val > 0.0;    
+            if (was_positive != is_positive):
+              zero_crossing_rate += val
+              was_positive = is_positive
+          return zero_crossing_rate / self.signal.size
 
     def Envelope(self):
         _ga = np.exp(- 1.0 / (self.fs * 10))
@@ -212,10 +395,54 @@ class MIR:
             nyquist_hi = self.nyquist(cutoffHz[1])                
             Wn = [nyquist_low, nyquist_hi] 
         else:                
-            Wn = self.nyquist(cutoffHz)                   
-        b,a = iirfilter(1, Wn, btype = type, ftype = 'butter')          
+            Wn = self.nyquist(cutoffHz)            
+        if not type=='lowpass':              
+            b,a = iirfilter(1, Wn, btype = type, ftype = 'butter')  
+        else: 
+            b,a = iirfilter(1, Wn, btype = type)       
         output = lfilter(b,a,array) #use a time-freq compromised filter
         return output 
+
+    def pitch_salience_function(self,thres=1):
+        _numberBins = np.floor(6000.0 / 10);
+        _binsInSemitone = np.floor(100.0 / 10);
+        _binsInOctave = 1200.0 / 10;
+        _referenceTerm = 0.5 - _binsInOctave * np.log2(55);
+        _magnitudeThresholdLinear = 1.0 / pow(10.0, thres/20.0);
+        _nearestBinsWeights = np.zeros(int(_binsInSemitone)+1) 
+
+        for b in range(int(_binsInSemitone)): 
+            _nearestBinsWeights[b] = pow(np.cos((b/_binsInSemitone)* np.pi/2), 2); 
+            
+        _harmonicWeights = np.zeros(20)
+
+        for h in range(20): 
+            _harmonicWeights[h] = pow(.8,h); 
+
+        if (self.magnitudes.size != self.frequencies.size): 
+            raise IndexError("PitchSalienceFunction: frequency and magnitude input vectors must have the same size")
+                
+        if self.frequencies == []:
+            raise IndexError("Empty argument for frequencies")
+                                    
+        numberPeaks = len(self.frequencies)
+        for i in range(numberPeaks):
+            if self.frequencies[i] <= 0:
+                raise ValueError("Frequencies must be positive")
+            if self.magnitudes[i] <= 0:
+                raise ValueError("Magnitudes must be positive");         
+            self.salience_function = np.zeros(_numberBins)
+            minMagnitude = self.magnitudes[np.argmax(self.magnitudes)] * _magnitudeThresholdLinear;
+            for i in range(numberPeaks):
+                if self.magnitudes[i] <= minMagnitude:
+                    continue;
+                magnitudeFactor = pow(self.magnitudes[i], 1);
+                for h in range(20):
+                    h_bin = freq2CentBin(self.frequencies[i] / (h+1));
+                    if h_bin < 0:
+                        break
+                    for b in range(max(0,int(h_bin)-int(_binsInSemitone)),min(int(_numberBins)-1,int(h_bin)+int(_binsInSemitone))):
+                        self.salience_function[b] += magnitudeFactor * _nearestBinsWeights[abs(b-int(h_bin))] * _harmonicWeights[h]
 
     def BandReject(self, array, cutoffHz, q):
         """Apply a 2nd order Infinite Impulse Response filter to the input signal  
@@ -336,12 +563,20 @@ class MIR:
         """Computes phase spectrum from fft. The size is the same as the size of the magnitude spectrum""" 
         self.phase = np.arctan2(fft[:int(fft.size/4)+1].imag, fft[:int(fft.size/4)+1].real)
 
-    def Spectrum(self):
-        """Computes magnitude spectrum of windowed frame""" 
-        self.spectrum = self.fft(self.windowed_x) 
-        self.magnitude_spectrum = np.array([np.sqrt(pow(self.spectrum[i].real, 2) + pow(self.spectrum[i].imag, 2)) for i in range(self.H + 1)]).ravel() / self.H
-        self.audio_signal_spectrum.append(self.magnitude_spectrum)
+    def harmonic_distortion(self, fft):
+        """Computes harmonic distortion for a fourier transform""" 
+        return fft[:self.H+1] ** 2 #sum(fft**2)
 
+    def Spectrum(self, fft=True):
+        """Computes magnitude spectrum of windowed frame""" 
+        if fft == True:                           
+            self.spectrum = self.fft(self.windowed_x)                  
+        else:                                                          
+            self.magnitude_spectrum = constantq.cqt(self.windowed_x,hop_length=self.H, sr=self.fs,n_bins=113) #use constant Q(uality) for magnitude                                                                  
+            self.audio_signal_spectrum.append(self.magnitude_spectrum) 
+            return self                                                
+        self.magnitude_spectrum = np.array([np.sqrt(pow(self.spectrum[i].real, 2) + pow(self.spectrum[i].imag, 2)) for i in range(self.H + 1)]).ravel() / self.H                                                
+        self.audio_signal_spectrum.append(self.magnitude_spectrum)
     def spectrum_share(self):
         """Give back all stored computations of spectrums of different frames. This is a generator""" 
         for spectrum in self.audio_signal_spectrum:        
@@ -353,6 +588,24 @@ class MIR:
         self.onsets_indexes = np.where(self.flux(self.mel_dbs) > 80)[0]
         self.audio_signal_spectrum = np.array(self.audio_signal_spectrum)[self.onsets_indexes]
 
+    def onsets_by_polar_distance(self,onsets):
+        detection_rm = np.convolve(onsets/max(onsets), np.ones(2048), mode='valid')
+        index = 0
+        buffer = np.zeros(len(detection_rm))
+        for i in range(len(detection_rm)):
+            index = i+1 % len(buffer)
+            if index == 0:
+                buffer[:int(index)] = detection_rm[:int(index)] 
+            else:
+                if index == buffer.size:
+                    index -= 1
+            buffer[int(index)] = detection_rm[int(index)]
+            threshold = np.median(buffer) + 0.00001 * np.mean(buffer)
+        detection_rm = detection_rm[:np.array(self.audio_signal_spectrum).shape[0]]
+        self.onsets_indexes = np.where(detection_rm>threshold)[0]
+        self.audio_signal_spectrum = np.array(self.audio_signal_spectrum)[np.where(detection_rm[:len(self.audio_signal_spectrum)]>threshold)]
+        
+        
     def calculate_filter_freq(self):       
         band_freq = np.zeros(self.n_bands+2)
         low_mf = hz_to_m(0)
@@ -416,14 +669,16 @@ class MIR:
 
     def autocorrelation(self):
         self.N = (self.windowed_x[:,0].shape[0]+1) * 2
-        corr = ifft(fft(self.windowed_x, n = self.N))                                   
+        corr = ifft(fft(self.windowed_x, n = self.N))  
+        np.savetxt('corr.txt',corr)
+        print(corr)                                 
         self.correlation = util.normalize(corr, norm = np.inf)
         subslice = [slice(None)] * np.array(self.correlation).ndim
         subslice[0] = slice(self.windowed_x.shape[0])                   
                                      
-        self.correlation = np.array(self.correlation)[subslice]                                          
-        if not np.iscomplexobj(self.correlation):               
-            self.correlation = self.correlation.real
+        #self.correlation = np.array(self.correlation)[subslice]                                          
+        #if not np.iscomplexobj(self.correlation):               
+        #    self.correlation = self.correlation.real
         return self.correlation
 
     def mel_bands_global(self):
@@ -466,12 +721,12 @@ class MIR:
         self.windowed_x = f * ac_window[:, np.newaxis]
         self.autocorrelation()
 
-        tempogram = np.mean(self.correlation, axis = 1, keepdims = True)
+        tempogram = self.correlation
 
         bin_frequencies = np.zeros(int(tempogram.shape[0]), dtype=np.float)
 
         bin_frequencies[0] = np.inf
-        bin_frequencies[1:] = 60.0 * self.fs / (self.H * np.arange(1.0, tempogram.shape[0]))
+        bin_frequencies[1:] = 22 * self.fs / (self.H * np.arange(1.0, tempogram.shape[0]))
 
         prior = np.exp(-0.5 * ((np.log2(bin_frequencies) - np.log2(80)) / bin_frequencies[1:].std())**2)
         max_indexes = np.argmax(bin_frequencies < 208)
@@ -581,9 +836,175 @@ class MIR:
         """Computes Loudness of a frame""" 
         self.loudness = pow(sum(abs(self.frame)**2), 0.67)
 
+    def find_peaks(self,function,peak_thres=0,interpolate=False,max_pts= 100):
+        thresh = np.where(function[1:-1] > peak_thres, function[1:-1], 0)            
+        next_minor = np.where(function[1:-1] > function[2:], function[1:-1], 0)
+        prev_minor = np.where(function[1:-1] > function[:-2], function[1:-1], 0)
+        peaks_locations = thresh * next_minor * prev_minor
+        self.peaks_locations = peaks_locations.nonzero()[0] + 1
+        if interpolate == True:
+            val = function[self.peaks_locations]
+            lval = function[self.peaks_locations -1] 
+            rval = function[self.peaks_locations + 1]    
+            iploc = self.peaks_locations + 0.5 * (lval- rval) / (lval - 2 * val + rval)
+            return (val - 0.25 * (lval - rval) * (iploc - self.peaks_locations))[:max_pts]
+
+        else:
+            function[self.peaks_locations][:max_pts]
+
+    def removePeak(self, peaksBins, peaksValues, i, j):  
+        peakBins = np.delete(peaksBins[i], peaksBins[i][:j])
+        peakValues = np.delete(peaksValues[i], peaksValues[i][:j])
+        return peakBins, peakValues
+
+    def trackPitchContour(self,_nonSalientPeaksBins,_timeContinuityInFrames,peak_thres=0):
+        max_i = 0
+        max_j = 0
+        maxSalience = 0
+        bins = []
+        saliences = []
+        for i in range(_numberFrames):
+            if (self.salience_values[i].size == 0):
+                j = np.argmax(_salientPeaksValues[i])
+            if _salientPeaksValues[i][j] > maxSalience:
+                maxSalience = _salientPeaksValues[i][j]
+            max_i = i
+            max_j = j
+            if maxSalience == 0:
+                return None
+                
+        index = max_i; #contour starts at maximum salience peak
+        bins.append(_salientPeaksBins[index][max_j])  
+        saliences.append(_salientPeaksValues[index][max_j])   
+        _salientPeaksBins, _salientPeaksValues = self.removePeak(_salientPeaksBins, _salientPeaksValues, index, max_j)   
+        for i in range(_numberFrames):
+            best_peak_j = self.findNextPeak(_salientPeaksBins, bins, i)
+            if best_peak_j >= 0:
+                bins.append(_salientPeaksBins[index][best_peak_j])
+                saliences.append(_salientPeaksValues[index][best_peak_j])   
+                _salientPeaksBins, _salientPeaksValues = self.removePeak(_salientPeaksBins, _salientPeaksValues, i, best_peak_j)
+                gap = 0
+            else:
+                if gap+1 > _timeContinuityInFrames:
+                    break
+                best_peak_j = self.findNextPeak(_nonSalientPeaksBins, bins, i)
+                if best_peak_j >= 0:
+                    bins.append(_nonSalientPeaksBins[i][best_peak_j])
+                    saliences.append(_nonSalientPeaksValues[i][best_peak_j])
+                    removeNonSalientPeaks.append([i, best_peak_j])
+                    gap += 1
+                else:
+                    break
+
+        for g in range(gap):
+            bins.pop(-1)
+            saliences.pop(-1)
+            if index == 0:
+                if bins.size < _timeContinuityInFrames:
+                    bins = np.array([])
+                    return bins
+
+        gap = 0
+        for i in range(-1,size_t):
+            best_peak_j = self.findNextPeak(_salientPeaksBins, bins, i)
+            if best_peak_j >= 0:
+                bins.append(_salientPeaksBins[index][best_peak_j])
+                saliences.append(_salientPeaksValues[index][best_peak_j])   
+                _salientPeaksBins, _salientPeaksValues = self.removePeak(_salientPeaksBins, _salientPeaksValues, i, best_peak_j) 
+                i -= 1
+                gap = 0
+            else:
+                if gap+1 > _timeContinuityInFrames:
+                    break
+                best_peak_j = self.findNextPeak(_nonSalientPeaksBins, bins, i)
+                if best_peak_j >= 0:
+                    bins.append(_nonSalientPeaksBins[i][best_peak_j])
+                    saliences.append(_nonSalientPeaksValues[i][best_peak_j])
+                    self.removeNonSalientPeaks.append([i, best_peak_j])
+                    gap += 1
+                else:
+                    break
+            if i >0:
+                i -= 1
+            else:
+                break
+                
+        bins = np.delete(bins,bins[:gap])
+
+        saliences = np.delete(saliences,saliences[:gap])
+                
+        index += gap
+
+        for r in range(-1,self.removeNonSalientPeaks.size):
+            i_p = self.removeNonSalientPeaks[r][0]
+            if i_p < index or i_p > index + len(bins):
+                continue
+            j_p = self.removeNonSalientPeaks[r][1]
+            bins, saliences = self.removePeak(_nonSalientPeaksBins, _nonSalientPeaksValues, i_p, j_p)
+
+    def pitch_contours(self,peak_thres=0):
+        """Computes magnitudes and frequencies of a frame of the input signal by peak interpolation"""
+        _timeContinuityInFrames = (100 / 1000.0) * self.fs / self.H;
+        _minDurationInFrames = (100 / 1000.0) * self.fs / self.H;
+        _pitchContinuityInBins = 100 * 1000.0 * self.H / self.fs / 10;
+        _frameDuration = self.H / self.fs
+        _numberFrames = len(self.salience_bins)
+        _nonSalientPeaksBins=np.zeros(_numberFrames)
+        _nonSalientPeaksValues=np.zeros(_numberFrames)
+        salientInFrame = []
+        self.contour_bins = np.zeros(len(self.salience_bins))
+        self.contour_saliences = np.zeros(len(self.salience_bins))
+        for i in range(_numberFrames):
+            numPeaks = self.salience_bins[i].size
+        for i in range(_numberFrames):
+            if (self.salience_values[i].size == 0):
+                continue
+            frameMinSalienceThreshold = .9 * max(self.salience_values[i]);    
+            for j in range(self.salience_bins[i].size):
+                if (self.salience_values[i][j] < frameMinSalienceThreshold):
+                    _nonSalientPeaksBins[i] = self.salience_bins[i][j] 
+                    _nonSalientPeaksValues[i] = self.salience_values[i][j]     
+                else:
+                    salientInFrame.append([i,j])
+
+        for i in range(len(salientInFrame)):
+            ii = salientInFrame[i][0]
+            jj = salientInFrame[i][1]
+            if (self.salience_values[ii][jj] < overallMeanSalienceThreshold):
+                _nonSalientPeaksBins[ii] = self.salience_bins[ii][jj]
+                _nonSalientPeaksValues[ii] = self.salience_values[ii][jj]
+            else:
+                _SalientPeaksBins[ii] = self.salience_bins[ii][jj]
+                _SalientPeaksValues[ii] = self.salience_values[ii][jj]
+
+        while True:
+            bins, saliences = trackPitchContour(index, self.contour_bins, self.contour_saliences)
+            jj = salientInFrame[i][1]
+            if (self.contour_bins.size > 0):
+                if (self.contour_bins.size >= _minDurationInFrames):
+                    contoursStartTimes.append(i * _frameDuration)
+                    self.contour_bins.append(bins);
+                    self.contour_saliences.append(saliences)
+                else:
+                    break
+                    
+    def pitch_salience_function_peaks(self,peak_thres=0):
+        """Computes magnitudes and frequencies of a frame of the input signal by peak interpolation"""
+        peaks = self.find_peaks(self.salience_function,peak_thres=peak_thres)
+        minBin = max(0.0, np.floor(10 * np.log2(55/55) + 0.5));
+        maxBin = min(max(0.0, np.floor(10 * np.log2(1760/55) + 0.5)));
+        n_bins = np.floor(6000.0 / 10) - 1
+        maxBin = min(n_bins,maxBin)
+        peaks = peaks[peaks>minBin]
+        peaks = peaks[peaks<maxBin]
+        bins = centBin2freq(peaks,55,10)
+        self.salience_values = peaks
+        self.salience_bins = bins
+
     def spectral_peaks(self):
         """Computes magnitudes and frequencies of a frame of the input signal by peak interpolation"""
-        thresh = np.where(self.magnitude_spectrum[1:-1] > 0, self.magnitude_spectrum[1:-1], 0)            
+        self.peak_thres = 0
+        thresh = np.where(self.magnitude_spectrum[1:-1] > self.peak_thres, self.magnitude_spectrum[1:-1], 0)            
         next_minor = np.where(self.magnitude_spectrum[1:-1] > self.magnitude_spectrum[2:], self.magnitude_spectrum[1:-1], 0)
         prev_minor = np.where(self.magnitude_spectrum[1:-1] > self.magnitude_spectrum[:-2], self.magnitude_spectrum[1:-1], 0)
         peaks_locations = thresh * next_minor * prev_minor
@@ -594,7 +1015,7 @@ class MIR:
         iploc = self.peaks_locations + 0.5 * (lval- rval) / (lval - 2 * val + rval)
         self.magnitudes = val - 0.25 * (lval - rval) * (iploc - self.peaks_locations)
         self.frequencies = (self.fs/2) * iploc / self.N 
-        bound = np.where(self.frequencies < 5000) #only get frequencies lower than 5000 Hz
+        bound = np.where(self.frequencies < 22000) #only get frequencies lower than 5000 Hz
         self.magnitudes = self.magnitudes[bound][:100] #we use only 100 magnitudes and frequencies
         self.frequencies = self.frequencies[bound][:100]
         self.frequencies, indexes = np.unique(self.frequencies, return_index = True)
@@ -704,6 +1125,12 @@ class MIR:
         else:
             return num/(den*f0)
 
+    def detect_by_polar(self):
+        targetPhase = np.real(2*self.phase - self.phase)
+        targetPhase = np.mod(targetPhase + np.pi, -2 * np.pi) + np.pi;
+        distance = np.abs(np.array([cmath.polar(self.magnitude_spectrum[i] + (self.phase[i]-targetPhase[i]*1j)) for i in range(len(targetPhase))]))
+        return distance.sum();             
+        
     def dissonance(self):
         """Computes the Dissonance based on sensory and consonant relationships between pairs of frequencies"""
         a_weight_factor = a_weight(self.frequencies) 
@@ -777,7 +1204,7 @@ class MIR:
             for j in range(1,i):
                 lpc[j] = temp[j]
             E *= (1-pow(k,2))
-        return lpc[1:]
+        return lpc[1:],reflection
 
 class sonify(MIR):                                
     def __init__(self, audio, fs):
@@ -823,6 +1250,20 @@ class sonify(MIR):
         self.Filtered = [0] * len(self.filtered)         
         for x in set(stable_points):      
             self.Filtered[x] = self.filtered[x]
+    def create_clicks(self, locations):
+        """Create a clicking signal at specified sample locations"""
+        angular_freq = 2 * np.pi * 1000 / float(self.fs)            
+        click = np.logspace(0, -10, num=int(np.round(self.fs * 0.015)), base=2.0)                                                          
+        click *= np.sin(angular_freq * np.arange(len(click)))                             
+        click_signal = np.zeros(len(self.signal), dtype=np.float32)
+        for start in locations:
+            end = start + click.shape[0]     
+            if end >= len(self.signal):       
+                click_signal[start:] += click[:len(self.signal) - start]                                                                  
+            else:                                                   
+                click_signal[start:end] += click                    
+        return click_signal
+        
     def create_clicks(self, locations):
         """Create a clicking signal at specified sample locations"""
         angular_freq = 2 * np.pi * 1000 / float(self.fs)            
@@ -887,3 +1328,546 @@ class sonify(MIR):
         self.climb_hills()
         self.hfc_locs = np.array([i for i, x in enumerate(self.Filtered) if x > 0]) * self.H
         self.hfc_locs = self.create_clicks(self.hfc_locs)
+
+def danceability(audio, target, fs):        
+    frame_size = int(0.01 * fs)
+    audio = audio[:fs * 3]
+    nframes = audio.size / frame_size
+    S = []
+    for i in range(int(nframes)):
+        fbegin = i * frame_size
+        fend = min((i+1) * frame_size, audio.size)
+        S.append(np.std(audio[fbegin:fend]))
+    for i in range(int(nframes)):
+        S[i] -= np.mean(S) 
+    for i in range(len(S)):      
+        S[i] += S[i-1]           
+    tau = []                     
+    for i in range(310, 3300):   
+        i *= 1.1              
+        tau.append(int(i/10)) 
+    tau = np.unique(tau) 
+    F = np.zeros(len(tau))                                                            
+    nfvalues = 0            
+    for i in range(len(tau)):        
+        jump = max(tau[i]/50, 1)                                                                                       
+        if nframes >= tau[i]:                                                                              
+            k = jump                  
+            while k < int(nframes-tau[i]):
+                fbegin = int(k)                        
+                fend = int(k + tau[i])           
+                w = attention_sgd(np.mat(S[fbegin:fend]),target[fbegin:fend])    
+                reg = S[fbegin:fend] * w
+                F[i] += np.sum((target[fbegin:fend]-reg)**2)
+                k += jump        
+            if nframes == tau[i]:
+                F[i] = 0         
+            else:              
+                F[i] = np.sqrt(F[i] / ((nframes - tau[i])/jump)) 
+            nfvalues += 1
+        else:      
+            break    
+
+    dfa = np.zeros(len(tau))
+    for i in range(nfvalues):
+        if F[i+1] != 0:
+            dfa[i] = np.log10(F[i+1] / F[i]) / np.log10( (tau[i+1]+3.0) / (tau[i]+3.0))
+        else:
+            break
+    motion = dfa[np.nan_to_num(dfa) > 0]
+    motion = motion[motion < 1.5]    
+    return 1/(motion.sum() / len(motion))
+
+def hpcp(song, nbins):
+    def add_contribution(freq, mag, bounded_hpcp):
+        for i in range(len(harmonic_peaks)):
+            f = freq * pow(2., -harmonic_peaks[i][0] / 12.0)
+            hw = harmonic_peaks[i][1]
+            pcpSize = bounded_hpcp.size
+            resolution = pcpSize / nbins
+            pcpBinF = np.log2(f / ref_freq) * pcpSize
+            leftBin = int(np.ceil(pcpBinF - resolution * M / 2.0))
+            rightBin = int((np.floor(pcpBinF + resolution * M / 2.0)))
+            assert(rightBin-leftBin >= 0)
+            for j in range(leftBin, rightBin+1):
+                distance = abs(pcpBinF - j)/resolution
+                normalizedDistance = distance/M
+                w = np.cos(np.pi*normalizedDistance)
+                w *= w
+                iwrapped = j % pcpSize
+                if (iwrapped < 0):
+                    iwrapped += pcpSize
+                bounded_hpcp[iwrapped] += w * pow(mag,2) * hw * hw
+        return bounded_hpcp
+    precision = 0.00001
+    M = 1 #one semitone as a window size M of value 1
+    ref_freq = 440 #Hz
+    nh = 12
+    min_freq = 40
+    max_freq = 5000
+    split_freq = 500
+    hpcp_LO = np.zeros(nbins)
+    hpcp_HIGH = np.zeros(nbins)
+    harmonic_peaks = np.vstack((np.zeros(nbins), np.zeros(nbins))).T
+    size = nbins
+    hpcps = np.zeros(size)
+    for i in range(nh):
+        semitone = 12.0 * np.log2(i+1.0)
+        ow = max(1.0 , ( semitone /12.0)*0.5)
+        while (semitone >= 12.0-precision):
+            semitone -= 12.0
+        for j in range(1, len(harmonic_peaks)-1):
+            if (harmonic_peaks[j][0] > semitone-precision and harmonic_peaks[j][0] < semitone+precision):
+                break
+        if (harmonic_peaks[i][0] == harmonic_peaks[-1][0] and harmonic_peaks[i][1] == harmonic_peaks[-1][1] and i != 0 and i != (nh -1)):
+            harmonic_peaks[i][0] = semitone
+            harmonic_peaks[i][1] = 1/ow
+        else:
+            harmonic_peaks[i][1] += (1.0 / ow)
+    for i in range(song.frequencies.size):
+        if song.frequencies[i] >= min_freq and song.frequencies[i] <= max_freq:
+            if not np.any(song.frequencies < 500):
+                pass
+            else:
+                if song.frequencies[i] < split_freq:
+                    hpcp_LO = add_contribution(song.frequencies[i], song.magnitudes[i], hpcp_LO)
+            if song.frequencies[i] > split_freq:
+                hpcp_HIGH = add_contribution(song.frequencies[i], song.magnitudes[i], hpcp_HIGH)
+    if np.any(song.frequencies < 500):
+        hpcp_LO /= np.sum(hpcp_LO)
+    else:
+        hpcp_LO = np.zeros(nbins)
+    hpcp_HIGH /= np.sum(hpcp_HIGH)
+    for i in range(len(hpcps)):
+        hpcps[i] = hpcp_LO[i] + hpcp_HIGH[i]
+    return hpcps
+
+def addContributionHarmonics(pitchclass, contribution, M_chords):                                                        
+  weight = contribution                                                                                                  
+  for index_harm in range(1,12):                                                                                          
+    index = pitchclass + 12 *np.log2(index_harm)                                                                          
+    before = np.floor(index)                                                                                             
+    after = np.ceil(index)                                                                                               
+    ibefore = np.mod(before,12.0)                                                                                        
+    iafter = np.mod(after,12.0)                                                                                          
+    # weight goes proportionally to ibefore & iafter                                                                     
+    if ibefore < iafter:                                                                                                 
+        distance_before = index-before                                                                                   
+        M_chords[int(ibefore)] += pow(np.cos(0.5*np.pi*distance_before),2)*weight                                        
+        distance_after = after-index                                                                                     
+        M_chords[int(iafter)] += pow(np.cos(0.5*np.pi*distance_after ),2)*weight                                         
+    else:                                                                                                                
+        M_chords[int(ibefore)] += weight                                                                                                                          
+    weight *= .74
+    return M_chords                                                                                                      
+                                                                                                   
+def addMajorTriad(root, contribution, M_chords):                                                          
+  # Root            
+  M_chords = addContributionHarmonics(root, contribution, M_chords)                                                                                                                       
+  # Major 3rd                                                                                                            
+  third = root + 4                                                                                                       
+  if third > 11:                                                                                                         
+    third -= 12                                                                                                          
+  M_chords = addContributionHarmonics(third, contribution, M_chords)
+                                                                                                                           
+  # Perfect 5th                                                                                                          
+  fifth = root + 7                                                                                                       
+  if fifth > 11:                                                                                                         
+    fifth -= 12                                                                                                          
+  M_chords = addContributionHarmonics(fifth, contribution, M_chords)
+  return M_chords                                                                
+
+def addAugTriad(root, contribution, M_chords):                                                          
+  # Root            
+  M_chords = addContributionHarmonics(root, contribution, M_chords)                                                                                                                       
+  # Major 3rd                                                                                                            
+  third = root + 4                                                                                                       
+  if third > 11:                                                                                                         
+    third -= 12                                                                                                          
+  M_chords = addContributionHarmonics(third, contribution, M_chords)
+                                                                                                                           
+  # augmented                                                                                                          
+  fifth = root + 8                                                                                                       
+  if fifth > 11:                                                                                                         
+    fifth -= 12                                                                                                          
+  M_chords = addContributionHarmonics(fifth, contribution, M_chords)  
+  return M_chords      
+ 
+def addMinorSeventhTriad(root, contribution, M_chords):                                                          
+  # Root                                                                                                                 
+  M_chords = addContributionHarmonics(root, contribution, M_chords)                                                                 
+                                                                                                                         
+  # Minor 3rd                                                                                                            
+  third = root+3                                                                                                         
+  if third > 11:                                                                                                         
+    third -= 12                                                                    
+  M_chords = addContributionHarmonics(third, contribution, M_chords)                          
+  # Perfect 5th                                                                    
+  fifth = root+7                                                                   
+  if fifth > 11:                                                                   
+    fifth -= 12                                                                    
+  M_chords = addContributionHarmonics(fifth, contribution, M_chords)  
+  # 7th                                                                    
+  seventh = root+11                                                                   
+  if seventh > 11:                                                                   
+    seventh -= 12                                                                    
+  M_chords = addContributionHarmonics(seventh, contribution, M_chords)   
+  return M_chords      
+ 
+def addSus4Triad(root, contribution, M_chords):                                                          
+  # Root            
+  M_chords = addContributionHarmonics(root, contribution, M_chords)                                                                                                                       
+  # 4th                                                                                                           
+  third = root + 5                                                                                                       
+  if third > 11:                                                                                                         
+    third -= 12                                                                                                          
+  M_chords = addContributionHarmonics(third, contribution, M_chords)
+                                                                                                                           
+  # 3rd note (third from scale is suspended)                                                                                                        
+  fifth = root + 7                                                                                                       
+  if fifth > 11:                                                                                                         
+    fifth -= 12                                                                                                          
+  M_chords = addContributionHarmonics(fifth, contribution, M_chords)  
+  return M_chords      
+
+def addSus2Triad(root, contribution, M_chords):                                                          
+  # Root            
+  M_chords = addContributionHarmonics(root, contribution, M_chords)                                                                                                                       
+  # 4th                                                                                                           
+  second = root + 2                                                                                                       
+  if second > 11:                                                                                                         
+    second -= 12                                                                                                          
+  M_chords = addContributionHarmonics(second, contribution, M_chords)
+                                                                                                                           
+  # 3rd note (third from scale is suspended)                                                                                                        
+  fifth = root + 7                                                                                                       
+  if fifth > 11:                                                                                                         
+    fifth -= 12                                                                                                          
+  M_chords = addContributionHarmonics(fifth, contribution, M_chords)  
+  return M_chords      
+
+def addJazzChords(root, contribution, M_chords):                                                          
+  # Root            
+  M_chords = addContributionHarmonics(root, contribution, M_chords)                                                                                                                       
+
+  # 2nd                                                                                                       
+  second = root + 2                                                                                                       
+  if second > 11:                                                                                                         
+    second -= 12                                                                                                          
+  M_chords = addContributionHarmonics(second, contribution, M_chords) 
+
+  # 4th                                                                                                           
+  third = root + 5                                                                                                       
+  if third > 11:                                                                                                         
+    third -= 12                                                                                                          
+  M_chords = addContributionHarmonics(third, contribution, M_chords)
+                                                                                                                           
+  #5th note (third from scale is suspended)                                                                                                        
+  fifth = root + 7                                                                                                       
+  if fifth > 11:                                                                                                         
+    fifth -= 12                                                                                                          
+  M_chords = addContributionHarmonics(fifth, contribution, M_chords)  
+                                                                                                        
+  ninth = root + 10                                                                                                       
+  if ninth > 11:                                                                                                         
+    ninth -= 12                                                                                                          
+  M_chords = addContributionHarmonics(ninth, contribution, M_chords)   
+  return M_chords      
+  
+def addDimTriad(root, contribution, M_chords):                                                          
+  # Root            
+  M_chords = addContributionHarmonics(root, contribution, M_chords)                                                                                                                       
+  # diminished 3rd                                                                                                            
+  third = root + 3                                                                                                       
+  if third > 11:                                                                                                         
+    third -= 12                                                                                                          
+  M_chords = addContributionHarmonics(third, contribution, M_chords)
+                                                                                                                           
+  # diminished 5th                                                                                                          
+  fifth = root + 6                                                                                                       
+  if fifth > 11:                                                                                                         
+    fifth -= 12                                                                                                          
+  M_chords = addContributionHarmonics(fifth, contribution, M_chords)
+  return M_chords      
+  
+def addThirteenthChord(root, contribution, M_chords):                                                          
+  # Root            
+  M_chords = addContributionHarmonics(root, contribution, M_chords)                                                                                                                       
+
+  extend = root + 2                                                                                                      
+  if extend > 11:                                                                                                         
+    extend -= 12                                                                                                          
+  M_chords = addContributionHarmonics(extend, contribution, M_chords)  
+                                                                                                    
+  extend = root + 4                                                                                                      
+  if extend > 11:                                                                                                         
+    extend -= 12                                                                                                          
+  M_chords = addContributionHarmonics(extend, contribution, M_chords)  
+
+  extend = root + 5                                                                                                       
+  if extend > 11:                                                                                                         
+    extend -= 12                                                                                                          
+  M_chords = addContributionHarmonics(extend, contribution, M_chords) 
+                                                                                                                                                                                                                                   
+  fifth = root + 7                                                                                                       
+  if fifth > 11:                                                                                                         
+    fifth -= 12                                                                                                          
+  M_chords = addContributionHarmonics(fifth, contribution, M_chords) 
+ 
+  extend = root + 9                                                                                                       
+  if extend > 11:                                                                                                         
+    extend -= 12                                                                                                          
+  M_chords = addContributionHarmonics(extend, contribution, M_chords) 
+  
+  extend = root + 11                                                                                                       
+  if extend > 11:                                                                                                         
+    extend -= 12                                                                                                          
+  M_chords = addContributionHarmonics(extend, contribution, M_chords)         
+
+  return M_chords      
+                                                                                                                    
+def addMinorTriad(root, contribution, M_chords):                                                                         
+  # Root                                                                                                                 
+  M_chords = addContributionHarmonics(root, contribution, M_chords)                                                                 
+                                                                                                                         
+  # Minor 3rd                                                                                                            
+  third = root+3                                                                                                         
+  if third > 11:                                                                                                         
+    third -= 12                                                                    
+  M_chords = addContributionHarmonics(third, contribution, M_chords)                          
+  # Perfect 5th                                                                    
+  fifth = root+7                                                                   
+  if fifth > 11:                                                                   
+    fifth -= 12                                                                    
+  M_chords = addContributionHarmonics(fifth, contribution, M_chords) 
+  return M_chords       
+
+def correlation(v1, mean1, std1, v2, mean2, std2, shift):                                                                
+  v1 = (v1 - mean1) / (std1 * len(v1))  
+  v2 = (v2 - mean2) / std2
+  return np.correlate(v1,np.roll(v2,shift))[0]                                                                                          
+
+def Key(pcp):                                                                                                            
+    slope = 0.6                                                                                                          
+    #M,m,aug,sus(Jazz),sus4,sus2
+    tuller_hordiales =  np.array([[0.41195011, 0.3544457 , 0.33578951, 1.33864786, 0.49436168,0.65914687, 0.44601615, 0.5186047, 
+    0.52313098, 0.36738215,1.36087088, 0.32623478],
+    [0.07288526, 0.09463136, 0.0586082 , 0.52009415, 0.12960295,0.07560954, 0.19616892, 0.04831062, 0.20377285, 0.07926838,
+       0.38413152, 0.13691624], 
+    [0.37416135, 0.37555069, 0.23076177, 1.39934873, 0.68608055,0.25800434, 0.46741926, 0.72022854, 0.59505774, 0.44524911,
+       0.16416206, 1.2545391 ],
+    [0.10214688, 0.12714296, 0.04820773, 0.5099767 , 0.13532745,0.11133197, 0.11856532, 0.05864232, 0.26811043, 0.09039591,
+       0.32439796, 0.10575436],
+    [0.07103472, 0.27458088, 0.06249917, 0.37781489, 0.13657496,0.08395169, 0.25884847, 0.04931643, 0.17914072, 0.12303474,
+       0.24107345, 0.14212987],
+    [0.30132904, 0.59428861, 0.3251779 , 1.34322025, 0.51932745,0.20806407, 0.70662596, 0.43410324, 0.52365924, 0.79085678,
+    0.22327312, 0.53492541]])                    
+    M_chords = np.zeros(pcp.size)                                                                                              
+    m_chords = np.zeros(pcp.size) 
+    aug_chords = np.zeros(pcp.size)                                                                                              
+    sus4_chords = np.zeros(pcp.size) 
+    m7_chords = np.zeros(pcp.size) 
+    dim_chords = np.zeros(pcp.size)                                                                                            
+    key_names = ["A", "A#", "B", "C", "C#", "D", "D#", "E", "F", "F#", "G", "G#"] #it is good to remember keys sometimes 
+    _M = tuller_hordiales[0]                                                                                                       
+    _m = tuller_hordiales[1] 
+    _aug = tuller_hordiales[2]
+    _sus4 = tuller_hordiales[3]
+    _m7 = tuller_hordiales[4] 
+    _dim = tuller_hordiales[5]                                                                           
+    prof_dom = _m                                                
+    prof_doM = _M 
+    prof_aug = _aug
+    prof_sus4 = _sus4    
+    prof_m7 = _m7
+    prof_dim = _dim                                              
+    #for i in range(12):                                                            
+    #    prof_doM[int(i*(pcp.size/12))] = tuller_hordiales[0][i]                              
+    #    prof_dom[int(i*(pcp.size/12))] = tuller_hordiales[1][i] 
+    #    prof_aug[int(i*(pcp.size/12))] = tuller_hordiales[2][i] 
+    #    prof_sus4[int(i*(pcp.size/12))] = tuller_hordiales[3][i] 
+    #    prof_m7[int(i*(pcp.size/12))] = tuller_hordiales[4][i]  
+    #    prof_dim[int(i*(pcp.size/12))] = tuller_hordiales[5][i]                                       
+    #    if i == 11:                                                                
+    #        incr_M = (_M[11] - _M[0]) / (pcp.size/12)                    
+    #        incr_m = (_m[11] - _m[0]) / (pcp.size/12)  
+    #        incr_aug = (_aug[11] - _aug[0]) / (pcp.size/12)  
+    #        incr_sus4 = (_sus4[11] - _sus4[0]) / (pcp.size/12)  
+    #        incr_m7 = (_m7[11] - _m7[0]) / (pcp.size/12)  
+    #        incr_dim = (_dim[11] - _dim[0]) / (pcp.size/12)                    
+    #    else:                                                                      
+    #        incr_M = (_M[i] - _M[i+1]) / (pcp.size/12)                   
+    #        incr_m = (_m[i] - _m[i+1]) / (pcp.size/12)
+    #        incr_aug = (_aug[i] - _aug[i+1]) / (pcp.size/12)  
+    #        incr_sus4 = (_sus4[i] - _sus4[i+1]) / (pcp.size/12)
+    #        incr_m7 = (_m7[i] - _m7[i+1]) / (pcp.size/12) 
+    #        incr_dim = (_dim[i] - _dim[i+1]) / (pcp.size/12)                             
+    #    for j in range(int(pcp.size/12)):                                             
+    #        prof_dom[int(i*(pcp.size/12)+j)] = _m[i] - j * incr_m 
+    #        prof_doM[int(i*(pcp.size/12)+j)] = _M[i] - j * incr_M
+    #        prof_aug[int(i*(pcp.size/12)+j)] = _aug[i] - j * incr_aug
+    #        prof_sus4[int(i*(pcp.size/12)+j)] = _sus4[i] - j * incr_sus4  
+    #        prof_m7[int(i*(pcp.size/12)+j)] = _m7[i] - j * incr_m7
+    #        prof_dim[int(i*(pcp.size/12)+j)] = _dim[i] - j * incr_dim                         
+    mean_profM = np.mean(prof_doM)                                                 
+    mean_profm = np.mean(prof_dom)  
+    mean_aug = np.mean(prof_aug) 
+    mean_sus4 = np.mean(prof_sus4)  
+    mean_m7 = np.mean(prof_m7) 
+    mean_dim = np.mean(prof_dim)                                        
+    std_profM = np.std(prof_doM)                                                   
+    std_profm = np.std(prof_dom)  
+    std_aug = np.std(prof_aug)   
+    std_sus4 = np.std(prof_sus4) 
+    std_m7 = np.std(prof_m7) 
+    std_dim = np.std(prof_dim)                                                       
+    mean = np.mean(pcp)  
+    std = np.std(pcp)                       
+    maxM = -1                                 
+    max2M = -1                                            
+    keyiM = 0           
+    maxm = -1                                                       
+    max2min = -1             
+    keyim = 0  
+    maxaug = -1                                                       
+    max2aug = -1             
+    keyiaug = 0 
+    maxsus4 = -1                                                       
+    max2sus4 = -1             
+    keyisus4 = 0
+    maxm7 = -1                                                       
+    max2m7 = -1             
+    keyim7 = 0     
+    maxdim = -1 
+    max2dim = -1 
+    keyidim = 0                                      
+    for shift in range(pcp.size):
+        corrM = correlation(pcp, mean, std, prof_doM, mean_profM, std_profM, shift)
+        pcpfM = pcp[shift] / (attention_sga(np.mat(pcp),prof_doM)*pcp).max() 
+        corrm = correlation(pcp, mean, std, prof_dom, mean_profm, std_profm, shift)
+        pcpfm = pcp[shift] / (attention_sga(np.mat(pcp),prof_dom)*pcp).max() 
+        corraug = correlation(pcp, mean, std, prof_aug, mean_aug, std_aug, shift)
+        pcpfaug = pcp[shift] / (attention_sga(np.mat(pcp),prof_aug)*pcp).max() 
+        corrsus4 = correlation(pcp, mean, std, prof_sus4, mean_sus4, std_sus4, shift)
+        pcpfsus4 = pcp[shift] /(attention_sga(np.mat(pcp),prof_sus4)*pcp).max() 
+        corrm7 = correlation(pcp, mean, std, prof_m7, mean_m7, std_m7, shift)
+        pcpfm7 = pcp[shift] /(attention_sga(np.mat(pcp),prof_m7)*pcp).max() 
+        corrdim = correlation(pcp, mean, std, prof_dim, mean_dim, std_dim, shift)
+        pcpfdim = pcp[shift] /(attention_sga(np.mat(pcp),prof_dim)*pcp).max() 
+        if .74 > pcpfM: 
+            corrM *= (pcpfM/.74)
+        if .74 > pcpfm: 
+            corrm *= (pcpfm/.74)
+        if .74 > pcpfaug: 
+            corraug *= (pcpfaug/.74)
+        if .74 > pcpfsus4: 
+            corrsus4 *= (pcpfsus4/.74)
+        if .74 > pcpfm7: 
+            corrm7 *= (pcpfm7/.74)
+        if .74 > pcpfdim: 
+            corrdim *= (pcpfdim/.74)
+        P = p(corrM,pcp.size)
+        if corrM > maxM and .01 > P: 
+            max2M = maxM           
+            maxM = corrM 
+            keyiM = shift
+        P = p(corrm,pcp.size)
+        if corrm > maxm and .01 > P:
+            max2min = maxm
+            maxm = corrm
+            keyim = shift
+        P = p(corraug,pcp.size)
+        if corraug > maxaug and .01 > P:
+            max2aug = maxaug
+            maxaug = corraug
+            keyiaug = shift  
+        P = p(corrsus4,pcp.size)
+        if corrsus4 > maxsus4 and .01 > P:
+            max2sus4 = maxsus4
+            maxsus4 = corrsus4
+            keyisus4 = shift 
+        P = p(corrm7,pcp.size)
+        if corrm7 > maxm7 and .01 > P:
+            max2m7 = maxm7
+            maxm7 = corrm7
+            keyim7 = shift  
+        P = p(corrdim,pcp.size)
+        if corrdim > maxdim and .01 > P:
+            max2dim = maxdim
+            maxdim = corrdim
+            keyidim = shift                                                                               
+    correlated = np.argmax([maxM,maxm,maxaug,maxsus4,maxm7,maxdim])
+    if correlated == 0:
+        keyi = int(keyiM * 12 / pcp.size + .5)
+        scale = 'MAJOR'
+        maximum = maxM
+        max2 = max2M
+    if correlated == 1:
+        keyi = int(keyim * 12 / pcp.size + .5)
+        scale = 'MINOR'
+        maximum = maxm
+        max2 = max2min
+    if correlated == 2:
+        keyi = int(keyiaug * 12 / pcp.size + .5)
+        scale = 'AUGMENTED'
+        maximum = maxaug
+        max2 = max2aug  
+    if correlated == 3:
+        keyi = int(keyijazz * 12 / pcp.size + .5)
+        scale = 'JAZZ(9sus4)'
+        maximum = maxjazz
+        max2 = max2jazz 
+    if correlated == 4:
+        keyi = int(keyisus4 * 12 / pcp.size + .5)
+        scale = 'SUSPENDED FOURTH'
+        maximum = maxsus4
+        max2 = max2sus4 
+    if correlated == 5:
+        keyi = int(keyim7 * 12 / pcp.size + .5)
+        scale = 'MINOR SEVENTH'
+        maximum = maxm7
+        max2 = max2m7  
+    if correlated == 6:
+        keyi = int(keyidim * 12 / pcp.size + .5)
+        scale = 'DIMINISHED'
+        maximum = maxdim
+        max2 = max2dim 
+    if keyi >= 12: #keyi % 12
+        keyi -= 12                                                                     
+    key = key_names[keyi]
+            
+    firstto_2ndrelative_strength = (maximum - max2) / maximum
+    print(key,firstto_2ndrelative_strength)
+    return key, scale, firstto_2ndrelative_strength
+
+def chord_sequence(song,hpcps):
+    chords = ChordsDetection(np.array(hpcps), song)
+    return list(np.array(chords)[:,0])
+
+def envelope_follower(x,fs,at=200,sus=500,rel=1000):
+    at_coef = np.exp(np.log(0.01)/( at * fs * 0.001))
+    sus_coef = np.exp(np.log(0.01)/(sus * fs * 0.001));  
+    rel_coef = np.exp(np.log(0.01)/( rel * fs * 0.001));  
+    envelope_frequencies = np.copy(x);
+    tmp = np.abs(x);
+    envelope[tmp>envelope_frequencies] = at_coef * (envelope[tmp>envelope_frequencies] - tmp) + tmp;
+    envelope[tmp>envelope_frequencies] = sus_coef * (envelope[tmp>envelope_frequencies] - tmp) + tmp;
+    envelope[tmp>envelope_frequencies] = rel_coef * (envelope[tmp>envelope_frequencies] - tmp) + tmp;
+    return envelope_frequencies
+    
+def ChordsDetection(hpcps, song):
+    nframesm = int((2 * song.fs) / song.H) - 1
+    chords = [] 
+    for i in range(nframesm):   
+        istart = max(0, i - nframesm/2)
+        iend = min(i + nframesm/2, hpcps.shape[0])
+        mean_hpcp = np.mean(hpcps[int(istart):int(iend)], axis=0).T
+        mean_hpcp /= mean_hpcp.max()
+        if mean_hpcp.size < 12:
+            continue
+        key, scale, firstto_2ndrelative_strength = Key(mean_hpcp)
+        if float(firstto_2ndrelative_strength) <= 0:
+            continue
+        chords.append((key + scale, firstto_2ndrelative_strength))
+    return chords   
+
