@@ -95,25 +95,25 @@ def process_file(inputSoundFile, tag_dir, input_filename):
     pcps = [] 
 
     #bpm
-    namespace = 'rhythm'
-    desc_name = namespace + '.bpm'
-    if (desc_name in descriptors and os.path.exists(json_output) is False) or (pending_descriptions != [] and desc_name in pending_descriptions):
-        try: 
-            retrieve.onsets_strength() 
-            retrieve.bpm() 
-            pool[desc_name].append(retrieve.tempo) 
-            pool['rhythm.bpm_ticks'].append(retrieve.ticks / retrieve.M)
-        except Exception as e: 
-            raise ValueError('No correlation for BPM computation')
+    #namespace = 'rhythm'
+    #desc_name = namespace + '.bpm'
+    #if (desc_name in descriptors and os.path.exists(json_output) is False) or (pending_descriptions != [] and desc_name in pending_descriptions):
+    #    try: 
+    #        retrieve.onsets_strength() 
+    #        retrieve.bpm() 
+    #        pool[desc_name].append(retrieve.tempo) 
+    #        pool['rhythm.bpm_ticks'].append(retrieve.ticks / retrieve.M)
+    #    except Exception as e: 
+    #        raise ValueError('No correlation for BPM computation')
 
     for share in retrieve.spectrum_share():
     
         #loudness
-        namespace = 'loudness'
-        desc_name = namespace + '.level'
-        retrieve.Loudness()
-        if (desc_name in descriptors and os.path.exists(json_output) is False) or (pending_descriptions != [] and desc_name in pending_descriptions):
-            pool[desc_name].append(retrieve.loudness)
+        #namespace = 'loudness'
+        #desc_name = namespace + '.level'
+        #retrieve.Loudness()
+        #if (desc_name in descriptors and os.path.exists(json_output) is False) or (pending_descriptions != [] and desc_name in pending_descriptions):
+        #    pool[desc_name].append(retrieve.loudness)
 
         #low level
         namespace = 'lowlevel'
@@ -148,11 +148,11 @@ def process_file(inputSoundFile, tag_dir, input_filename):
         if (desc_name in descriptors and os.path.exists(json_output) is False) or (pending_descriptions != [] and desc_name in pending_descriptions):
             pool[desc_name].append(retrieve.dissonance())
 
-        retrieve.Envelope()
-        retrieve.AttackTime()
-        desc_name = 'sfx.logattacktime'
-        if (desc_name in descriptors and os.path.exists(json_output) is False) or (pending_descriptions != [] and desc_name in pending_descriptions):
-            pool[desc_name].append(retrieve.attack_time)
+        #retrieve.Envelope()
+        #retrieve.AttackTime()
+        #desc_name = 'sfx.logattacktime'
+        #if (desc_name in descriptors and os.path.exists(json_output) is False) or (pending_descriptions != [] and desc_name in pending_descriptions):
+        #    pool[desc_name].append(retrieve.attack_time)
 
         #inharmonicity
         desc_name = 'sfx.inharmonicity'
@@ -218,20 +218,20 @@ def process_file(inputSoundFile, tag_dir, input_filename):
         pool[desc_name].append(danceability(retrieve.signal[retrieve.onsets_indexes[0]:retrieve.onsets_indexes[0]+(retrieve.fs*8)], meany, retrieve.fs))        
 
     #chords sequence
-    namespace = 'highlevel'
-    desc_name = namespace + '.chords_sequence'
-    retrieve.audio_signal_spectrum = [] #empty the buffers to make chord analysis
-    if (desc_name in descriptors and os.path.exists(json_output) is False) or (pending_descriptions != [] and desc_name in pending_descriptions): 
-        try:                                     
-            pool[desc_name].append(chord_sequence(retrieve,pcps))
-        except Exception as e:
-            pool[desc_name].append('No chord') #drum loop, melody or tone 
+    #namespace = 'highlevel'
+    #desc_name = namespace + '.chords_sequence'
+    #retrieve.audio_signal_spectrum = [] #empty the buffers to make chord analysis
+    #if (desc_name in descriptors and os.path.exists(json_output) is False) or (pending_descriptions != [] and desc_name in pending_descriptions): 
+    #    try:                                     
+    #        pool[desc_name].append(chord_sequence(retrieve,pcps))
+    #    except Exception as e:
+    #        pool[desc_name].append('No chord') #drum loop, melody or tone 
 
     #duration
-    namespace = 'metadata'
-    desc_name = namespace + '.duration'
-    if (desc_name in descriptors and os.path.exists(json_output) is False) or (pending_descriptions != [] and desc_name in pending_descriptions):
-        pool[desc_name].append(retrieve.duration)
+    #namespace = 'metadata'
+    #desc_name = namespace + '.duration'
+    #if (desc_name in descriptors and os.path.exists(json_output) is False) or (pending_descriptions != [] and desc_name in pending_descriptions):
+    #    pool[desc_name].append(retrieve.duration)
 
     print("Obtaining mean values")
 
