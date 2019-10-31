@@ -19,6 +19,10 @@ import cmath
 
 p = lambda r, n: (r * np.sqrt(n-2)) / np.sqrt(1-(r**2))
 
+hz2cent = lambda hz: np.floor(120 * np.log2(hz) + -693.2631656229591)
+
+cent2hz = lambda cent, f0: f0 * pow(pow(2, 10 / 1200.0), cent)
+
 #TODO: Sintesis de transientes: DCT->FFT->IFFT-IDCT
 
 def mono_stereo(input_signal): 
@@ -404,7 +408,7 @@ class MIR:
         return output 
 
     def pitch_salience_function(self,thres=1):
-        _numberBins = np.floor(6000.0 / 10);
+        _numberBins = int(np.floor(6000.0 / 10));
         _binsInSemitone = np.floor(100.0 / 10);
         _binsInOctave = 1200.0 / 10;
         _referenceTerm = 0.5 - _binsInOctave * np.log2(55);
@@ -419,26 +423,26 @@ class MIR:
         for h in range(20): 
             _harmonicWeights[h] = pow(.8,h); 
 
-        if (self.magnitudes.size != self.frequencies.size): 
+        if (self.harmonic_magnitudes.size != self.harmonic_frequencies.size): 
             raise IndexError("PitchSalienceFunction: frequency and magnitude input vectors must have the same size")
                 
-        if self.frequencies == []:
+        if self.harmonic_frequencies == []:
             raise IndexError("Empty argument for frequencies")
                                     
-        numberPeaks = len(self.frequencies)
+        numberPeaks = len(self.harmonic_frequencies)
         for i in range(numberPeaks):
-            if self.frequencies[i] <= 0:
+            if self.harmonic_frequencies[i] <= 0:
                 raise ValueError("Frequencies must be positive")
-            if self.magnitudes[i] <= 0:
+            if self.harmonic_magnitudes[i] <= 0:
                 raise ValueError("Magnitudes must be positive");         
             self.salience_function = np.zeros(_numberBins)
-            minMagnitude = self.magnitudes[np.argmax(self.magnitudes)] * _magnitudeThresholdLinear;
+            minMagnitude = self.harmonic_magnitudes[np.argmax(self.harmonic_magnitudes)] * _magnitudeThresholdLinear;
             for i in range(numberPeaks):
-                if self.magnitudes[i] <= minMagnitude:
+                if self.harmonic_magnitudes[i] <= minMagnitude:
                     continue;
-                magnitudeFactor = pow(self.magnitudes[i], 1);
+                magnitudeFactor = pow(self.harmonic_magnitudes[i], 1);
                 for h in range(20):
-                    h_bin = freq2CentBin(self.frequencies[i] / (h+1));
+                    h_bin = hz2cent(self.harmonic_frequencies[i] / (h+1));
                     if h_bin < 0:
                         break
                     for b in range(max(0,int(h_bin)-int(_binsInSemitone)),min(int(_numberBins)-1,int(h_bin)+int(_binsInSemitone))):
@@ -857,25 +861,26 @@ class MIR:
         peakValues = np.delete(peaksValues[i], peaksValues[i][:j])
         return peakBins, peakValues
 
-    def trackPitchContour(self,_nonSalientPeaksBins,_timeContinuityInFrames,peak_thres=0):
+    def trackPitchContour(self,_nonSalientPeaksBins,peak_thres=0):
         max_i = 0
         max_j = 0
+        _timeContinuityInFrames = (100 / 1000.0) * 44100 / self.H
         maxSalience = 0
         bins = []
         saliences = []
         for i in range(_numberFrames):
-            if (self.salience_values[i].size == 0):
-                j = np.argmax(_salientPeaksValues[i])
-            if _salientPeaksValues[i][j] > maxSalience:
-                maxSalience = _salientPeaksValues[i][j]
+            if (self.salience_values[i].size > 0):
+                j = np.argmax(self.salience_values[i])
+            if self.salience_values[i][j] > maxSalience:
+                maxSalience = self.salience_values[j]
             max_i = i
             max_j = j
             if maxSalience == 0:
                 return None
                 
         index = max_i; #contour starts at maximum salience peak
-        bins.append(_salientPeaksBins[index][max_j])  
-        saliences.append(_salientPeaksValues[index][max_j])   
+        bins.append(self.salience_bins[index])  
+        saliences.append(self.salience_values[index])   
         _salientPeaksBins, _salientPeaksValues = self.removePeak(_salientPeaksBins, _salientPeaksValues, index, max_j)   
         for i in range(_numberFrames):
             best_peak_j = self.findNextPeak(_salientPeaksBins, bins, i)
@@ -990,14 +995,12 @@ class MIR:
                     
     def pitch_salience_function_peaks(self,peak_thres=0):
         """Computes magnitudes and frequencies of a frame of the input signal by peak interpolation"""
-        peaks = self.find_peaks(self.salience_function,peak_thres=peak_thres)
+        self.find_peaks(self.salience_function,peak_thres=peak_thres)
         minBin = max(0.0, np.floor(10 * np.log2(55/55) + 0.5));
-        maxBin = min(max(0.0, np.floor(10 * np.log2(1760/55) + 0.5)));
-        n_bins = np.floor(6000.0 / 10) - 1
-        maxBin = min(n_bins,maxBin)
-        peaks = peaks[peaks>minBin]
-        peaks = peaks[peaks<maxBin]
-        bins = centBin2freq(peaks,55,10)
+        maxBin = min(599,max(0.0, np.floor(10 * np.log2(1760/55) + 0.5)));
+        peaks = self.salience_function[self.peaks_locations[self.peaks_locations>minBin]]
+        #peaks = peaks[peaks<maxBin]
+        bins = cent2hz(peaks,self.f0)
         self.salience_values = peaks
         self.salience_bins = bins
 
