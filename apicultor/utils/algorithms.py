@@ -15,11 +15,45 @@ import cmath
 #presion_diferencial = max(presion_latidos) / presion_latidos (la presión se relaja según el esfuerzo máximo)
 #aumentar la presión incrementa el BPM, pero el BPM no es causa del incremento de presión
 
+def tristimulus(freqs,mags):
+    tristimulus = np.zeros(3)
+    summation = sum(mags)
+    if sum == 0:
+        return np.zeros(3)
+    tristimulus[0] = mags[0] / summation
+    if freqs.size < 4:
+        tristimulus[1] = 0
+        tristimulus[2] = 0
+        return tristimulus    
+    tristimulus[1] = (mags[1]+mags[2]+mags[3])/summation
+    if freqs.size < 5:
+        tristimulus[2] = 0
+        return tristimulus
+    sum_4 = sum(mags)
+    tristimulus[2] = sum_4 / summation
+    return tristimulus
+
+def deconvolve(audio):
+    imp = signal.unit_impulse(song.frame.size, 'mid')
+    imp = (imp + np.finfo(np.complex128).eps)
+    imp /= imp.max()
+    o = np.zeros(audio.size)
+    start = 0
+    for frame in song.FrameGenerator():
+        song.window()
+        quotient, remaindered = signal.deconvolve(song.frame, imp)
+        o[start: start + song.frame.size] = convolve(imp+1,quotient) + remaindered
+        start += song.H
+    write_file('dirac_synth',48000,o)
+
+
 p = lambda r, n: (r * np.sqrt(n-2)) / np.sqrt(1-(r**2))
 
 hz2cent = lambda hz: np.floor(120 * np.log2(hz) + -693.2631656229591)
 
 cent2hz = lambda cent, f0: f0 * pow(pow(2, 10 / 1200.0), cent)
+
+phase_radius = lambda a,b,k: a + (b*np.cos(k*song.phase))
 
 #TODO: Sintesis de transientes: DCT->FFT->IFFT-IDCT
 
@@ -28,6 +62,16 @@ cent2hz = lambda cent, f0: f0 * pow(pow(2, 10 / 1200.0), cent)
 #la importancia evolutiva es que escucharla de tan lejos evitaba el desapego
 #80m = audible con atención
 #>100m = imposible de oir
+
+def rotate(x,y,rho,theta):
+	
+    x_rotated= np.cos(theta)*(x-rho)-np.sin(theta)*(y-rho) + rho
+    y_rotated= np.sin(theta)*(x-rho)+np.cos(theta)*(y-rho) + rho
+    return x_rotated, y_rotated
+
+#a,b,k = 1 right channel, a,b,k = -1 left channel
+#interaural phase radius = 2.03
+phase_radius = lambda a,b,k: a + (b*np.cos(k*song.phase))
 
 def audio_fingerprint(peaks):
     encoded_peaks = hash(peaks[:4])
@@ -400,6 +444,23 @@ def dp(localscore, period, tightness):
         window = window + 1
 
     return backlink, cumscore
+
+def LowShelf(gain,cut,q=1):
+    A = np.sqrt(10 * (gain/20))
+    B = np.sqrt(A) / q
+    w0 = 2. * np.pi * cutoffHz / self.fs
+    cos_w = np.cos(w0)
+    sin_w = np.sin(w0)
+    b = np.zeros(3)
+    a = np.zeros(3)
+    b[0] = A * ((A+1)-((A-1)*cos_w)+(B*sin_w))
+    b[1] = 2 * A * ((A-1)-((A+1)*cos_W))
+    b[2] = A * ((A+1)-((A-1)*cos_w)-(B*sin_w)) 
+    a[0] = A * ((A+1)+((A-1)*cos_w)+(B*sin_w))
+    a[1] = 2 * A * ((A-1)+((A+1)*cos_W)) 
+    a[2] = ((A+1)+((A-1)*cos_w)-(B*sin_w)) 
+    output = lfilter(b,a,self.signal)
+    return output
 
 
 def polar_to_cartesian(m, p): 
