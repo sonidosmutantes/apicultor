@@ -2,14 +2,34 @@
 # -*- coding: utf-8 -*-
 
 from collections import defaultdict
-from sklearn.metrics import mean_squared_error
+from sklearn.metrics import mean_squared_error, accuracy_score
 import numpy as np
 import time
-import logging
 from .fairness import *
+from .dependency import *
+from .explain import *
+from random import sample
+import logging
+import warnings
+
+warnings.simplefilter("ignore", ResourceWarning)
+warnings.simplefilter("ignore", RuntimeWarning)
 
 logging.basicConfig(level=logging.DEBUG)
-logger = logging.getLogger(__name__)  
+logger = logging.getLogger(__name__)
+
+def acc_score(targs, classes):
+    """
+    return an accuracy score of how well predictions did
+    :param targs: predictive targets
+    :param classes: predicted targets
+    :returns:                                                                                                         
+      - the mean squared error score (higher than 0.5 should be a good indication)
+    """  
+    lw = np.ones(len(targs))
+    for idx, m in enumerate(np.bincount(targs)):            
+        lw[targs == idx] *= (m/float(targs.shape[0]))
+    return accuracy_score(targs, classes, sample_weight = lw)
 
 def score(targs, classes):
     """
@@ -17,7 +37,7 @@ def score(targs, classes):
     :param targs: predictive targets
     :param classes: predicted targets
     :returns:                                                                                                         
-      - the accuracy score (higher than 0.5 should be a good indication)
+      - the mean squared error score (higher than 0.5 should be a good indication)
     """  
     lw = np.ones(len(targs))
     for idx, m in enumerate(np.bincount(targs)):            
@@ -43,7 +63,7 @@ def GridSearch(model, features, targets, Cs, reg_params, kernel_configs):
     targets_train = []
     targets_test = []
     for i in range(len(np.unique(targets))):
-        n = len(features[targets==i])
+        n = len(features[np.where(targets==i)])
         test_n = int((20 * n)/100)
         train_n = n - test_n
         features_train.append(features[targets==i][:train_n])
@@ -70,6 +90,12 @@ def GridSearch(model, features, targets, Cs, reg_params, kernel_configs):
     [timing['classifier times'].append([]) for i in range(len(kernel_configs))]              
     params['C'].append(Cs)        
     params['reg_param'].append(reg_params)
+    #print('Features argv', features)
+    #print('Targets argv', targets)
+    #print('Train features subset', features_train)
+    #print('Train targets subset', targets_train)
+    #print('Test features subset', features_test)
+    #print('Test targets subset', targets_test)
     for i in range(len(kernel_configs)):
         for j in range(len(params['C'][0])):
             try:                                                   
@@ -80,27 +106,31 @@ def GridSearch(model, features, targets, Cs, reg_params, kernel_configs):
                 print(str().join(("Training time is: ", str(training_time))))      
                 clf_predictions_train = model.predictions(features_train, targets_train)                    
                 train_scores['scorings'][i].append(score(targets_train, clf_predictions_train)) 
-                for inst in model.instances: 
-                    y_pred = np.hstack((clf_predictions_train[targets_train==inst[0]],clf_predictions_train[targets_train==inst[1]])) 
-                    y = np.hstack((targets_train[targets_train==inst[0]],clf_predictions_train[targets_train==inst[1]])) 
-                    protection_val_rule_train = p_rule(y_pred,y,inst[0],inst[1]) 
-                    if type(protection_val_rule_train) == float and protection_val_rule_train >= .8: 
+                #Train statistical parity
+                protection_val_rule_train = p_rule(clf_predictions_train,targets_train,model.w,features_train,model.proba) 
+                if type(protection_val_rule_train) != bool and protection_val_rule_train >= .8: 
+                        print('Statistical parity at instance training is', protection_val_rule_train)
                         pass             
-                    else: 
-                        print(ValueError("Discrimination and false information at training instance"))
+                else: 
+                        print(ValueError("Discrimination and false information at training instance with parity value of", protection_val_rule_train))
                         continue          
-                print(str().join(("Train Scoring Error is: ", str(train_scores['scorings'][i][j]))))
+                print("Train explanation: ", explain(model,features_train,targets_train,[features_train[:,0].mean(), features_train[:,4].mean()],[0,4]) )
+                print("Train BTC: ", BTC(targets_train, clf_predictions_train) )
+                print("Train BEC: ", BEC(targets_train, clf_predictions_train) )
+                print(str().join(("Train Scoring Error is: ", str(train_scores['scorings'][i][j]) )))
                 clf_predictions_test = model.predictions(features_test, targets_test)                      
                 test_scores['scorings'][i].append(score(targets_test, clf_predictions_test))       
-                for inst in model.instances: 
-                    y_pred = np.hstack((clf_predictions_test[targets_test==inst[0]],clf_predictions_test[targets_test==inst[1]])) 
-                    y = np.hstack((targets_test[targets_test==inst[0]],clf_predictions_test[targets_test==inst[1]])) 
-                    protection_val_rule_test = p_rule(y_pred,y,inst[0],inst[1])                                                             
-                    if type(protection_val_rule_test) == float and protection_val_rule_test >= .8: 
+                #Test statistical parity
+                protection_val_rule_test = p_rule(clf_predictions_test,targets_test,model.w,features_test,model.proba)                                                             
+                if type(protection_val_rule_test) != bool and protection_val_rule_test >= .8: 
+                        print('Statistical parity at instance testing is', protection_val_rule_test)
                         pass             
-                    else: 
-                        print(ValueError("Discrimination and false information at test instance"))
+                else: 
+                        print(ValueError("Discrimination and false information at test instance with parity value of", protection_val_rule_test))
                         continue
+                print("Test explanation: ", explain(model,features_test,targets_test,[features_test[:,0].mean(), features_test[:,4].mean()],[0, 4]) )
+                print("Test BTC: ", BTC(targets_test, clf_predictions_test) )
+                print("Test BEC: ", BEC(targets_test, clf_predictions_test) )
                 print(str().join(("Test Scoring Error is: ", str(test_scores['scorings'][i][j]))))      
                 clf_time = time.time()                                 
                 model.fit_model(features, targets, kernel_configs[i][0], kernel_configs[i][1], params['C'][0][j], params['reg_param'][0][j], 1./features.shape[1], 0.8)                                            
@@ -108,21 +138,22 @@ def GridSearch(model, features, targets, Cs, reg_params, kernel_configs):
                 timing['classifier times'][i].append(clf_time)            
                 print(str().join(("Classification time is: ", str(clf_time))))     
                 clf_predictions = model.predictions(features, targets)            
-                for inst in model.instances: 
-                    y_pred = np.hstack((clf_predictions[targets==inst[0]],clf_predictions[targets==inst[1]])) 
-                    y = np.hstack((targets[targets==inst[0]],clf_predictions[targets==inst[1]])) 
-                    protection_val_rule = p_rule(y_pred,y,inst[0],inst[1]) 
-                    print("Non protected group is ",inst[1]," and protected group is ",inst[0])                         
-                    if type(protection_val_rule) == float and protection_val_rule >= .8: 
+                #Grid statistical parity
+                protection_val_rule = p_rule(clf_predictions,targets,model.w,features,model.proba)                        
+                if type(protection_val_rule) != bool and protection_val_rule >= .8: 
+                        print('Statistical parity at instance is', protection_val_rule)
                         pass             
-                    else: 
+                else: 
                         print(ValueError("Discrimination and false information at classification"))
-                        print("Current error is :",protection_val_rule)       
+                        print("Broken parity is",protection_val_rule)       
                         continue            
                 scores['scorings'][i].append(score(targets, clf_predictions))                                                                    
+                print("Explanation: ", explain(model,features,targets,[features[:,0].mean(), features[:,4].mean()],[0, 4]) )
+                print("BTC: ", BTC(targets, clf_predictions) )
+                print("BEC: ", BEC(targets, clf_predictions) )
                 print(str().join(("Scoring error is: ", str(scores['scorings'][i][j]))))    
             except Exception as e:                                       
-                print("Something happened! Continuing...",e)
+                print("Something happened! Continuing...",logger.exception(e))
                 if len(train_scores['scorings'][i])-1 == j: train_scores['scorings'][i].pop(j)
                 if len(train_scores['scorings'][i])-1 != j: train_scores['scorings'][i].append(2)
                 if len(test_scores['scorings'][i])-1 == j: test_scores['scorings'][i].pop(j)
