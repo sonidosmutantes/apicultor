@@ -14,7 +14,7 @@ supercollider = Extension('apicultor.supercollider',
                     sources = ['live_coding.sc', 'setup_performance.sc'])
 
 setup(name='apicultor',
-      version='0.1.0',
+      version='1.3.2',
       url='https://www.github.com/sonidosmutantes/apicultor',
       description='Another BigData approach to sound collections',
       long_description=long_description,
@@ -28,7 +28,7 @@ setup(name='apicultor',
         'Intended Audience :: everyone who likes music!',
         'Topic :: AI :: Music Information Retrieval :: Collaborative Composing and Remixing',
 
-        'Programming Language :: Python :: 3.6',
+        'Programming Language :: Python :: 3.9.8',
     ],
     entry_points={'console_scripts': [
         'rpdl = apicultor.helper.WebScrapingDownload:main',
@@ -42,5 +42,5 @@ setup(name='apicultor',
         'audio2ogg = apicultor.helper.convert_to_ogg:main',
         'smcomposition = apicultor.state_machine.SMComposition:main'
     ]},
-    install_requires=['numpy', 'wget', 'colorama', 'pysoundfile', 'librosa', 'scipy', 'matplotlib', 'scikit-learn', 'bs4', 'pandas']
+    install_requires=['numpy', 'numba', 'wget', 'colorama', 'transitions','pysoundfile', 'librosa', 'scipy', 'matplotlib', 'scikit-learn', 'bs4', 'pandas']
      )
