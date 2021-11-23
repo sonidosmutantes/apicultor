@@ -2,20 +2,20 @@
 # -*- coding: UTF-8 -*-
 from scipy.signal import *
 import numpy as np
-from librosa import util
-
-from librosa import magphase, clicks, time_to_frames, constantq
-from librosa.onset import onset_detect
-from librosa.beat import __beat_track_dp as dp
-from librosa.beat import __last_beat as last_beat
-from librosa.beat import __trim_beats as trim_beats
+import scipy
+from soundfile import read
 from scipy.fftpack import fft, ifft
 from collections import Counter
 from ..machine_learning.cache import memoize
 from ..gradients.ascent import *
 from ..gradients.descent import *
+from ..sonification.Sonification import *
 import random
 import cmath
+#from apicultor.machine_learning.quality import *
+
+#presion_diferencial = max(presion_latidos) / presion_latidos (la presión se relaja según el esfuerzo máximo)
+#aumentar la presión incrementa el BPM, pero el BPM no es causa del incremento de presión
 
 p = lambda r, n: (r * np.sqrt(n-2)) / np.sqrt(1-(r**2))
 
@@ -24,6 +24,183 @@ hz2cent = lambda hz: np.floor(120 * np.log2(hz) + -693.2631656229591)
 cent2hz = lambda cent, f0: f0 * pow(pow(2, 10 / 1200.0), cent)
 
 #TODO: Sintesis de transientes: DCT->FFT->IFFT-IDCT
+
+#SNR = energía_señal / energía_antiseñal (ruido), distancia / anti_distancia
+#graves y agudos según distancia: un agudo debe estar un 70% mas lejos para escucharse a su intensidad real
+#la importancia evolutiva es que escucharla de tan lejos evitaba el desapego
+#80m = audible con atención
+#>100m = imposible de oir
+
+def dmean(data):
+    derived = np.zeros(len(data))
+    for i in range(len(data)-1):
+        derived[i] = data[i+1] - data[i]
+    return np.mean(derived)
+
+def dmean2(data):     
+    derived = np.zeros(len(data))
+    derived2 = derived.copy()
+    for i in range(len(data)-1):
+        derived[i] = data[i+1] - data[i]
+        derived2[i] = derived[i+1] - derived[i]; 
+    return np.mean(derived2)
+
+energy = lambda mag: np.sum((10 ** (mag / 20)) ** 2)  
+
+def central_moments(self):
+    mean = np.mean(self.frame)
+    mean /= self.frame.size
+    x = self.frame -mean
+    x2 = x*x
+    sum2 = x2
+    sum3 = x2*x
+    sum4 = x2**2
+    central_moments = [0,1,sum2/self.frame.size,sum3/self.frame.size,sum4/self.frame.size]
+    scale = 1/self.frame.size-1
+    norm = sum(self.frame)
+    if norm == 0:
+        central_moments = np.zeros(5)
+    centroid = 0
+    for i in range(self.frame.size):
+        centroid += i*scale*self.frame[i]
+    centroid /= norm
+    central_moments[0] = 1
+    central_moments[1] = 0
+    m2,m3,m4 = 0,0,0
+    for i in range(self.frame.size):
+        v = i*scale-centroid
+        v2 = v**2
+        v2f = v2*self.frame[i]
+        m2+=v2f
+        m3+=v2f*v
+        m4+=v2f*v2
+    m2/=norm
+    m3/=norm
+    m4/=norm
+    r = 1
+    central_moments[2] = m2*pow(r,2)
+    central_moments[3] = m3*pow(r,3)
+    central_moments[4] = m4*pow(r,4)
+    return central_moments
+
+def dist_shape(central_moments):
+    spread = central_moments[2] #variance of residuals
+    if spread is 0:
+        skewness = 0
+    else:
+        skewness = central_moments[3] / pow(spread,1.5)
+    if spread is 0:
+        kurtosis = -3
+    else:
+        kurtosis = (central_moments[4] / (spread*spread))-3
+    return spread, skewness, kurtosis
+
+#complexity = mag.size
+
+def intensity(complexity,kurtosis,dissonance):
+    if np.mean(complexity) <= 12.717778:
+        if dmean(complexity) <= 1.912363:
+            intensity = -1
+        else:
+            if np.mean(kurtosis)<= 7.098977:
+                intensity = 0
+            else:
+                intensity = -1
+    else:
+        if dmean2(dissonance) <= 0.04818:
+            intensity = 1
+        else:
+            intensity = 0
+    return ['relaxed','moderate','aggresive'][intensity]
+
+def roll_off(spectrum,fs):
+    e_m = energy(spectrum)
+    cutoff = .85 * e_m
+    cume = 0
+    rolloff = 0
+    for i in range(len(spectrum)):
+        cume += spectrum[i]*spectrum[i]
+        if cume >= cutoff:
+            rolloff=i
+    rolloff *= (fs/2) / (spectrum.size-1)
+    return rolloff
+
+
+def audio_fingerprint(peaks):
+    encoded_peaks = hash(peaks[:4])
+    return (encoded_peaks[3] - (encoded_peaks[3] % 2)) * 100000000 + (encoded_peaks[2] - (encoded_peaks[2] % 2)) * 100000 + (encoded_peaks[1] (encoded_peaks[1] % 2)) * 100 + (encoded_peaks[0] - (encoded_peaks[0] % 2))
+
+def butter_bandstop_filter(data, lowcut, highcut, fs, order):
+        nyq = 0.5 * fs
+        low = lowcut / nyq
+        high = highcut / nyq
+        b, a = scipy.signal.butter(order, [low, high], btype='bandstop')#, fs, )
+        y = lfilter(b,a,data)
+        return y
+
+def desaturate_signal(song):
+    o = np.zeros(song.signal.size)
+    start = 0
+    for frame in song.FrameGenerator():
+        indexes = np.unique(find_saturation(song))
+        if indexes != []:
+            filtered = butter_bandstop_filter(song.frame,indexes.min(),indexes.max(),48000,1)
+            o[start:song.frame.size+start] = filtered
+        else:    
+            o[start:song.frame.size+start] = song.frame
+        start += song.H
+    return o
+
+def find_saturation(song):
+    prev_start = 0
+    idx = 0
+    start_proc = int((song.frame.size / 2) - (song.H / 2))
+    end_proc = int((song.frame.size / 2) + (song.H / 2))
+    energy_thresh = -1
+    diff_thresh = .001
+    min_dur = .005
+    if (start_proc) < 2:
+        start_proc = 2
+    delta = abs(song.frame[start_proc - 1] - song.frame[start_proc - 2])
+    past_mask = song.frame[start_proc - 1] > energy_thresh and delta < diff_thresh
+    uflanks = [] 
+    dflanks = []
+    starts = []
+    ends = []
+    if past_mask and not prev_start:
+        uflanks.append(start_proc - 1)
+    for i in range(start_proc,end_proc):
+        delta = abs(song.frame[i] - song.frame[i-1])
+        current_mask = song.frame[i] > energy_thresh and delta < diff_thresh
+        if current_mask and not past_mask:
+            uflanks.append(i)
+        elif not current_mask and past_mask:
+            dflanks.append(i)     
+        past_mask = current_mask
+    if prev_start and len(dflanks) > 9:
+        start = prev_start
+        end = float(idx * song.H + dflanks[0] / 48000)
+        duration = end -start
+        if duration > min_dur:
+            starts.append(start)
+            ends.append(end)
+        prev_start = 0
+        dflanks.remove(dflanks[0])
+    if len(uflanks) != len(dflanks) and len(uflanks) > 0:
+        prev_start = idx * song.H + uflanks[-1] / 48000
+        uflanks.pop(-1) 
+    if len(uflanks) != len(dflanks) and idx == 0:
+        dflanks.pop(-1)
+    for i in range(len(uflanks)):
+        start = float(idx * song.H + uflanks[0] / 48000) 
+        end = float(idx * song.H + dflanks[0] / 48000) 
+        duration = end -start
+        if duration >= min_dur:
+            starts.append(start)
+            ends.append(end)
+    idx += 1
+    return starts,ends
+
 
 def mono_stereo(input_signal): 
     input_signal = input_signal.astype(np.float32)   
@@ -53,6 +230,79 @@ a_weight = lambda f: 1.25893 * pow(12200,2) * pow(f, 4) / ((pow(f, 2) + pow(20.6
 bark_critical_bandwidth = lambda bark: 52548.0 / (pow(bark,2) - 52.56 * bark + 690.39) #compute a critical bandwidth with Bark frequencies
 
 rms = lambda signal: np.sqrt(np.mean(np.power(signal,2))) 
+
+def strong_peak(spectrum):
+    minmag = spectrum.min()
+    maxmag = spectrum.max()
+    if minmag is maxmag:
+        return 0
+    thres = maxmag / 2
+    bandwidth_left = spectrum.argmax()
+    while bandwidth_left >0 and spectrum[bandwidth_left] > thres:
+        bandwidth_left -= 1    
+    if bandwidth_left != 0: bandwidth_left += 1
+    elif spectrum[0] < thres:
+        bandwidth_left += 1
+    bandwidth_right = spectrum.argmax()
+    bandwidth_right += 1
+    while (bandwidth_right < spectrum.size and spectrum[bandwidth_right] >= thres):
+        strong_peak = maxmag / np.log10(bandwidth_right / bandwidth_left)
+        bandwidth_right += 1
+    return strong_peak
+
+def enhance_harmonics(_in):
+    o = []
+    for i in range(int(_in.size/4)):
+        o.append(_in[i] +  _in[2*i] + _in[i*4])
+    o = np.array(o) 
+    _in[:o.size] = o          
+    return _in
+
+def trim_beats(localscore, beats, trim):
+    """Final post-processing: throw out spurious leading/trailing beats"""
+
+    smooth_boe = scipy.signal.convolve(localscore[beats],
+                                       scipy.signal.hann(5),
+                                       'same')
+
+    if trim:
+        threshold = 0.5 * ((smooth_boe**2).mean()**0.5)
+    else:
+        threshold = 0.0
+
+    valid = np.argwhere(smooth_boe > threshold)
+
+    return beats[valid.min():valid.max()]
+
+def last_beat(cumscore):
+    """Get the last beat from the cumulative score array"""
+
+    maxes = np.max(cumscore)
+    med_score = np.median(cumscore[np.argmax(cumscore)])
+
+    # The last of these is the last beat (since score generally increases)
+    return np.argwhere((cumscore * maxes * 2 > med_score)).max()
+
+def true_peak_detector(signal):
+    def correct_peaks(array):
+        polef= 20000
+        zerof=14.1e-3
+        rpole =1-4*polef / signal.fs
+        rzero = 1-4 * zerof / signal.fs
+        b = np.array([0,-rzero])
+        a = np.array([1,rpole])
+    
+        oversampling_factor = 4
+        thres = -.0002
+        filtered = lfilter(b,a,array)
+        return filtered
+    o = np.zeros(song.signal.size)
+    start = 0
+    for frame in song.FrameGenerator():
+        o[start:song.frame.size+start] = correct_peaks(song.frame)
+        start += song.H
+    return o / o.max()
+
 
 def NSGConstantQ(signal):                       
     fftres = signal.fs / 4096;
@@ -204,6 +454,51 @@ def NSGConstantQ(signal):
     return constantQ,constantQ[0],constantQ[N-1:]
 
 
+def dp(localscore, period, tightness):
+    """Core dynamic program for beat tracking"""
+
+    backlink = np.zeros_like(localscore, dtype=int)
+    cumscore = np.zeros_like(localscore)
+
+    # Search range for previous beat
+    window = np.arange(-2 * period, -np.round(period / 2) + 1, dtype=int)
+
+    # Make a score window, which begins biased toward start_bpm and skewed
+    if tightness <= 0:
+        raise ParameterError('tightness must be strictly positive')
+
+    txwt = -tightness * (np.log(-window / period) ** 2)
+
+    # Are we on the first beat?
+    first_beat = True
+    for i, score_i in enumerate(localscore):
+
+        # Are we reaching back before time 0?
+        z_pad = np.maximum(0, min(- window[0], len(window)))
+
+        # Search over all possible predecessors
+        candidates = txwt.copy()
+        candidates[z_pad:] = candidates[z_pad:] + cumscore[window[z_pad:]]
+
+        # Find the best preceding beat
+        beat_location = np.argmax(candidates)
+
+        # Add the local score
+        cumscore[i] = score_i + candidates[beat_location]
+
+        # Special case the first onset.  Stop if the localscore is small
+        if first_beat and score_i < 0.01 * localscore.max():
+            backlink[i] = -1
+        else:
+            backlink[i] = window[beat_location]
+            first_beat = False
+
+        # Update the time range
+        window = window + 1
+
+    return backlink, cumscore
+
+
 def polar_to_cartesian(m, p): 
     real = m * np.cos(p) 
     imag = m * np.sin(p)  
@@ -319,6 +614,7 @@ class MIR:
         self.to_db_magnitudes = lambda x: 20*np.log10(np.abs(x))
         self.duration = len(self.signal) / self.fs
         self.audio_signal_spectrum = []
+        self.phase_signal = []
         self.flux = lambda spectrum: np.array([np.sqrt(sum(pow(spectrum[i-1] - spectrum[i], 2))) for i in range(len(spectrum))])
 
     def FrameGenerator(self):
@@ -451,7 +747,8 @@ class MIR:
     def BandReject(self, array, cutoffHz, q):
         """Apply a 2nd order Infinite Impulse Response filter to the input signal  
         -param: cutoffHz: cutoff frequency in Hz                        
-        -type: the type of filter to use [highpass, bandpass]"""                                        
+        -type: the type of filter to use [highpass, bandpass]"""  
+        cutoffHz = np.array(cutoffHz)                                      
         c = (np.tan(np.pi * q / self.fs)-1) / (np.tan(np.pi * q / self.fs)+1)
         d = -np.cos(2 * np.pi * cutoffHz / self.fs)
         b = np.zeros(3)
@@ -462,7 +759,7 @@ class MIR:
         a[0] = 1.0
         a[1] = d*(1.0-c)
         a[2] = -c
-        output = lfilter(b,a,array)
+        output = lfilter(b,a,array) * 1
         return output 
 
     def AllPass(self, cutoffHz, q):
@@ -479,7 +776,7 @@ class MIR:
         b[0] = (1.0 - alpha) / a[0]
         b[1] = (-2.0 * np.cos(w0)) / a[0]
         b[2] = (1.0 + alpha) / a[0]
-        output = lfilter(b, a, self.signal) 
+        output = lfilter(b, a, self.signal) * 1
         return output  
 
     def EqualLoudness(self, array):
@@ -566,10 +863,14 @@ class MIR:
     def Phase(self, fft):
         """Computes phase spectrum from fft. The size is the same as the size of the magnitude spectrum""" 
         self.phase = np.arctan2(fft[:int(fft.size/4)+1].imag, fft[:int(fft.size/4)+1].real)
+        self.phase_signal.append(self.phase)
 
-    def harmonic_distortion(self, fft):
+    def harmonic_distortion(self, fft,ref_frequency):
         """Computes harmonic distortion for a fourier transform""" 
-        return fft[:self.H+1] ** 2 #sum(fft**2)
+        ref_harmonic = ref_frequency ** 2 
+        sq_harmonics = np.sum([i** 2 for i in fft]) - ref_harmonic
+        thd = 100 * sq_harmonics ** .5 / max(fft)
+        return thd
 
     def Spectrum(self, fft=True):
         """Computes magnitude spectrum of windowed frame""" 
@@ -589,8 +890,25 @@ class MIR:
 
     def onsets_by_flux(self):
         """Use this function to get only frames containing peak parts of the signal""" 
-        self.onsets_indexes = np.where(self.flux(self.mel_dbs) > 80)[0]
-        self.audio_signal_spectrum = np.array(self.audio_signal_spectrum)[self.onsets_indexes]
+        self.fluctuations = self.flux(self.mel_dbs)
+        self.onsets_indexes = np.where(self.fluctuations > 80)[0]
+        self.uncorrelated_indexes = np.where(self.fluctuations < 80)[0]
+        self.audio_target_spectrum = np.array(self.audio_signal_spectrum)[self.onsets_indexes]
+        self.target_mel_dbs = np.array(self.mel_dbs)[self.onsets_indexes]
+        try:        
+            self.phase_target = np.array(self.phase_signal)[self.onsets_indexes]
+        except Exception as e:    
+            pass
+        self.frames_target_onset = np.array(list(self.FrameGenerator()))[self.onsets_indexes]
+        self.audio_target_fluctuations = np.array(self.fluctuations)[self.onsets_indexes]
+        self.uncorrelated_spectrum = np.array(self.audio_signal_spectrum)[self.uncorrelated_indexes]
+        self.uncorrelated_frames_onset = np.array(list(self.FrameGenerator()))[self.uncorrelated_indexes]
+        self.uncorrelated_fluctuations = np.array(self.fluctuations)[self.uncorrelated_indexes]
+        self.uncorrelated_mel_dbs = np.array(self.mel_dbs)[self.onsets_indexes]
+        try:        
+            self.uncorrelated_phase = np.array(self.phase_signal)[self.uncorrelated_indexes]
+        except Exception as e:    
+            pass
 
     def onsets_by_polar_distance(self,onsets):
         detection_rm = np.convolve(onsets/max(onsets), np.ones(2048), mode='valid')
@@ -658,31 +976,35 @@ class MIR:
             freq_mul = (np.pi / self.n_bands * i)
             for j in range(self.n_bands):
                 self.table[i][j] = scale * np.cos(freq_mul * (j + 0.5))
-            dct = np.zeros(13)
-            for i in range(13):
+            dct = np.zeros(len(array))
+            for i in range(len(array)):
                 dct[i] = 0
                 for j in range(self.n_bands):
-                    dct[i] += array[j] * self.table[i][j]
+                    try:              	
+                        dct[i] += array[j] * self.table[i][j]
+                    except Exception as e: #array connections are smaller than the size of filter at array position
+                        pass
         return dct
 
     def MFCC_seq(self):
         """Computes Mel Frequency Cepstral Coefficients. It returns the Mel Bands using a Mel filter and a sequence of MFCCs""" 
         self.mel_bands = self.MelFilter()
+        self.mel_bands = self.mel_bands[self.mel_bands>0]
         dbs = 2 * (10 * np.log10(self.mel_bands))
+        self.n_bands = len(dbs)
         self.mfcc_seq = self.DCT(dbs)
 
     def autocorrelation(self):
         self.N = (self.windowed_x[:,0].shape[0]+1) * 2
         corr = ifft(fft(self.windowed_x, n = self.N))  
-        np.savetxt('corr.txt',corr)
-        print(corr)                                 
-        self.correlation = util.normalize(corr, norm = np.inf)
+        corr /= np.max(corr,axis=0,keepdims=True)
+        self.correlation = corr
         subslice = [slice(None)] * np.array(self.correlation).ndim
         subslice[0] = slice(self.windowed_x.shape[0])                   
                                      
-        #self.correlation = np.array(self.correlation)[subslice]                                          
-        #if not np.iscomplexobj(self.correlation):               
-        #    self.correlation = self.correlation.real
+        self.correlation = np.array(self.correlation)[subslice]                                          
+        if not np.iscomplexobj(self.correlation):               
+            self.correlation = self.correlation.real
         return self.correlation
 
     def mel_bands_global(self):
@@ -702,10 +1024,12 @@ class MIR:
         """Spectral Flux of a signal used for onset strength detection"""                                                              
         self.envelope = self.mel_dbs[:,1:] - self.mel_dbs[:,:-1]
         self.envelope = np.maximum(0.0, self.envelope)
-        channels = [slice(None)] 
-        self.envelope = util.sync(self.envelope, channels, np.mean, True, 0)
+        self.envelope = np.mean(self.envelope, axis=0)
         pad_width = 1 + (2048//(2*self.H)) 
-        self.envelope = np.pad(self.envelope, ([0, 0], [int(pad_width), 0]),mode='constant') 
+        try:     
+            self.envelope = np.pad(self.envelope, ([0, 0], [int(pad_width), 0]),mode='constant') 
+        except Exception as e:     
+            self.envelope = np.pad([self.envelope], ([0, 0], [int(pad_width), 0]),mode='constant') 
         self.envelope = lfilter([1.,-1.], [1., -0.99], self.envelope, axis = -1) 
         self.envelope = self.envelope[:,:self.n_bands][0]  
 
@@ -713,7 +1037,7 @@ class MIR:
         """Computes tempo of a signal in Beats Per Minute with its tempo onsets""" 
         self.onsets_strength()                                                             
         n = len(self.envelope) 
-        win_length = np.asscalar(time_to_frames(8.0, self.fs, self.H))
+        win_length = np.asscalar(np.array([int(np.floor(8*48000/self.H))]))
         ac_window = hann(win_length) 
         self.envelope = np.pad(self.envelope, int(win_length // 2),mode='linear_ramp', end_values=[0, 0])
         frames = 1 + int((len(self.envelope) - win_length) / 1) 
@@ -732,9 +1056,9 @@ class MIR:
         bin_frequencies[0] = np.inf
         bin_frequencies[1:] = 22 * self.fs / (self.H * np.arange(1.0, tempogram.shape[0]))
 
-        prior = np.exp(-0.5 * ((np.log2(bin_frequencies) - np.log2(80)) / bin_frequencies[1:].std())**2)
+        prior = np.exp(-0.5 * ((np.log2(bin_frequencies) - np.log2(60)) / bin_frequencies[1:].std())**2)
         max_indexes = np.argmax(bin_frequencies < 208)
-        min_indexes = np.argmax(bin_frequencies < 80)
+        min_indexes = np.argmax(bin_frequencies < 60)
 
         prior[:max_indexes] = 0
         prior[min_indexes:] = 0
@@ -748,24 +1072,15 @@ class MIR:
         window = np.exp(-0.5 * (np.arange(-period, period+1)*32.0/period)**2)
         localscore = convolve(self.envelope/self.envelope.std(ddof=1), window, 'same')
         backlink, cumscore = dp(localscore, period, 100)
-        self.ticks = [last_beat(cumscore)]
-
-        while backlink[self.ticks[-1]] >= 0:
-            self.ticks.append(backlink[self.ticks[-1]])
-
-        self.ticks = np.array(self.ticks[::-1], dtype=int)
-
-        self.ticks = trim_beats(localscore, self.ticks, False) * self.H
-        if not len(self.ticks) >= 2:
-            raise ValueError(("Only found one single onset, can't make sure if the beat is correct"))
-        interv_value = self.ticks[1] - self.ticks[0] #these are optimal beat locations
+        self.bpm = cumscore.max() * 2
+        interv_value = int(np.floor(self.bpm / 60 * self.fs))
         interval = 0
         self.ticks = []
         for i in range(int(self.signal.size/interv_value)):
             self.ticks.append(interval + interv_value)
             interval += interv_value #compute tempo frames locations based on the beat location value
         self.ticks = np.array(self.ticks) / self.fs
-        return self.tempo, self.ticks
+        return self.bpm, self.ticks
 
     def centroid(self):
         """Computes the Spectral Centroid from magnitude spectrum"""                                         
@@ -1019,8 +1334,8 @@ class MIR:
         self.magnitudes = val - 0.25 * (lval - rval) * (iploc - self.peaks_locations)
         self.frequencies = (self.fs/2) * iploc / self.N 
         bound = np.where(self.frequencies < 22000) #only get frequencies lower than 5000 Hz
-        self.magnitudes = self.magnitudes[bound][:100] #we use only 100 magnitudes and frequencies
-        self.frequencies = self.frequencies[bound][:100]
+        self.magnitudes = self.magnitudes[bound][:456] #we use only 100 magnitudes and frequencies
+        self.frequencies = self.frequencies[bound][:456]
         self.frequencies, indexes = np.unique(self.frequencies, return_index = True)
         self.magnitudes = self.magnitudes[indexes]
 
@@ -1175,13 +1490,15 @@ class MIR:
             noise[i] = array[i] + 1e-10 * (random.random()*2.0 - 1.0)              
         return noise
 
+    #in lpc windowed signals can be filtered in such way that the predicted discrete signal = sum_of_p_coefficients(lpc*x+reflection)
+    #so for each coefficient there is a reflection resulting in a multilinear problem
     def LPC(self):
         fft = self.fft(self.windowed_x)
         self.Phase(fft)
         self.Spectrum()
         invert = self.ISTFT(self.magnitude_spectrum)
         invert = np.array(invert).T                                    
-        self.correlation = util.normalize(invert, norm = np.inf)
+        self.correlation = invert.T / invert.T.max()
         subslice = [slice(None)] * np.array(self.correlation).ndim
         subslice[0] = slice(self.windowed_x.shape[0])
         self.correlation = np.array(self.correlation)[subslice]      
@@ -1208,6 +1525,29 @@ class MIR:
                 lpc[j] = temp[j]
             E *= (1-pow(k,2))
         return lpc[1:],reflection
+
+#MSA method
+
+#spectral flux of mfccs
+#pcp of constant q transforms
+
+#similarity computation using cosine 
+
+#community detection
+
+#l = 1 
+#diff_r increment of r steps
+
+#w = profile of a beat
+#w = w + r*l
+
+#while abs(C*l) < len(beats):
+#l = l+1
+#Cl = {}
+#iterate to find a subset of beats to include in Cl and break
+#r = r+ diff_r
+#w = w + r*l
+#if we're gathering too many beats for the subsets the l would be large at some point
 
 class sonify(MIR):                                
     def __init__(self, audio, fs):
@@ -1332,7 +1672,13 @@ class sonify(MIR):
         self.hfc_locs = np.array([i for i, x in enumerate(self.Filtered) if x > 0]) * self.H
         self.hfc_locs = self.create_clicks(self.hfc_locs)
 
-def danceability(audio, target, fs):        
+def width_interpolation(w_idx,size):
+    w_interp = []
+    for i in range(size):
+        w_interp.append((w_idx[i]*( 1-((np.sin(2*np.pi*1/3)+1)/2.0) ) ) + ( w_idx[i-1]*((np.sin(2*np.pi*1/3)+1)/2.0)))
+    return w_interp
+
+def danceability(audio, w, cumsum, fs):        
     frame_size = int(0.01 * fs)
     audio = audio[:fs * 3]
     nframes = audio.size / frame_size
@@ -1346,33 +1692,34 @@ def danceability(audio, target, fs):
     for i in range(len(S)):      
         S[i] += S[i-1]           
     tau = []                     
-    for i in range(310, 3300):   
-        i *= 1.1              
+    for i in range(11, 930):   
+        i *= 1.5              
         tau.append(int(i/10)) 
     tau = np.unique(tau) 
     F = np.zeros(len(tau))                                                            
-    nfvalues = 0            
+    nfvalues = 0   
+    Target = width_interpolation(cumsum.cumsum(),len(S))         
     for i in range(len(tau)):        
-        jump = max(tau[i]/50, 1)                                                                                       
-        if nframes >= tau[i]:                                                                              
-            k = jump                  
+        jump = max(tau[i]/50, 1)   
+        if nframes >= tau[i]: 
+            k = jump 
             while k < int(nframes-tau[i]):
-                fbegin = int(k)                        
-                fend = int(k + tau[i])           
-                w = attention_sgd(np.mat(S[fbegin:fend]),target[fbegin:fend])    
+                fbegin = int(k)
+                fend = int(k + tau[i])   
                 reg = S[fbegin:fend] * w
-                F[i] += np.sum((target[fbegin:fend]-reg)**2)
-                k += jump        
+                F[i] += np.sum((Target[fbegin:fend]-reg)**2)
+                k += jump     
             if nframes == tau[i]:
-                F[i] = 0         
-            else:              
+                F[i] = 0 
+            else:
                 F[i] = np.sqrt(F[i] / ((nframes - tau[i])/jump)) 
             nfvalues += 1
-        else:      
-            break    
+        else:
+            break
+
 
     dfa = np.zeros(len(tau))
-    for i in range(nfvalues):
+    for i in range(nfvalues-1):
         if F[i+1] != 0:
             dfa[i] = np.log10(F[i+1] / F[i]) / np.log10( (tau[i+1]+3.0) / (tau[i]+3.0))
         else:
@@ -1381,13 +1728,142 @@ def danceability(audio, target, fs):
     motion = motion[motion < 1.5]    
     return 1/(motion.sum() / len(motion))
 
+def music_structure_analysis(signal,separator,fun='median'):
+    audio,fs = read(signal)
+    audio = mono_stereo(audio)
+    song = MIR(audio,fs)
+    song.mel_bands_global() #cepstrum
+    song.onsets_by_flux() #get the onsets based on fluctuation
+    song.bpm() #compute bpm using cummulative score of a tempogram, maximum may not fit under a sample rate
+    onsets_indexes = song.onsets_indexes * song.H
+    ticks = song.ticks * song.fs #bars from BPM
+    pcps = []
+    for magnitude in song.audio_signal_spectrum:
+        song.magnitude_spectrum = magnitude
+        song.spectral_peaks()
+        pcps.append(hpcp(song,28))
+    pcps = np.array(pcps)
+    ticks = np.array(ticks)    
+
+    start = 0
+    nodes = []
+    Ticks = []
+    for bar in range(len(ticks)-1):
+        if any(nodes): #a max pitch profile had been found
+            mfcc_nodes = onsets_indexes[(ticks[bar] < onsets_indexes)][(onsets_indexes[(ticks[bar] < onsets_indexes)] < ticks[bar+1])]
+        else:
+            conditioned_intensity = (onsets_indexes[(ticks[bar] < onsets_indexes)] < ticks[bar+1])
+            try:
+                mfcc_nodes
+            except Exception as e:
+                conditioned_intensity = (onsets_indexes[(ticks[bar] < onsets_indexes)] > ticks[bar+1])
+                mfcc_nodes = onsets_indexes[(ticks[bar] < onsets_indexes)][conditioned_intensity] 
+                first = True
+            if not any(conditioned_intensity) or not np.any([mfcc_nodes]) and not first:
+                conditioned_intensity = (onsets_indexes[(ticks[bar] < onsets_indexes)] > ticks[bar+1])
+                mfcc_nodes = onsets_indexes[(ticks[bar] < onsets_indexes)][conditioned_intensity] 
+        if type(mfcc_nodes) is list or type(mfcc_nodes) is np.ndarray:
+            if not any(mfcc_nodes):
+                continue
+        if len(mfcc_nodes) == 1:   
+            node_boundary = np.where(np.max(mfcc_nodes) == onsets_indexes)[0]
+            if not any(node_boundary):
+                continue
+            mfcc_nodes = node_boundary[0]
+            if not any(pcps[mfcc_nodes]):
+                continue
+        if len(np.ravel([mfcc_nodes])) > 1:
+            node_boundary = np.where([i == onsets_indexes for i in mfcc_nodes])[1]
+            if not any(node_boundary):
+                continue
+        if fun is 'median':
+            if len(np.ravel([mfcc_nodes])) > 1:
+                node_pcp = np.median(np.median(pcps[node_boundary],axis=1),axis=0)
+            else:
+                node_pcp = np.median(pcps[mfcc_nodes],axis=0)
+        if fun is 'mean':
+            if len(np.ravel([mfcc_nodes])) > 1:        
+                node_pcp = np.mean(np.mean(pcps[node_boundary],axis=1),axis=0)
+            else:
+                node_pcp = np.mean(pcps[mfcc_nodes],axis=0)
+        nodes.append(node_pcp)
+        Ticks.append([ticks[bar],ticks[bar+1]])
+
+    nodes = np.array(nodes) #the median of two bars is a node
+
+    from sklearn.metrics import pairwise_distances 
+
+    nans = np.isnan(nodes)
+    valid = ~ nans    
+    nodes = np.mat(nodes[np.unique(np.where(valid)[0])]).T
+    ticks = ticks[np.unique(np.where(valid)[0])]
+    cosine_similarities_nodes = pairwise_distances(nodes,metric='euclidean')
+
+    l = 1    
+    r = 1e-2
+    W = cosine_similarities_nodes.copy()
+    Cl = []
+    regions = []
+    W += (r * l)
+    while sum([len(i) for i in Cl]) + 1 <= len(W):
+        l += 1
+        max_subset = np.argmax(W[:,sum([len(i) for i in Cl])][sum([len(i) for i in Cl]):]) + sum([len(i) for i in Cl])
+        r += 1e-2
+        W += (r * l)
+        if np.any(Cl):
+            delta = [max((np.max(Ticks[max_subset]),Cl[-1][0]))]
+            r += np.max(Ticks[max_subset])/Cl[-1][0]
+        else:
+            delta = [np.max(Ticks[max_subset])]
+        Cl.append(delta)
+        
+    Cl = np.unique(Cl)
+
+    for i in range(len(Cl)):
+        if i == 0:
+            segment = audio[:int(Cl[i])] 
+            if segment.size / song.fs > 2:
+                write_file(separator+signal+str(i), song.fs,segment)            
+        elif not i == len(Cl) -1:
+            segment = audio[int(Cl[i-1]):int(Cl[i])] 
+            if segment.size / song.fs > 2:
+                write_file(separator+signal+str(i), song.fs,segment)     
+        elif i == len(Cl) - 1:
+            segment = audio[int(Cl[i]):] 
+            if segment.size / song.fs > 2:
+                write_file(separator+signal+str(i), song.fs,segment)     
+
+
+    return Cl
+
+def AMEKEQ200(song, db1,db2,db3,db4,db5,q1,q2,q3,q4,q5,hz1,hz2,hz3,hz4,hz5,band_mono, widening,thd_db):
+    a = song.AllPass(hz1,q1) * (10 ** (db1/20))
+    b = song.AllPass(hz2,q2) * (10 ** (db2/20))
+    c = song.AllPass(hz3,q3) * (10 ** (db3/20))
+    d = song.AllPass(hz4,q4) * (10 ** (db4/20))
+    e = song.AllPass(hz5,q5) * (10 ** (db5/20))
+    mid = 1 - ((widening) / 2)
+    Mid = mid * (.5/mid)
+    x_wide = []
+    for i in range(len(song.signal)-2): 
+        x_wide.append(song.signal[i] - Mid * song.signal[i+1] + song.signal[i+2])
+    x_wide.append(0)
+    x_wide.append(0)    
+    x_wide = np.array(x_wide)    
+    thd = (song.signal - np.mean(song.signal)) *  (10 ** (thd_db/20)) + song.signal
+    mono = song.AllPass(band_mono,1)
+    output = (a+b+c+d+e+thd+mono+x_wide)
+    return output / output.max()
+
+
+
 def hpcp(song, nbins):
     def add_contribution(freq, mag, bounded_hpcp):
         for i in range(len(harmonic_peaks)):
             f = freq * pow(2., -harmonic_peaks[i][0] / 12.0)
             hw = harmonic_peaks[i][1]
             pcpSize = bounded_hpcp.size
-            resolution = pcpSize / nbins
+            resolution = pcpSize / 12
             pcpBinF = np.log2(f / ref_freq) * pcpSize
             leftBin = int(np.ceil(pcpBinF - resolution * M / 2.0))
             rightBin = int((np.floor(pcpBinF + resolution * M / 2.0)))
@@ -1856,7 +2332,7 @@ def envelope_follower(x,fs,at=200,sus=500,rel=1000):
     envelope[tmp>envelope_frequencies] = at_coef * (envelope[tmp>envelope_frequencies] - tmp) + tmp;
     envelope[tmp>envelope_frequencies] = sus_coef * (envelope[tmp>envelope_frequencies] - tmp) + tmp;
     envelope[tmp>envelope_frequencies] = rel_coef * (envelope[tmp>envelope_frequencies] - tmp) + tmp;
-    return envelope_frequencies
+    return envelope
     
 def ChordsDetection(hpcps, song):
     nframesm = int((2 * song.fs) / song.H) - 1
@@ -1873,4 +2349,3 @@ def ChordsDetection(hpcps, song):
             continue
         chords.append((key + scale, firstto_2ndrelative_strength))
     return chords   
-
