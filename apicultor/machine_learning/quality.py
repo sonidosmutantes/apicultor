@@ -1,19 +1,19 @@
 #!/usr/bin/env python3
 # -*- coding: UTF-8 -*-
 
-import librosa
 from ..constraints.dynamic_range import dyn_constraint_satis
 from ..utils.algorithms import *
 from ..sonification.Sonification import normalize, write_file
 import numpy as np
 from scipy.fftpack import fft, ifft, fftfreq
-from scipy.signal import lfilter, fftconvolve, firwin
+from scipy.signal import lfilter, fftconvolve, firwin, medfilt
 from soundfile import read
 import os
 import sys
 import logging
+import librosa
 
-#TODO: *Remove wows, clippings, clicks and pops
+#TODO: *Remove wows, clippings, pops
 
 #you should comment what you've already processed (avoid over-processing) 
 
@@ -26,8 +26,6 @@ rel = lambda at: at * 10 #calculate release time
 
 to_coef = lambda at, sr: np.exp((np.log(9)*-1) / (sr * at)) #convert attack and release time to coefficients
 
-#hiss removal (a noise reduction algorithm working on signal samples to reduce its hissings)
-
 def width_interpolation(w_idx,size):
     w_interp = []
     for i in range(size):
@@ -36,12 +34,329 @@ def width_interpolation(w_idx,size):
     
 w = np.load('width.npy')
 
-w_inter = width_interpolation(w)    
+w_inter = width_interpolation(w,1)    
 
 def lstm_synth_predict(audio):
     stft = librosa.stft(audio,hop_length=1024,win_length=2048).T
     output = librosa.istft((stft*w_inter).T,hop_length=1024)
     return output
+
+def centBin2freq(cent,reff,binsInOctave): 
+    pow(2, (cent - reff) / binsInOctave)
+
+freq2CentBin = lambda freq: np.floor(np.log2(freq))
+
+def hum_removal(song): 
+    _outSampleRate = 2000 
+    psd = [] 
+    for frame in song.FrameGenerator():
+      psd.append(periodogram(song.frame,song.fs,'flattop',scaling='spectrum')[1][:song.N]) 
+    psd = np.array(psd)
+    _medianFilterSize = song.frame.size * 60 / (_outSampleRate)
+    _spectSize = psd[0].size
+
+    _timeStamps = len(psd)
+    if _timeStamps < 10:
+      _timeWindow = int(_timeStamps/2)
+    else:
+      _timeWindow = 10      
+    psdWindow = np.zeros(shape=(int(_spectSize),10))
+    _medianFilterSize = .439
+    binsToSkip = 6
+    binResolution = 20; 
+    _binsInOctave = 1200.0 / binResolution;     
+    pitchContinuity = (binsToSkip / _binsInOctave) * 1200. / (1000. * song.H / _outSampleRate)
+
+    _Q0 = .1
+    _Q1 = .55
+    _Q0sample = _Q0 * _timeWindow + 0.5 
+    _Q1sample = _Q1 * _timeWindow + 0.5 
+    _iterations = _timeStamps - _timeWindow + 1 
+    r = np.zeros(shape=(int(_spectSize),int(_iterations)))    
+    _EPS = np.finfo(float).eps
+    for i in range(_spectSize): 
+      for j in range(_timeWindow): 
+        psdWindow[i][j] = psd[j][i]; 
+      psdIdxs = np.argsort(psdWindow[i]); 
+      Q0 = psdWindow[i][psdIdxs[int(_Q0sample)]]; 
+      Q1 = psdWindow[i][psdIdxs[int(_Q1sample)]]; 
+      r[i][0] = Q0 / (Q1 + _EPS);
+
+    for i in range(_spectSize): 
+        for j in range(_timeWindow,_timeStamps): 
+            psdWindow[i] = np.roll(psdWindow[i], -1) 
+            psdWindow[i][_timeWindow - 1] =psd[j][i]; 
+            psdIdxs = np.argsort(psdWindow[i]); 
+            Q0 = psdWindow[i][psdIdxs[round(_Q0sample)]]; 
+            Q1 = psdWindow[i][psdIdxs[round(_Q1sample)]]; 
+            r[i][j - _timeWindow + 1] = Q0 / (Q1 + _EPS); 
+            
+    rSpec = np.zeros(_spectSize)  
+
+    for j in range(_iterations): 
+      for i in range(_spectSize): 
+          rSpec[i] = r[i][j]; 
+          filtered = medfilt(rSpec,7) 
+          for m in range(_spectSize): 
+              r[m][j] -= filtered[m]; 
+              
+    kernerSize = min(int(_timeWindow / 2), _iterations);
+    kernerSize -= (kernerSize + 1) % 2;
+
+    for i in range(_spectSize): 
+        filtered = medfilt(r[i],kernerSize) 
+        for j in range(_iterations): 
+          r[i][j] = filtered[j]; 
+
+    frames = list(song.FrameGenerator())
+    bins = []
+    values = []
+    for j in  range(_iterations): 
+        for i in range(_spectSize): 
+            rSpec[i] = r[i][j] 
+        threshold = 5 * np.std(rSpec)
+        song.frame = frames[j]
+        song.window()
+        song.Spectrum()
+        song.spectral_peaks()  
+        try: 
+            song.pitch_salience_function(threshold) 
+            song.pitch_salience_function_peaks(threshold)
+            bins.append(song.salience_bins)
+            values.append(song.salience_values)
+        except Exception as e: 
+            print(e)
+            
+    song.salience_bins = np.array(bins)
+    song.salience_values = np.array(values)
+            
+    song.pitch_contours()  
+    timeWindowSecs = _timeWindow * song.H / _outSampleRate; 
+    for i in range(len(song.contours_bins)): 
+        song._contours_starts[i] += timeWindowSecs; 
+        song.contours_freqs_mean[i] = centBin2freq(np.mean(song.contours_bins[i]), _referenceTerm, _binsInOctave); 
+        song.contours_saliences_mean[i] = np.mean(song.contours_saliences[i]) 
+        song.contours_ends[i] = song.contours_starts[i] + song.contours_saliences[i].size * song.H / _outSampleRate; 
+        
+    return song.contours_freqs_mean
+
+
+def vecvec2Array(v): 
+    v2D = np.zeros(shape=(v.shape[0],v.shape[1])) 
+    for i in range(v2D[:,0]): 
+        for j in range(v2D[:,1]): 
+            v2D[i][j] = v[i][j]; 
+    return v2D 
+
+def discontinuity_detector(song):
+        predicted = np.zeros(song.H)
+        y = []
+        frames = []
+        errors = []
+        errors_filt = []
+        samples_peaking_frame = []
+        frame_idx = []
+        power = []
+        frame_counter = 0
+        energy_thld = 0.001
+        times_thld = 8
+        sub_frame = 32
+
+        for frame in song.FrameGenerator():
+            song.window()
+            power.append(np.sqrt(np.mean(song.windowed_x ** 2)))
+            frames.append(song.windowed_x)
+            frame_un = np.array(song.windowed_x[song.H // 2: song.H * 3 // 2])
+            norm = np.max(np.abs(song.windowed_x))
+            if not norm:
+                continue
+            song.windowed_x /= norm
+
+            lpc_f = song.LPC()
+
+            lpc_f1 = lpc_f[::-1]
+
+            for idx, i in enumerate(range(song.H // 2, song.H * 3 // 2)):
+                predicted[idx] = - np.sum(np.multiply(song.windowed_x[i - 14:i], lpc_f1))
+
+            error = np.abs(song.windowed_x[song.H // 2: song.H * 3 // 2] - predicted)
+
+            threshold1 = 8 * np.std(error)
+
+            med_filter = medfilt(error, kernel_size=7)
+            filtered = np.abs(med_filter - error)
+
+            mask = []
+            for i in range(0, len(error), sub_frame):
+                r = np.sqrt(np.mean(frame_un[i:i + sub_frame]**2)) > energy_thld
+                mask += [r] * sub_frame
+            mask = mask[:len(error)]
+            mask = np.array([mask]).astype(float)[0]
+
+            if sum(mask) == 0:
+                threshold2 = 1000  # just skip silent frames
+            else:
+                threshold2 = times_thld * (np.std(error[mask.astype(bool)]) +
+                                           np.median(error[mask.astype(bool)]))
+
+            threshold = np.max([threshold1, threshold2])
+
+            samples_peaking = np.sum(filtered >= threshold)
+            if samples_peaking >= 1:
+                y.append(frame_counter * song.H / 44100.)
+                frame_idx.append(frame_counter)
+
+            frames.append(song.windowed_x)
+            errors.append(error)
+            errors_filt.append(filtered)
+            samples_peaking_frame.append(samples_peaking)
+
+            frame_counter += 1
+        return np.array(y)
+
+def derivative(array): 
+    output = np.zeros(array.size) 
+    output[0] = array[0] 
+    for i in range(len(array)): 
+        output[i] = array[i] - array[i-1] 
+    return output
+
+from scipy.stats import pearsonr 
+ 
+def false_stereo(frame): 
+    try: 
+        frame.shape[1] == 2 
+    except Exception as e: 
+        raise IndexError("Signal is not stereo") 
+    silenceThreshold = 10 ** (-50 * 0.05) 
+    if frame[0] < silenceThreshold and frame[1] < silenceThreshold: 
+        raise ValueError("Can't determine if a silent signal has false stereo!") 
+    r_thresh = 0.9995 
+    r = pearsonr(frame[0],frame[1]) 
+    if r > r_thresh: 
+        return True 
+    else: 
+        return False
+
+def noise_burst_detector(song):
+  _thresholdCoeff = 8
+  silenceThreshold = 10 ** (-50 * 0.05)
+  _alpha = .9
+
+  if np.sqrt(np.mean(song.frame**2)) < silenceThreshold:
+    return;
+
+  second_derivative = derivative(derivative(song.windowed_x));
+
+  _threshold = 1 * (1 - _alpha) + (_thresholdCoeff * robustRMS(second_derivative, 2)) * _alpha;
+  
+  indexes = []
+
+  for i in range(len(second_derivative)):
+    if (second_derivative[i] > _threshold):
+      indexes.append(i)
+  return indexes
+
+def robustRMS(x,k):
+    robustX = np.abs(x) ** 2
+    median = np.median(robustX)    
+    robustX[robustX > median * k] = median * k
+    return np.sqrt(np.mean(robustX**2))
+
+#low pass filtering
+def find_clicks(song, filter_signal):
+    print('FILTERING',filter_signal)	
+    idx_ = 0
+    threshold = 10
+    powerEstimationThreshold = 10
+    silenceThreshold = 10 ** (-50 * 0.05)
+    detectionThreshold = 10 ** (30 * 0.05)
+
+    start_proc = int(song.M / 2 - song.H / 2)
+    end_proc = int(song.M / 2 + song.H / 2)
+
+    def tukeyBiWeighted(self, x):
+        if np.abs(x) >= 1:
+            return 1/6.
+        else:
+            return (1-(1 - x**2)**3) / 6.
+
+    def robustPower(x, k):
+        robustX = np.abs(x) ** 2
+        median = np.median(robustX)
+        robustX[robustX > median * k] = median * k
+        return np.sum(robustX) / len(robustX)
+
+    def robustStd(x, k):
+        robustX = np.abs(x) ** 2
+        median = np.median(robustX)
+        robustX[robustX > median * k] = median * k
+        return np.std(robustX)
+
+    def robustMedian(x, k):
+        robustX = np.abs(x) ** 2
+        median = np.median(robustX)
+        robustX[robustX > median * k] = median * k
+        return np.median(robustX)
+
+    #y = []
+    clickless = np.zeros(song.signal.size)
+    output = []
+    for frame in song.FrameGenerator():
+            song.window()
+            if np.sqrt(np.mean(song.windowed_x ** 2)) < silenceThreshold:
+                idx_ += 1
+                if filter_signal is True:
+                    output.append(frame)
+                continue
+
+            lpc, _ = song.LPC()
+
+            lpc /= np.max(lpc)
+
+            e = deconvolve(song.frame,lpc)[0]
+
+            e_mf = np.convolve(e[::-1],-lpc)[::-1]
+
+            # Thresholding
+            th_p = np.max([robustPower(e, powerEstimationThreshold) *\
+                           detectionThreshold, silenceThreshold])
+
+            detections = [i + start_proc for i, v in\
+                          enumerate(e_mf[start_proc:end_proc]**2) if v >= th_p]
+            if detections:
+                starts = [detections[0]]
+                ends = []
+                end = detections[0]
+                for idx, d in enumerate(detections[1:], 1):
+                    if d == detections[idx-1] + 1:
+                        end = d
+                    else:
+                        ends.append(end)
+                        starts.append(d)
+                        end = d
+                ends.append(end)
+                y_starts = []
+                for start in starts:
+                    cutOff = (song.fs/2) * start / song.N
+                    frame = song.IIR(frame,cutOff,'low')
+                    y_starts.append(start)
+
+                # for end in ends:
+                #     y.append(end + idx_)
+                if filter_signal is True:
+                    output.append(frame)
+                else:
+                    output.append(y_starts) 
+            else:
+                if filter_signal is True:
+                    output.append(frame)         
+                else:
+                    output.append([])    
+                    
+            idx_ += 1       
+    return output
+
 
 def greatestCommonDivisor(x, y,epsilon): 
   if (x<y):  
@@ -132,14 +447,28 @@ def constantQ_transform(audio):
         pin += 1024
     return output
 
-
 def hiss_removal(audio):
+    """
+    RMS noise as least autocorrelated (stationary) samples (other peaks and heart beatings) 
+    of its signal envelope (spsynth rather than anisotropic diffusion)
+    enhanced phase values are probabilistic
+    short-term phases (music: rms of tones, remanent noise: wider critical bandwidth) are discarded by the ear
+    Additive noise is noise in environment. Humans can discriminate only part of it due to masking, leading to
+    conditions:
+    	mask (Wiener gain) = psd/(psd+psd_noise) => harmonic distortion and higher critical noise
+    	if mask[i] === min(mask):
+    		alpha[i] (or beta[i]) = max(alpha)
+    	elif mask[i] === max(mask):
+    		alpha[i] (or beta[i]) = min(alpha)
+    	elif min(mask) > mask[i] > max(mask):
+    		alpha[i] (or beta) = max(alpha) *(( max(mask) - mask[i] )/( max(mask) - min(mask) ) + min(alpha) *( ( mask[i] - min(mask) )/( max(mask)- min(mask) ))
+    """
     pend = len(audio)-(4410+1102)
     song = sonify(audio, 44100) 
     song.FrameGenerator().__next__()
     song.window() 
     song.Spectrum()
-    noise_fft = song.fft(song.windowed_x,fft=False)[:song.H+1]
+    noise_fft = song.fft(song.windowed_x)[:song.H+1]
     noise_power = np.log10(np.abs(noise_fft + 2 ** -16))
     noise_floor = np.exp(2.0 * noise_power.mean())                                    
     mn = song.magnitude_spectrum
@@ -223,7 +552,7 @@ def z_coeff(Poles,Zeros,fs,g,fg,fo = 'none'):
         beta = f_warp(fo,fs)/fo
     a = np.poly(z_from_f(beta*np.array(Poles),fs))
     b = np.poly(z_from_f(beta*np.array(Zeros),fs))
-    gain = 10.**(g/20.)/abs(Fz_at_f(beta*np.array(Poles),beta*np.array(Zeros),fg,fs))
+    gain = np.array(10.**(g/20.)/abs(Fz_at_f(beta*np.array(Poles),beta*np.array(Zeros),fg,fs)))
     
     return (a,b*gain)
 
@@ -251,6 +580,7 @@ def main():
     try:
         DATA_PATH = sys.argv[1]
         RIAA = [[50.048724,2122.0659],[500.48724,np.inf]]
+        #Diffuse_Equalization = [[20,50.048724,100,f/Hz,2000,5000,10000,20000]] #gain = 18,20,18,17,12,8,5,7,-27
         abz = z_coeff(RIAA[0],RIAA[1],44100,0,10000) 
 
         if not os.path.exists(DATA_PATH):                         
@@ -258,11 +588,18 @@ def main():
 
         for subdir, dirs, files in os.walk(DATA_PATH):                  
             for f in files:                                           
-                print(( "Rewriting without hissing in %s"%f ))          
-                audio = read(DATA_PATH+'/'+f)[0] 
-                audio = mono_stereo(audio)              
-                #hissless = hiss_removal(audio) #remove hiss             
-                #print(( "Rewriting without crosstalk in %s"%f ))        
+                print(( "Rewriting with LSTM Synthesis in %s"%f ))          
+                audio = read(DATA_PATH+'/'+f)[0]
+                
+                audio = mono_stereo(audio) 
+                neural = lstm_synth_predict(audio) #lstm synth model prediction 
+
+                print(( "Rewriting without clicks in %s"%f )) 
+                clickless = find_clicks(MIR(neural,44100)) #remove clicks           
+
+                print(( "Rewriting without hissings in %s"%f )) 
+                hissless = hiss_removal(clickless) #remove hiss             
+                print(( "Rewriting without crosstalk in %s"%f ))        
                 hrtf = read(sys.argv[2])[0] #load the hrtf wav file                                          
                 b = firwin(2, [0.05, 0.95], width=0.05, pass_zero=False)  
 
@@ -270,40 +607,39 @@ def main():
                 convolved = np.vstack((convolved,convolved))
                 left = convolved[:int(convolved.shape[0]/2), :] 
                 right = convolved[int(convolved.shape[0]/2):, :]   
-                h_sig_L = lfilter(left.flatten(), 1., audio)             
-                h_sig_R = lfilter(right.flatten(), 1., audio)            
+                h_sig_L = lfilter(left.flatten(), 1., hissless)             
+                h_sig_R = lfilter(right.flatten(), 1., hissless)            
                 del hissless  
                 result = np.float32([h_sig_L, h_sig_R]).T               
                 neg_angle = result[:,(1,0)]         
                 panned = result + neg_angle
                 normalized = normalize(panned)  
                 del normalized                                          
-                audio = mono_stereo(audio)          
-                #print(( "Rewriting without aliasing in %s"%f ))         
-                song = sonify(audio, 44100)                     
-                audio = song.IIR(audio, 20000, 'lowpass') #anti-aliasing filtering: erase frequencies higher than the sample rate being used
-                #print(( "Rewriting without DC in %s"%f ))                                  
+   
+                print(( "Rewriting without aliasing in %s"%f ))         
+                song = sonify(normalized, 48000)                     
+                audio = song.IIR(song.signal, 20000, 'lowpass') #anti-aliasing filtering: erase frequencies higher than the sample rate being used
+                print(( "Rewriting without DC in %s"%f ))                                  
                 audio = song.IIR(audio, 40, 'highpass') #remove direct current on audio signal                       
-                #print(( "Rewriting with Equal Loudness contour in %s"%f ))                                
+                print(( "Rewriting with Equal Loudness contour in %s"%f ))                                
                 audio = song.EqualLoudness(audio) #Equal-Loudness Contour  
-                #print(( "Rewriting with RIAA filter applied in %s"%f )) 
-                #riaa_filtered = biquad_filter(audio, abz)  #riaa filter 
-                #del audio
-                normalized_riaa = normalize(audio)                   
+                print(( "Rewriting with RIAA filter applied in %s"%f )) 
+                riaa_filtered = biquad_filter(audio, abz)  #riaa filter 
+                normalized_riaa = normalize(riaa_filtered)                   
                 del audio                          
-                #print(( "Rewriting with Hum removal applied in %s"%f ))
+                print(( "Rewriting with Hum removal applied in %s"%f ))
                 song.signal = np.float32(normalized_riaa)                
                 without_hum = song.BandReject(np.float32(normalized_riaa), 50, 16) #remove undesired 50 hz hum     
                 del normalized_riaa                                     
-                #print(( "Rewriting with subsonic rumble removal applied in %s"%f ))                          
+                print(( "Rewriting with subsonic rumble removal applied in %s"%f ))                          
                 song.signal = without_hum                               
                 without_rumble = song.IIR(song.signal, 20, 'highpass') #remove subsonic rumble                  
                 del without_hum                                         
                 db_mag = 20 * np.log10(abs(without_rumble)) #calculate silence if present in audio signal                         
-                #print(( "Rewriting without silence in %s"%f ))
+                print(( "Rewriting without silence in %s"%f ))
                 silence_threshold = -130 #complete silence              
                 loud_audio = np.delete(without_rumble, np.where(db_mag < silence_threshold))#remove it
-                write_file(subdir+'/'+os.path.splitext(f)[0], 44100, loud_audio)                                                              
+                write_file(subdir+'/'+os.path.splitext(f)[0], 48000, loud_audio)                                                              
                 del without_rumble                       
 
     except Exception as e:
@@ -312,4 +648,3 @@ def main():
 
 if __name__ == '__main__': 
     main()
-
