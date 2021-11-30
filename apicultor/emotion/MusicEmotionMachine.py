@@ -2,7 +2,11 @@
 # -*- coding: utf-8 -*-
 
 from ..utils.dj import *
+from ..machine_learning.cache import *
 from ..machine_learning.cross_validation import *
+from ..machine_learning.fairness import *
+from ..machine_learning.dependency import *
+from ..machine_learning.explain import *
 from ..gradients.descent import SGD
 from ..constraints.bounds import dsvm_low_a as la
 from ..constraints.bounds import dsvm_high_a as ha
@@ -20,13 +24,14 @@ import matplotlib.pyplot as plt
 import os, sys 
 import json                                                          
 from ..sonification.Sonification import write_file, hfc_onsets
-from ..machine_learning.fairness import *
 from soundfile import read  
 from sklearn.preprocessing import StandardScaler as sc
 from sklearn.preprocessing import LabelBinarizer as lab_bin
 from sklearn.preprocessing import LabelEncoder as le
 from sklearn.preprocessing import MinMaxScaler
-from sklearn.decomposition.pca import PCA as pca
+#pca is a dimensionality reduction method that takes x values and maps these to a reduced form that minimizes
+#the squared error by looking for the smallest distance, so it gets a narrower version of the dataset
+from sklearn.decomposition import PCA as pca
 from sklearn.cluster import KMeans
 from random import *
 from sklearn.utils.extmath import safe_sparse_dot as ssd
@@ -114,7 +119,8 @@ def feature_scaling(f):
     :param features: combinations of features                                                                               
     :returns:                                                                                                         
       - scaled features with mean and standard deviation
-    """    
+    """ 
+    #test again or normalize accordingly   
     return MinMaxScaler().fit_transform(sc().fit(f).transform(f))
 
 def KMeans_clusters(fscaled):
@@ -122,390 +128,10 @@ def KMeans_clusters(fscaled):
     KMeans clustering for features                                                           
     :param fscaled: scaled features                                                                                         
     :returns:                                                                                                         
-      - labels: features cathegorized based on music emotion: anger,fear,relaxed,tender,happy (confusion should strongly relate
-      relaxation and tenderness)     
+      - labels: classes         
     """
-    labels = (KMeans(init = pca(n_components = 5).fit(fscaled).components_, n_clusters=5, n_init=1, precompute_distances = True, random_state = 0, n_jobs = -1).fit(fscaled).labels_)
+    labels = (KMeans(init = pca(n_components = 4).fit(fscaled).components_, n_clusters=4, n_init=1, precompute_distances = True, random_state = 0, n_jobs = -1).fit(fscaled).labels_)
     return labels
-
-class deep_support_vector_machines(object):
-    """
-    Functions for Deep Support Vector Machines                                               
-    :param features: scaled features                                                                                        
-    :param labels: classes                                                                                            
-    """ 
-    def __init__(self, kernel1, kernel2):
-        self.kernel1 = None
-        self.kernel2 = None
-    @classmethod
-    @memoize
-    def polynomial_kernel(self, x, y, gamma):
-        """
-        Custom polynomial kernel function, similarities of vectors over polynomials
-        :param x: array of input vectors
-        :param y: array of input vectors
-        :param gamma: gamma
-        :returns:
-          - pk: inner product
-        """
-        c = 1
-        degree = 2
-
-        pk = x @ y.T
-
-        pk *= gamma
-
-        pk += c
-
-        pk **= degree
-        return pk
-    @classmethod
-    @memoize
-    def linear_kernel_matrix(self, x, y): 
-        """
-        Custom inner product. The returned matrix is a Linear Kernel Gram Matrix   
-        :param x: your dataset          
-        :param y: another dataset (sth like transposed(x))
-        """  
-        return x @ y
-    @classmethod
-    @memoize
-    def sigmoid_kernel(self, x, y, gamma):
-        """
-        Custom sigmoid kernel function, similarities of vectors in a sigmoid kernel matrix
-        :param x: array of input vectors
-        :param y: array of input vectors                  
-        :param gamma: gamma
-        :returns:
-          - sk: inner product
-        """
-        c = 1
-
-        sk = x @ y.T
-
-        sk *= gamma
-
-        sk += c
-
-        np.tanh(np.array(sk, dtype='float64'), np.array(sk, dtype = 'float64'))
-        return np.array(sk, dtype = 'float64')
-    @classmethod
-    @memoize
-    def rbf_kernel(self, x, y, gamma):
-        """
-        Custom radial basis function, similarities of vectors using a radial basis function kernel
-        :param x: array of input vectors
-        :param y: array of input vectors                  
-        :param gamma: reach factor
-        :returns:
-          - rbfk: radial basis of the kernel's inner product
-        """ 
-        mat1 = np.mat(x) #convert to readable matrices
-        mat2 = np.mat(y)                                                                                                
-        trnorms1 = np.mat([(v * v.T)[0, 0] for v in mat1]).T #norm matrices
-        trnorms2 = np.mat([(v * v.T)[0, 0] for v in mat2]).T                                                                                
-        k1 = trnorms1 * np.mat(np.ones((mat2.shape[0], 1), dtype=np.float64)).T #dot products of y and y transposed and x and x transposed   
-        k2 = np.mat(np.ones((mat1.shape[0], 1), dtype=np.float64)) * trnorms2.T          
-                   
-        rbfk = k1 + k2 #sum products together
-        rbfk -= 2 * np.mat(mat1 * mat2.T) #dot product of x and y transposed                                         
-        rbfk *= - 1./(2 * np.power(gamma, 2)) #radial basis
-        np.exp(rbfk,rbfk)
-        return np.array(rbfk)
-
-    def fit_model(self, features,labels, kernel1, kernel2, C, reg_param, gamma, learning_rate):
-        """
-        Fit your data for classification. Attributes such as alpha, the bias, the weight, and the support vectors can be accessed after training. 
-        :param features: your features dataset            
-        :param labels: your labels dataset                 
-        :param kernel1: the kernel used for predictive task         
-        :param kernel2: the kernel used to solve the min-max problem
-        :param C: cost, also called penalty parameter    
-        :param reg_param: tolerance, used for convergence
-        :param gamma: determines a reach            
-        *What you can have access to after computing
-          - w: the weight coefficient         
-          - a: resolutions to min-max problems                          
-          - dual_coefficients: stacked alphas of the support vectors appearing in all of the problems of its class
-          - svs: find out which index of your features is a support vector                                                                    
-          - nvs: number of support vectors in each class              
-          - ns: where your support vectors are from your input dataset
-          - bias: a helper
-        """ 
-        self.kernel1 = kernel1
-        self.kernel2 = kernel2
-        self.gamma = gamma
-        self.C = C
-        self.learning_rate = learning_rate
-
-        features = np.ascontiguousarray(features)
-
-        self.targets = labels
-        self.n_class = np.unique(labels).size
-
-        if reg_param == 0:                                      
-            raise ValueError("There's no such 0 tolerance")
-
-        self.instances = list(combinations(list(range(self.n_class)), 2))
-        self.classes = np.unique(self.targets)
-        self.classifications = len(self.instances)
-        self.classesm = defaultdict(list) 
-        self.trained_features = defaultdict(list) 
-        self.indices_features = defaultdict(list) 
-        self.a = defaultdict(list)
-        self.svs = defaultdict(list)
-        self.ns = defaultdict(list)
-        self.nvs = defaultdict(list)
-        self.dual_coefficients = [[] for i in range(self.classifications)]
-
-        def update_A_dict(index):
-            if not True in [dc in self.ns[i][j] for i in range(len(self.ns)) for j in range(len(self.ns[i]))]: 
-                self.ns[c][index].append(dc) 
-                self.dual_coefficients[c][index].append(a[dc]) 
-
-        for c in range(self.classifications):   
-
-            self.classesm[c] = np.concatenate((self.targets[self.targets==self.instances[c][0]],self.targets[self.targets==self.instances[c][1]]))
-            self.indices_features[c] = np.concatenate((np.where(self.targets==self.instances[c][0]),np.where(self.targets==self.instances[c][1])), axis = 1)[0]
-            self.trained_features[c] = np.ascontiguousarray(np.concatenate((features[self.targets==self.instances[c][0]],features[self.targets==self.instances[c][1]])))
-
-            self.classesm[c] = lab_bin(0,1).fit_transform(self.classesm[c]).T[0]
-
-            n_f = len(self.trained_features[c])
-            n_f0 = len(self.classesm[c][self.classesm[c]==0])
-                                                                     
-            lab = self.classesm[c] * 2 - 1
-                                                                   
-            if self.kernel2 == "linear":                                                                      
-                kernel = self.linear_kernel_matrix
-                self.Q = kernel(self.trained_features[c], self.trained_features[c].T) * lab            
-            if self.kernel2 == "poly":                                
-                kernel = self.polynomial_kernel
-                self.Q = kernel(self.trained_features[c], self.trained_features[c], self.gamma) * lab        
-            if self.kernel2 == "rbf":                                                                      
-                kernel = self.rbf_kernel
-                self.Q = kernel(self.trained_features[c], self.trained_features[c], self.gamma) * lab              
-            if self.kernel2 == "sigmoid":                             
-                kernel = self.sigmoid_kernel 
-                self.Q = kernel(self.trained_features[c], self.trained_features[c], self.gamma) * lab          
-            if self.kernel2 == None:                                  
-                print ("Apply a kernel")
-                                                                      
-            class_weight = float(n_f)/(2 * np.bincount(self.classesm[c]))
-
-            a = np.zeros(n_f)
-
-            p1 = np.argsort([self.Q[i,i] for i in range(n_f0-1)])
-            p2 = np.argsort([self.Q[i,i] for i in range(n_f0, n_f)])+n_f0  
-
-            iterations = 0                                            
-            diff = 1. + reg_param 
-            for i in range(10):
-                a0 = a.copy()
-                for j in range(min(p1.size, p2.size)): 
-                    g1 = g(lab[p1[j]], a, self.Q[p1[j]])
-                    g2 = g(lab[p2[j]], a, self.Q[p2[j]])
-                    w0 = es(a, lab, self.trained_features[c]) 
-                    direction_grad = self.learning_rate * ((w0 * g2) + ((1 - w0) * g1))
-
-                    if (direction_grad * (g1 + g2) <= 0.):        
-                        break
-
-                    a[p1[j]] += direction_grad #do step
-                    a[p2[j]] += direction_grad #do step
-
-                a = la(a) #satisfy constraints for lower As
-                a = ha(a, class_weight[self.classesm[c]], self.C) #satisfy constraints for higher As using class weights
-                diff = Q_a(a, self.Q) - Q_a(a0, self.Q)
-                iterations += 1
-                if (diff < reg_param):
-                    break
-                    
-            self.A = a.copy()
-
-            #alphas are automatically signed and those with no incidence in the hyperplane are 0 complex or -0 complex, so alphas != 0 are taken 
-            a = attention_sgd(self.trained_features[c],self.classesm[c],self.A)
-            #a *= -1
-                              
-            self.ns[c].append([])
-            self.ns[c].append([])
-
-            for dc in range(len(a)):
-                if a[dc] != 0.0:
-                    if a[dc] > 0.0:
-                        self.ns[c][1].append(self.indices_features[c][dc])
-                    else:
-                        self.ns[c][0].append(self.indices_features[c][dc])
-                else:
-                    pass
-                                                                      
-            self.a[c] = a
-
-        ns = defaultdict(list)
-        for i, (j,m) in enumerate(self.instances):
-            ns[j].append(self.ns[i][0])
-            ns[m].append(self.ns[i][1])
-
-        self.ns = [[]for i in range(len(ns))] 
-        for i in range(len(ns)): 
-             for j in range(len(ns[i])): 
-                 for m in ns[i][j]: 
-                     if not True in [m in self.ns[i] for i in range(len(ns))]: 
-                         self.ns[i].append(m) 
-
-        unqs0 = [] 
-        for i, (j,m) in enumerate(self.instances):     
-            if j == 0:        
-                 unqs0.append(np.where(np.isin(self.indices_features[i], self.ns[j]))) 
-        cs = Counter(list(np.hstack(unqs0)[0])) 
-        self.ns[0] = list(np.where(np.array(list(cs.values())) == 3)[0])
-
-        self.dual_coefficients = [[] for i in range(self.n_class)]
-        for i, (j,m) in enumerate(self.instances):    
-            if j == 0:       
-                self.dual_coefficients[j].append(np.array(self.a[i])[self.ns[j]])
-            else:
-                self.dual_coefficients[j].append(np.array(self.a[i])[np.where(np.isin(self.indices_features[i], self.ns[j]))])
-            self.dual_coefficients[m].append(np.array(self.a[i])[np.where(np.isin(self.indices_features[i], self.ns[m]))])
-
-        self.dual_coefficients = np.hstack([np.vstack(np.array(self.dual_coefficients)[i]) for i in range(self.n_class-1)])
-
-        self.nvs = [len(i) for i in self.ns][:self.n_class]
-        
-        self.ns = np.hstack(self.ns).astype(np.uint8)
-
-        self.svs = features[self.ns] #update support vectors
-
-        self.sv_locs = np.hstack(([0],np.cumsum(self.nvs)-1))
-
-        self.w = [] #update weights given common support vectors, the other values helped making sure it wasn't restarting
-
-        for class1 in range(self.n_class):
-            # SVs for class1:
-            sv1 = self.svs[self.sv_locs[class1]:self.sv_locs[class1 + 1], :]
-            ys1 = self.classesm[c][self.sv_locs[class1]:self.sv_locs[class1 + 1]]
-            for class2 in range(class1 + 1, self.n_class):
-                # SVs for class1:
-                sv2 = self.svs[self.sv_locs[class2]:self.sv_locs[class2 + 1], :]
-                ys2 = self.classesm[c][self.sv_locs[class2]:self.sv_locs[class2 + 1]]
-                # dual coef for class1 SVs:
-                alpha1 = self.dual_coefficients[class2 - 1, self.sv_locs[class1]:self.sv_locs[class1 + 1]]
-                # dual coef for class2 SVs:
-                alpha2 = self.dual_coefficients[class1, self.sv_locs[class2]:self.sv_locs[class2 + 1]]
-                # build weight for class1 vs class2
-                fair_ij = ind_fairness(sv1,ssd(alpha1, sv1),ys1)
-                fair_group = fair_ij ** 2
-                self.w.append(ssd(alpha1, sv1)+ ssd(alpha2, sv2)) 
-                print("Group fairness for class 1: "+str(fair_group)) 
-                try: 
-                            fair_ij = ind_fairness(sv2,ssd(alpha2, sv2),ys2) 
-                            fair_group = fair_ij ** 2 
-                            print("Group fairness for class 2: "+str(fair_group))  
-                            old_loss = np.mean((ys1-(ssd(alpha1, sv1)*sv1).T)**2)  
-                            unprot1 = unprotection_score(old_loss,(ssd(alpha1, sv1)*sv1).T,ys1) 
-                            old_loss = np.mean((ys2-(ssd(alpha2, sv2)*sv2).T)**2)  
-                            unprot2 = unprotection_score(old_loss,(ssd(alpha2, sv2)*sv2).T,ys2) 
-                except Exception as e: 
-                            raise ValueError("Can't compute individual fairness with empty support values")
-
-        if self.kernel1 == "poly":
-            kernel1 = self.polynomial_kernel
-        if self.kernel1 == "sigmoid":
-            kernel1 = self.sigmoid_kernel
-        if self.kernel1 == "rbf":
-            kernel1 = self.rbf_kernel 
-        if self.kernel1 == "linear":
-            kernel1 = self.linear_kernel_matrix
-
-        try:          
-            self.bias = []                
-            for class1 in range(self.n_class):                              
-                sv1 = self.svs[self.sv_locs[class1]:self.sv_locs[class1 + 1], :]
-                for class2 in range(class1 + 1, self.n_class):                  
-                    sv2 = self.svs[self.sv_locs[class2]:self.sv_locs[class2 + 1], :]
-                    if kernel1 == self.linear_kernel_matrix:                                                            
-                        self.bias.append(-((kernel1(sv1, self.w[class1].T).max() + kernel1(sv2, self.w[class2].T).min())/2))
-                    else:                                                                                                     
-                        self.bias.append(-((kernel1(sv1, self.w[class1], self.gamma).max() + kernel1(sv2, self.w[class2], self.gamma).min())/2))
-        except Exception as e:          
-            print("Can't find a bias")  
-        return self 
-
-    def decision_function(self, features):
-        """
-        Compute the distances from the separating hyperplane            
-        :param features: your features dataset                          
-        :returns:                             
-          - decision function with added bias             
-        """
-
-        if len(np.float64(features).shape) != len(self.svs.shape):
-            features = np.ascontiguousarray(np.resize(features, (len(features), self.svs.shape[1])))
-        else:
-            features = np.ascontiguousarray(features)
-
-        if self.kernel1 == "poly":
-            kernel = self.polynomial_kernel
-        if self.kernel1 == "sigmoid":
-            kernel = self.sigmoid_kernel
-        if self.kernel1 == "rbf":
-            kernel = self.rbf_kernel
-                                               
-        if self.kernel1 == "linear":           
-            self.k = self.svs @ features.T
-        else:           
-            self.k = kernel(self.svs, features, self.gamma)     
-
-        start = self.sv_locs[:self.n_class]
-        end = self.sv_locs[1:self.n_class+1]
-        c = [ sum(self.dual_coefficients[ i ][p] * self.k[p] for p in range(start[j], end[j])) +
-              sum(self.dual_coefficients[j-1][p] * self.k[p] for p in range(start[i], end[i]))
-                for i in range(self.n_class) for j in range(i+1,self.n_class)]
-
-        dec = np.array([sum(x) for x in zip(c, self.bias)]).T
-
-        #one vs rest based on scikit-learn
-
-        predictions = dec < 0 #biased? predictions again
-
-        confidences = dec * -1 #variables don't really matter this time
-
-        votes = np.zeros((len(features), self.n_class))                      
-        sum_of_confidences = np.zeros((len(features), self.n_class))                                         
-        K = 0                                         
-        for i in range(self.n_class):
-            for j in range(i + 1,self.n_class):
-                sum_of_confidences[:,i] -= confidences[:,K]
-                sum_of_confidences[:,j] += confidences[:,K]
-                votes[predictions[:,K] == 0, i] += 1
-                votes[predictions[:,K] == 1, j] += 1
-                K += 1
-
-        #some bounds to decide how certain is the function
-        max_confi = sum_of_confidences.max()
-        min_confi = sum_of_confidences.min()
-
-        if max_confi == min_confi:            
-            return votes  
-
-        eps = np.finfo(sum_of_confidences.dtype).eps
-        max_abs_confi = max(abs(max_confi), abs(min_confi)) #maximum absolute confidence to set up a max scaling value
-        scale = (0.5 - eps) / max_abs_confi #scale everything off and break ties in voting, no decision is being switched
-        #scale
-        return votes + sum_of_confidences * scale
-
-    def predictions(self, features): 
-        """
-        Prediction output                                               
-        :param features: your features dataset                          
-        :param targts: your targets dataset   
-        :returns:                                         
-          - __these_predicted: predicted targets           
-        """    
-
-        self.decision = self.decision_function(features)
-        self.proba = sigmoid(self.decision)
-        return np.argmax(self.proba,axis=1)
 
 #classify all the features using different kernels (different products) 
 class svm_layers(deep_support_vector_machines):
@@ -516,75 +142,113 @@ class svm_layers(deep_support_vector_machines):
     """ 
     def __init__(self):
         super(deep_support_vector_machines, self).__init__()
-    def layer_computation(self, features, labels, features_test, labels_test, kernel_configs):
+    def layer_computation(self, features, labels, features_test, labels_test, kernel_configs,criteria,intersections,logic,track_conflicts=None,fig_name=None):
         """
         Computes vector outputs and labels                              
         :param features: scaled features                                
         :param labels: classes                
+        :param features_test: features in model testing                               
+        :param labels_test: classes in model testing     
+        :param kernel_configs: list of tuples of kernels for layers and hidden layers respectively                             
+        :param criteria: explanation criteria. This argument takes 'mean','var','std' or a number
+        :param intersections: indexes of relevant features for explanation
+        :param logic (type(logic) == list): column-wise explanation logic of bool values
+        :param track_conflicts (type(track_conflicts) == list or type(track_conflicts) == bool): if None, misclassified data indexes are stored in a list. If a list is given, misclassified values are updated in the list
+        :param fig_name (type(fig_name) == str or type(fig_name) == bool): if filepath, plots of layer explanations will be stored at desired location         
         :returns:                                         
-          - labels_to_file: potential classes              
+          - self: layers training instance              
         """
         #classes are predicted even if we only use the decision functions as part of the output data to get a better scope of classifiers
         self.fxs = []
         self.targets_outputs = []
         self.scores = []
+        self.best_layer = []
         features_test = np.float64(features_test)
         sample_weight = float(len(features)) / (len(np.array(list(set(labels)))) * np.bincount(labels))
-        Cs = [1./0.001, 1./0.01, 1./0.04, 1./0.06, 1./0.08, 1./0.1, 1./0.12, 1./0.2, 1./0.3, 1./0.4, 1./0.5, 1./0.6, 1./0.8, 1./2]
-        reg_params = [0.001, 0.01, 0.04, 0.06, 0.08, 0.1, 0.12, 0.2, 0.3, 0.4, 0.5, 0.6, 0.8, 2]
+        #C = 1/.689 for mean and median based on outliers boundary of noise data
+        #C = 1/.56 for robust mean and median based on observable anomalies in noise data
+        #C = 1/.269 for outliers boundary based on std in noise data       
+        Cs = [1./0.2, 1/.269, 1./0.3, 1./0.4, 1./0.5, 1/.56, 1./0.6, 1/.689, 1./0.8]
+        reg_params = [0.2, .269, 0.3, 0.4, 0.5, .56, 0.6, .689, 0.8]
         self.kernel_configs = kernel_configs
+        data_conflicts = None
+        #to pipeline
+        #namespace dtypes
         for i in range(len(self.kernel_configs)):
             print ("******LAYER ",i,"******")
-            best_estimator = GridSearch(self, features, labels, features_test, labels_test, Cs, reg_params, [self.kernel_configs[i]])
+            if i > 0:
+                prev_conflicts = grid_conflicts
+            best_estimator, best_model, grid_conflicts = GridSearch(self, features, labels, Cs, reg_params, [self.kernel_configs[i]],criteria,intersections,logic,track_conflicts)
             print((("Best estimators are: ") + str(best_estimator['C'][0]) + " for C and " + str(best_estimator['reg_param'][0]) + " for regularization parameter"))
+            print ("Sanity checking best model")
             try:
-                self.fit_model(features, labels, self.kernel_configs[i][0], self.kernel_configs[i][1], best_estimator['C'][0][0], 
-                best_estimator['reg_param'][0][0], 1./features.shape[1], .002)
+                pred_c = best_model.predictions(np.array(features_test), np.array(labels_test))
             except Exception as e:
-                print("BAD PARAMETERS, TRYING ANOTHER CONFIGURATION")
+                print('pipelineError: cache is hitting previous data')
                 continue
-            print ("Predicting")
-            pred_c = self.predictions(np.float64(features_test))
-            print((("Predicted"), pred_c))
             err = score(labels_test[:pred_c.size], pred_c)
+            #store scores and weights in class
             self.scores.append(err)
-            fairness = p_rule(pred_c,labels[:pred_c.size], self.w,features,self.proba)    
-            if fairness is False: 
-                print("Biased results from the covariance threshold")  
-                continue
-            else: 
-                print("Fairness is: ",fairness)                     
-            if err < 0.5:
-                self.fxs.append(self.decision)            
-                self.targets_outputs.append(pred_c)
+            #check if demographic parity exists
+            fairness = p_rule(pred_c,labels_test, best_model.w,features_test,best_model.proba)    
+            print("Statistical parity is: ",fairness)                     
+            #explain
+            if fig_name == None:
+                fig = None
+            else:
+                fig = fig_name+'_'+str(i)+'.png'
+            parent_explanations, child_explanations, visuals = explain(best_model,features_test,labels_test,criteria,intersections,logic,fig=fig)
+            print('Parent explanation:',parent_explanations)
+            print('Child explanation:',child_explanations)
+            #compute BTC
+            btc = BTC(labels_test, pred_c)   
+            for tc in range(len(btc)):
+                print('Backward trust compatibility for target',tc,'is',btc[tc]) 
+            #compute BEC
+            bec, cons = BEC(labels_test, pred_c)   
+            for ec in range(len(bec)):
+                print('Backward error compatibility for target',ec,'is',bec[ec])  
+            if i > 0:
+                self.sample_conflicts = []
+                for con in range(len(grid_conflicts)):
+                    con_now=grid_conflicts[con][0]
+                    try:
+                        con_prev=prev_conflicts[con][0]
+                    except Exception as e: 
+                        print('Previous conflict data missed during learning error')
+                        con_prev = []
+                    where_conflicts=np.isin(con_now,con_prev)
+                    self.sample_conflicts.append(con_now[where_conflicts])
+                print('Done remembering')        
+            #min cost trade-off    
+            self.fxs.append(best_model.decision)            
+            self.targets_outputs.append(best_model.predictions(np.float64(features), labels))
+            self.best_layer.append(best_model)
         if len(self.fxs) <= 1:
-            raise IndexError("You've been giving bad information. Most likely data that doesn't scale very good enough")
+            raise IndexError("Your models need retraining after giving bad information. Most likely data that doesn't scale very good enough")
 
         return self
 
-    def store_attention(self, files, output_dir):
+    def store_array(self, array, output_dir):
         """
-        Save the Attention values in a .csv file as a dataset for further usage
+        Save values in a .csv file for further usage
         """  
-        d = defaultdict(list) 
-        for i in range(len(files)):
-            d[files[i]] = self.attention_dataset[i].tolist()    
-        array = pandas.DataFrame(d)
+        array = pandas.DataFrame(array)
         array.to_csv(output_dir + '/attention.csv')  
 
-    def attention(self,features):
+    def attention(self,features,targets):
         """
         A function that averages feasibility in the model                         
         """
-        return attention(features,self.__these_predicted,self.w)
+        return attention(features,targets,self.w)
 
     def best_labels(self):
         """
-        Get the labels with highest output in the input layers instances       
+        Get the labels with highest output in the input layers instances and the weights with min errors      
         """ 
         self.targets_outputs = np.int32([Counter(np.int32(self.targets_outputs)[:,i]).most_common()[0][0] for i in range(np.array(self.targets_outputs).shape[1])])
-
-        return self.targets_outputs 
+        self.best_layer = self.best_layer[np.argmin(self.scores)]
+        return self.targets_outputs
 
     def store_good_labels(self, files, output_dir):
         """
@@ -595,6 +259,100 @@ class svm_layers(deep_support_vector_machines):
             d[files[i]] = self.targets_outputs[i] 
         array = pandas.DataFrame(d, index = list(range(1)))
         array.to_csv(output_dir + '/attention_labels.csv')  
+
+    def store_array(self,fname, arr):  
+        """
+        Save data in a specified directory
+        """
+        with open(fname,'wb') as file:
+            np.save(file, arr)  
+
+    def get_npy(self,fname):  
+        """
+        Get npy data in a specified directory
+        """
+        with open(fname,'rb') as file:
+            return np.load(file)                   
+                  
+    def save_checkpoint(self,fdir,signature):  
+        """
+        Save model data in a specified directory
+        """
+        with open(fdir+'/models/'+signature+'_modelsvs.npy','wb') as file:
+            np.save(file, self.best_layer.svs)
+        with open(fdir+'/models/'+signature+'_modeltargets.npy','wb') as file:
+            np.save(file, self.best_layer.targets_outputs)  
+        with open(fdir+'/models/'+signature+'_modelsvs_locs.npy','wb') as file:
+            np.save(file, self.best_layer.sv_locs)      
+        with open(fdir+'/models/'+signature+'_modeldual_coef.npy','wb') as file:
+            np.save(file, self.best_layer.dual_coefficients) 
+        with open(fdir+'/models/'+signature+'_modelnclasses.npy','wb') as file:
+            np.save(file, self.best_layer.n_class) 
+        with open(fdir+'/models/'+signature+'_modelbias.npy','wb') as file:
+            np.save(file, self.best_layer.bias) 
+
+    def read_checkpoint(self,fdir,signature):  
+        """
+        Read model data in a specified directory
+        """
+        with open(fdir+'/models/'+signature+'_modelsvs.npy','rb') as file:
+            self.svs=np.load(file)
+        with open(fdir+'/models/'+signature+'_modeltargets.npy','rb') as file:
+            self.best_labels=np.load(file)  
+        with open(fdir+'/models/'+signature+'_modelsvs_locs.npy','rb') as file:
+            self.sv_locs=np.load(file)      
+        with open(fdir+'/models/'+signature+'_modeldual_coef.npy','rb') as file:
+            self.dual_coefficients=np.load(file)
+        with open(fdir+'/models/'+signature+'_modelnclasses.npy','rb') as file:
+            self.n_classes=np.load(file)
+        with open(fdir+'/models/'+signature+'_modelbias.npy','rb') as file:
+            self.bias=np.load(file)             
+
+    def compile_features(self,x,y,conflicts,hyp,column,condition):
+        """
+        Given backward error points and a dependency explanation, this method
+        restores dependencies with the explained relations such that all misclassified
+        data is assigned their dependent values and removes its conflicts from dataset
+        and targets. It is a massage method to privilege a dependent dataset
+        :param x: dataset                               
+        :param y: classes                
+        :param conflicts: an array of backward error indexes                              
+        :param hyp: a string between 'mean', 'var' or 'std' or a numerical value
+        :param column: perturbed feature of dependency                            
+        :param condition: a bool expressing condition of hypothesis
+        :returns:                                         
+            - x: compiled features
+            - y: compiled targets
+        """
+        nerrors = []
+        for i in range(len(conflicts)):
+            nerrors.append(len(conflicts[i]))
+        dependency = np.argmin(nerrors)  
+        if hyp == 'mean':
+            limit = x[:,column].mean()
+        elif hyp == 'var':
+            limit = np.var(x[:,column])
+        elif hyp == 'std':
+            limit = np.std(x[:,column])
+        else:
+            limit = hyp
+        for i in range(len(conflicts)):
+            if i != dependency:
+                if condition is True:
+                    y[conflicts[i]][x[conflicts[i]][:,column]>limit] = dependency
+                else:
+                    y[conflicts[i]][np.logical_not(x[conflicts[i]][:,column]>limit)] = dependency        
+        return np.delete(x,conflicts[dependency],axis=0), np.delete(y,conflicts[dependency])            
+
+    def supress(x,y,conflicts):
+        """
+        Create a new dataset by deleting its conflicts
+        """
+        conflicts_idx = np.unique(np.sort(np.hstack(conflicts)))
+        for i in conflicts_idx:
+            x[i] = False
+            y[i] = -1         
+        return x[y!=-1]    
 
 def best_kernels_output(best_estimator, kernel_configs):
     """
@@ -1008,47 +766,19 @@ def main():
             raise IOError("Must run MIR analysis") 
 
         if sys.argv[3] in ('True'):
-            if not 't' in sys.argv[5]:                 
-                features = np.array(pd.read_csv('snd-segmented-dataset-from-plain-json.csv')) 
-                files = list(range(len(features)))            
-                features = np.hstack((features.T[1:6].T,features.T[9:11].T))
-                fscaled = features 
-                fscaled_test = fscaled[7500:]
-            else:     
+            if not 'r' in sys.argv[4]:     
                 tags_dir = tags_dirs(files_dir)                
                 files = descriptors_and_keys(tags_dir, True)._files  
                 features = descriptors_and_keys(tags_dir, True)._features
-            if not 'r' in sys.argv[4]:     
                 fscaled = feature_scaling(features)
                 print((len(fscaled)))
-                #del features       
+                del features                 
                 labels = KMeans_clusters(fscaled)
-                labels_test = KMeans_clusters(fscaled_test)
-                zeros = np.where(-24 <= features[:,0]) 
-                ones = np.where(features[:,2] <= 120)                
-                threes = np.where((features[:,0] <= -48) & (-72 <= features[:,0])) 
-                fours = np.where(features[:,2] >= 120)
-                labels[np.array(zeros[0])[zeros[0] < 5000]] = 0
-                labels[np.array(ones[0])[5000 < ones[0]]] = 1            
-                labels[np.array(threes[0])[15000 < threes[0]]] = 2
-                labels[np.array(fours[0])] = 3
-                x = np.vstack((fscaled[np.where(labels==0)][:1000],fscaled[np.where(labels==1)][1000:2000],
-                fscaled[np.where(labels==2)],fscaled[np.where(labels==3)]))[:4011]
-                y = np.hstack((labels[np.where(labels==0)][:1000],labels[np.where(labels==1)][1000:2000],
-                labels[np.where(labels==2)],labels[np.where(labels==3)]))[:4011]
-                x_test = np.vstack((fscaled_test[np.where(labels_test==0)][:1000],fscaled_test[np.where(labels_test==1)][1000:2000],
-                fscaled_test[np.where(labels_test==2)][2000:3000],fscaled_test[np.where(labels_test==3)][3000:4000]))[:4011]
-                y_test = np.hstack((labels_test[np.where(labels_test==0)][:1000],labels_test[np.where(labels_test==1)][1000:2000],
-                labels_test[np.where(labels_test==2)][2000:3000],labels_test[np.where(labels_test==3)]))[:4011]
-
                 layers = svm_layers()
-                permute = [('linear', 'rbf'),                      
+                permute = [('linear', 'poly'),                      
                             ('linear', 'sigmoid'),                       
-                            ('rbf', 'linear'),
-                            ('sigmoid', 'linear'),
-                            ('sigmoid', 'poly'),
-                            ('sigmoid', 'rbf')] 
-                layers.layer_computation(x, y, x_test, y_test, permute)
+                            ('poly', 'sigmoid')]   
+                layers.layer_computation(fscaled, labels, permute)
                                        
                 labl = layers.best_labels()
                 layers.attention() 
