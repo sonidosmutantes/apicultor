@@ -8,7 +8,7 @@ def p_rule(y_predicted,y,theta,x,proba):
     then statistical parity is satisfied and all data must be treated equally 
     """
     if -1e-4 < 1/(y.size*np.sum((y-y_predicted) * (theta @ x.T))) < 1e-4: 
-        return min(-np.sum(np.log(proba),axis=1))
+        return min(-np.sum(np.log(proba),axis=1)) #tradeoff is inversely proportional to probability of being assigned more than 1 label
     else: 
         return False       
 
