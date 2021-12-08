@@ -13,22 +13,23 @@ examples = Extension('examples',
 supercollider = Extension('apicultor.supercollider',
                     sources = ['live_coding.sc', 'setup_performance.sc'])
 
-setup(name='apicultor',
-      version='1.3.2',
+setup(name='apicultor-dev',
+      version='2.0.1',
       url='https://www.github.com/sonidosmutantes/apicultor',
-      description='Another BigData approach to sound collections',
+      description='BigData system of sound effects, remixes and sound collections',
       long_description=long_description,
+      long_description_content_type='text/markdown',
       author='Hernán Ordiales, Marcelo Tuller',
       author_email='hordiales@gmail.com, marscrophimself@protonmail.com',
+      download_url='https://github.com/sonidosmutantes/apicultor/archive/refs/heads/dev.zip',
+      keywords = ['deeplearning', 'ml', 'mlops', 'svm', 'music', 'dsp', 'sound', 'audio'],      
       packages=find_packages(),
       license='GPLv3',
     classifiers=[
-        'Development Status :: 4 - Beta',
-
-        'Intended Audience :: everyone who likes music!',
-        'Topic :: AI :: Music Information Retrieval :: Collaborative Composing and Remixing',
-
-        'Programming Language :: Python :: 3.9.8',
+        'Development Status :: 6 - Mature',
+        'Intended Audience :: Developers',
+        'Topic :: Multimedia :: Sound/Audio :: Analysis',
+        'Programming Language :: Python :: 3.9',
     ],
     entry_points={'console_scripts': [
         'rpdl = apicultor.helper.WebScrapingDownload:main',
@@ -42,5 +43,5 @@ setup(name='apicultor',
         'audio2ogg = apicultor.helper.convert_to_ogg:main',
         'smcomposition = apicultor.state_machine.SMComposition:main'
     ]},
-    install_requires=['numpy', 'numba', 'wget', 'colorama', 'transitions','pysoundfile', 'librosa', 'scipy', 'matplotlib', 'scikit-learn', 'bs4', 'pandas']
+    install_requires=['numpy', 'numba', 'smst', 'wget', 'colorama', 'transitions','pysoundfile', 'librosa', 'scipy', 'matplotlib', 'scikit-learn', 'bs4', 'pandas']
      )
