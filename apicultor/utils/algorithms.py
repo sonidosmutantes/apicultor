@@ -6,6 +6,7 @@ import scipy
 from soundfile import read
 from scipy.fftpack import fft, ifft
 from collections import Counter
+from pathos.pools import ProcessPool as Pool
 from ..machine_learning.cache import memoize
 from ..gradients.ascent import *
 from ..gradients.descent import *
@@ -13,6 +14,18 @@ from ..sonification.Sonification import *
 import random
 import cmath
 #from apicultor.machine_learning.quality import *
+import warnings
+import logging
+
+#TODO: *Remove wows, clippings, pops
+
+#you should comment what you've already processed (avoid over-processing) 
+warnings.filterwarnings("ignore", category=SyntaxWarning) 
+warnings.filterwarnings("ignore", category=np.VisibleDeprecationWarning) 
+logging.basicConfig(level=logging.DEBUG)
+logging.disable(logging.WARNING)
+logger = logging.getLogger(__name__)
+
 
 #presion_diferencial = max(presion_latidos) / presion_latidos (la presión se relaja según el esfuerzo máximo)
 #aumentar la presión incrementa el BPM, pero el BPM no es causa del incremento de presión
@@ -85,11 +98,11 @@ def central_moments(self):
 
 def dist_shape(central_moments):
     spread = central_moments[2] #variance of residuals
-    if spread is 0:
+    if spread == 0:
         skewness = 0
     else:
         skewness = central_moments[3] / pow(spread,1.5)
-    if spread is 0:
+    if spread == 0:
         kurtosis = -3
     else:
         kurtosis = (central_moments[4] / (spread*spread))-3
@@ -615,6 +628,7 @@ class MIR:
         self.duration = len(self.signal) / self.fs
         self.audio_signal_spectrum = []
         self.phase_signal = []
+        self.pthread = Pool(nodes=2) #adjust threads
         self.flux = lambda spectrum: np.array([np.sqrt(sum(pow(spectrum[i-1] - spectrum[i], 2))) for i in range(len(spectrum))])
 
     def FrameGenerator(self):
@@ -881,6 +895,7 @@ class MIR:
             self.audio_signal_spectrum.append(self.magnitude_spectrum) 
             return self                                                
         self.magnitude_spectrum = np.array([np.sqrt(pow(self.spectrum[i].real, 2) + pow(self.spectrum[i].imag, 2)) for i in range(self.H + 1)]).ravel() / self.H                                                
+        #signal is unwritten by parallel operation
         self.audio_signal_spectrum.append(self.magnitude_spectrum)
     def spectrum_share(self):
         """Give back all stored computations of spectrums of different frames. This is a generator""" 
@@ -891,8 +906,11 @@ class MIR:
     def onsets_by_flux(self):
         """Use this function to get only frames containing peak parts of the signal""" 
         self.fluctuations = self.flux(self.mel_dbs)
+        #print('FLUCTUATIONS ARE', self.fluctuations)
         self.onsets_indexes = np.where(self.fluctuations > 80)[0]
+        #print('ONSETS ARE', self.onsets_indexes)
         self.uncorrelated_indexes = np.where(self.fluctuations < 80)[0]
+        #print('UNCORRELATED SPECTRUM IS', self.uncorrelated_indexes)
         self.audio_target_spectrum = np.array(self.audio_signal_spectrum)[self.onsets_indexes]
         self.target_mel_dbs = np.array(self.mel_dbs)[self.onsets_indexes]
         try:        
@@ -1008,18 +1026,27 @@ class MIR:
         return self.correlation
 
     def mel_bands_global(self):
-        mel_bands = []   
         self.n_bands = 30                   
-        for frame in self.FrameGenerator():                      
+        def itermel(self,frame):                      
+            self.frame = frame
+            #compute mel dbs with peaks or return default negative 
             try:
-                self.window()                     
-                self.Spectrum()                       
-                mel_bands.append(self.MelFilter())
+                self.window()               
+                self.Spectrum()     
+                mel_dbs = 2 * (10 * np.log10(np.abs(self.MelFilter())))                  
+                return mel_dbs, self.magnitude_spectrum
             except Exception as e:
-                print((e))
-                break
-        self.mel_dbs = 2 * (10 * np.log10(abs(np.array(mel_bands))))
-
+                return np.zeros(self.n_bands)-120, self.magnitude_spectrum
+        class_copies = (self for frame in self.FrameGenerator())
+        frames = (frame for frame in self.FrameGenerator())
+        pt = self.pthread.amap(itermel, class_copies, frames)
+        while not pt.ready():
+            pass  
+        mel_bands_data = pt.get()
+        self.mel_dbs = np.array(np.array(mel_bands_data)[:,0])     
+        self.audio_signal_spectrum = np.array(mel_bands_data)[:,1]          
+        #print('COLLECTED SPECTROGRAM', self.audio_signal_spectrum)
+        
     def onsets_strength(self):   
         """Spectral Flux of a signal used for onset strength detection"""                                                              
         self.envelope = self.mel_dbs[:,1:] - self.mel_dbs[:,:-1]
@@ -1492,10 +1519,15 @@ class MIR:
 
     #in lpc windowed signals can be filtered in such way that the predicted discrete signal = sum_of_p_coefficients(lpc*x+reflection)
     #so for each coefficient there is a reflection resulting in a multilinear problem
-    def LPC(self):
-        fft = self.fft(self.windowed_x)
-        self.Phase(fft)
-        self.Spectrum()
+    def LPC(self,parallel=False):
+        if parallel == False:               
+            fft = self.fft(self.windowed_x)
+            self.Phase(fft)
+            self.Spectrum()
+        else:    
+            self.magnitude_spectrum = self.audio_signal_spectrum[parallel]
+            #print('Parallel index at', parallel)
+            self.phase = self.phase_signal[parallel]
         invert = self.ISTFT(self.magnitude_spectrum)
         invert = np.array(invert).T                                    
         self.correlation = invert.T / invert.T.max()
@@ -1776,12 +1808,12 @@ def music_structure_analysis(signal,separator,fun='median'):
             node_boundary = np.where([i == onsets_indexes for i in mfcc_nodes])[1]
             if not any(node_boundary):
                 continue
-        if fun is 'median':
+        if fun == 'median':
             if len(np.ravel([mfcc_nodes])) > 1:
                 node_pcp = np.median(np.median(pcps[node_boundary],axis=1),axis=0)
             else:
                 node_pcp = np.median(pcps[mfcc_nodes],axis=0)
-        if fun is 'mean':
+        if fun == 'mean':
             if len(np.ravel([mfcc_nodes])) > 1:        
                 node_pcp = np.mean(np.mean(pcps[node_boundary],axis=1),axis=0)
             else:
