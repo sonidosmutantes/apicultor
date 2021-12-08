@@ -188,7 +188,7 @@ def GridSearch(model, features, targets, Cs, reg_params, kernel_configs,criteria
                     bec, cons = BEC(targets, clf_predictions)
                     print("BEC: ", bec)
                 else: 
-                    btc= BTC(targets_train, clf_predictions_train)
+                    btc= BTC(targets, clf_predictions)
                     bec,conflicts= BEC(targets, clf_predictions,track_conflict,True)
                     print("BTC: ", btc)
                     print("BEC: ", bec )
