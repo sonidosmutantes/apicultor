@@ -13,7 +13,7 @@ examples = Extension('examples',
 supercollider = Extension('apicultor.supercollider',
                     sources = ['live_coding.sc', 'setup_performance.sc'])
 
-setup(name='apicultor-dev',
+setup(name='apicultor',
       version='2.0.1',
       url='https://www.github.com/sonidosmutantes/apicultor',
       description='BigData system of sound effects, remixes and sound collections',
