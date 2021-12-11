@@ -15,11 +15,11 @@ import os
 import sys
 import logging
 import librosa
-
+import warnings
 # TODO: *Remove wows, clippings, pops
 
 # you should comment what you've already processed (avoid over-processing)
-
+warnings.simplefilter("ignore", RuntimeWarning)
 logging.basicConfig(level=logging.DEBUG)
 logging.disable(logging.WARNING)
 logger = logging.getLogger(__name__)
