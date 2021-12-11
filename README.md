@@ -1,174 +1,118 @@
-English version: [README.md](README.md)
+# About the project
 
-# ¿Qué es?
+* Interactive __DEMO__:
+  * [Cloud Instrument](https://www.youtube.com/watch?v=SCYEEpfct_Y) raspicultor + custom controller version video. Interactive demo retrieving sounds from the Cloud using MIR descriptors and processing them in realtime (using raspicultor aka raspberry pi + apicultor).
+  * [Experimental session with sounds from the cloud](https://www.youtube.com/watch?v=2sMsKvfZKGA). First live demo with an standard midi controller.
+* Embedded instrument running in a [Bela](http://bela.io/) or Raspberry Pi: [cloudpicultor](https://github.com/hordiales/cloudpicultor_instrument).
+* Cloud Instrument mention in [ArCiTec prize, Technology applied to Arts](https://arcitec.frba.utn.edu.ar/tecnologia-aplicada-al-arte/) (2018).
+* Publication: [Sound recycling from public databases](https://www.researchgate.net/publication/317388443_Sound_recycling_from_public_databases) @ [Audio Mostly](http://audiomostly.com) 2017 
+* "Forgotten pieces from unknown people" and "Dialectic in suspense" constructed using APICultor, were showed in [NIPS 2017 Art Gallery](http://nips4creativity.com/music/) (Machine Learning for Creativity and Design, Long Beach, California, USA)
+* "Sound recycling from public databases" was presented at [Technarte Los Angeles 2017](http://www.technarte.org/losangeles-2017-program/).
+* Recycled sounds: [Sound miniatures](http://redpanal.org/p/reciclado-de-samples/)
 
-ApiCultor fue implementado para realizar performances multidisciplinarias basadas en los sonidos de la plataforma [http://redpanal.org](http://redpanal.org) pero sirve para trabajar con cualquier otra base de datos sonora en internet o disponible localmente.
+APICultor born to realize interdisciplinary performances based on sounds of the web platform [http://redpanal.org](http://redpanal.org). The system is also useful to use with any other sound database on the internet or even running it locally.
 
-El código da soporte para el procesamiento de sonidos de la web utilizando técnicas de MIR (Music Information Retrieval) para la "extracción" de parámetros que los caractericen para luego clasficarlos, segmentarlos y manipularlos según los criterios elegidos.
+The sound is processed digitally using different live-coding techniques. A pre-analysis based on Music Information Retrieval (MIR) stored in a database and accessed via a web-service REST API is combined with real-time processing and synthesis, random processes and human control via external interfaces.
 
-Funciona a través de una API REST para la consulta externa de archivos y descriptores desde SuperCollider, pyo, pd o cualquier otro tipo de entorno que maneje protocolos estándar.
+![](doc/InstrCloudIT_play.png)
 
-Extrae miel de [RedPanal](http://redpanal.org)  con técnicas de Music Information Retrieval (MIR).
+Examples available with SuperCollider, Pyo and pure data.
 
-![](doc/InstrNubeTI_repr.png)
+Spanish version: [README_es.md](README_es.md)
 
-## API
+# News
 
-[Documentación sobre la API](doc/API.md)
+* 2018
+  * Migration to Python3 and setup.py install thanks to MarsCrop!
+  * MusicEmotionMachine by MarsCrop (in development)
+  * Cloud Instrument ready to play with an external controller, running in a dedicated device like Raspberry Pi or Bela Platform
+* 2017: 
+  * SuperCollider patch to play in realtime using sounds from public repositories (databases on the web). Realtime synthesis, wav retrieving using MIR descriptors, OSC & MIDI communication between process and controllers.
+* 2016: First demos (extracting MIR features, database build, MIR State Machine, etc)
 
-## Sonidos Mutantes
-*Sonidos Mutantes, propone performances basadas en el uso artístico de bases de datos preexistentes, las mismas construidas por audios o músicas libres, por ejemplo aquellas de la plataforma colaborativa de RedPanal.org, la cuál es de acceso público vía internet. Estos sonidos, analizados y procesados en tiempo real se combinan en una improvisación colectiva con músicos en vivo bajo consignas preestablecidas, dando lugar a composiciones que mutan a lo largo del tiempo y en función de los propios músicos y de la comunidad toda. Ya que el público podrá participar de la performance subiendo audios y haciendo búsquedas o comentarios en la plataforma web de RedPanal.*
+# Developers
 
-### Pruebas de concepto:
+See [Development Guidelines](doc/Dev-Guidelines.md).
 
-* Performances en vivo utilizando estas herramientas:
+# License
+
+Free Software shared with GPL v3, see [LICENSE](LICENSE).
+
+# Cloud Instrument
+
+Using a desktop computer, a Raspberry pi or bela platform.
+
+See [cloud_instrument/README.md](cloud_instrument/README.md)
+
+Interactive __DEMO__: [Cloud Instrument](https://www.youtube.com/watch?v=SCYEEpfct_Y). Interactive demo retrieving sounds from the Cloud using MIR descriptors and processing them in realtime (using raspicultor aka raspberry pi + apicultor).
+
+### UI
+[Open Stage Control](https://osc.ammd.net/) User Interface
+
+![](doc/UI%20ArCiTec.png)
+
+## Custom MIDI Controller design
+
+![](doc/yaeltex-pre-print-front.png)
+[Yaeltex](https://yaeltex.com/en) custom MIDI controllers
+
+![](doc/controller.jpg)
+
+With a SuperCollider synthesizer/effects processor running in a Raspberry pi, plus an external sound card for high fidelity.
+
+
+## Performances
+
+### Sonidos Mutantes
+
+Interdisciplinary performances based on sounds of the web platform [Redpanal.org](Redpanal.org)
+
+## Proofs of concept:
+
+* [APICultor + No Input + Granular synthesis live performance](https://soundcloud.com/sonidosmutantes/apicultor-no-input).
+
+* Compositions & recycled samples
+  * [API-Cultor compositions](http://redpanal.org/p/apicultor/)
+  * [Proyecto de reciclado de sonidos libres de la web en RedPanal.org](http://redpanal.org/p/reciclado-de-samples/) (sonido + referencia al original).
+
+* Generative music using MIR state machine a free/libre sounds from Freesound.org: 
+  * "[Feature Thinking](https://soundcloud.com/hern-n-ordiales/feature-thinking)" (with Creative Commons sounds from Freesound.org) by hordia.
+  * State Machine @ CASo (Centro de Arte Sonoro) https://www.youtube.com/watch?v=sG1YUc8PQV4
+
+* Live performances using this tool:
   * Jam con guitarras + fx chain y sintes analógicos: [Perfo mutante en La Siesta del Fauno](https://soundcloud.com/hern-n-ordiales/perfo-mutante-mobile)
-  * Cierre de Taller de Experimentación Sonora: [http://redpanal.org/a/banda-de-mutantes-cierre-taller/](http://redpanal.org/a/banda-de-mutantes-cierre-taller/)
-  * La Noche de los Museos La Casa del Bicentenario 29/10/2016
-[http://redpanal.org/a/performance-casa-tomada/](http://redpanal.org/a/performance-casa-tomada/)
-  [https://www.youtube.com/watch?v=eKcvkgtJIEo](https://www.youtube.com/watch?v=eKcvkgtJIEo) Con visuales 3D (Blender + game engine) **Reseña**: [http://blog.enjambrelab.com.ar/enjambrebit-y-la-banda-de-mutantes/](http://blog.enjambrelab.com.ar/enjambrebit-y-la-banda-de-mutantes/)
+  * Closing performance of the Workshop of Experimental Sound: [http://redpanal.org/a/banda-de-mutantes-cierre-taller/](http://redpanal.org/a/banda-de-mutantes-cierre-taller/)
+  * La Noche de los Museos La Casa del Bicentenario: [Performance 29/10/2016](http://redpanal.org/a/performance-casa-tomada/) [Con visuales 3D (Blender game engine)](https://www.youtube.com/watch?v=eKcvkgtJIEo) ) **Reseña**: [enjambrebit-y-la-banda-de-mutantes/](http://blog.enjambrelab.com.ar/enjambrebit-y-la-banda-de-mutantes/)
 
-* Música generativa con máquina de estados MIR y sonidos libres de Freesound.org: 
-  * "[Feature Thinking](https://soundcloud.com/hern-n-ordiales/feature-thinking)" (con sonidos libres Creative Commons de Freesound.org)
-
-* Remixes que toman audios libres de [RedPanal.org](http://redpanal.org/) para categorizarlos según diferentes tipos de emociones. Luego se elige una y se sincronizan las pistas, cambiando las tonalidades. De ser posible se separan de fuentes dentro de las mismas (by Mars Crop)
+* "Remixes que toman audios libres de [RedPanal.org](http://redpanal.org/) para categorizarlos según diferentes tipos de emociones. Luego se elige una y se sincronizan las pistas, cambiando las tonalidades. De ser posible se separan de fuentes dentro de las mismas" (by Mars Crop)
   * [Beats intro jazz](http://redpanal.org/a/sm-beats-remix/)
   * [Bass & DJ] (http://redpanal.org/a/sm-bass-guitar-plays-with-dj/)
 
-* Demos viejas:
-  * Integración con controlador MIDI + Supercollider + ApicultorWebService: [https://www.youtube.com/watch?v=X0M_gTOZnNQ](https://www.youtube.com/watch?v=X0M_gTOZnNQ)
 
-## Componentes
+## Components
 
-* Mock web service que por medio de una API REST provee samples según criterios definidos por valores de descriptores MIR
-* Máquina de estados según descriptores MIR
-* Interacción con sonidos de [http://redpanal.org](http://redpanal.org)
- * API REST para realizar consultas sobre redpanal (url audios+valores de descriptores)
- * Webscrapping por tag
-* Algoritmos MIR para extraer descriptores promedio o por frames de pistas o samples
-* Algoritmos para segmentar los archivos de audio con diferentes criterios
-* Algoritmos para clasificar y agrupar los archivos de la base de datos de [http://redpanal.org](http://redpanal.org) (clustering)
+* Mock web service with API REST to provide audio samples using MIR descriptors as parameters
+* State machine, with each state defined by several MIR descriptors.
+* Interaction with the free internet sound database [http://redpanal.org](http://redpanal.org)
+ * API REST
+ * Webscrapping by tag
+* Algorithms MIR to extract mean values or by frame of audio samples
+* Segmentation algorithms using different criteria.
+* Classify algorithms and clustering of samples of the sound database
 * Server OSC
-* Ejemplos de uso con Supercollider, pyo
-* Ejemplos con controladores MIDI y OSC. Locales y remotos.
-
-Ver la [descripción de archivos](FILES_DESC.md) para más detalles.
+* Examples in Supercollider, pyo
+* Examples with MIDI and OSC controller. Locale and remote.
 
 ![](doc/Apicultor_chain.png)
 
-# Dependencias
+# Dependencies
 
 Tested under Linux, Mac OS (>10.11) and Windows 10.
 
-Debian, Ubuntu 15.04 and 16.04 (and .10). And Docker images.
+Debian, Ubuntu 15.04 and 16.04 (and .10). And [Docker](docker/Docker.md) images.
 Raspian @ Raspberry Pi
 
-Ver [INSTALL.md](INSTALL.md)
+See [INSTALL.md](INSTALL.md)
 
 
-# Uso
 
-## Bajar los sonidos redpanaleros y aplicar MIR
-
-```
-$ rpdl <directorio_de_sonidos_tag>
-
-ó
-
-$ rpdla <directorio_de_sonidos_tag>
-
-$ miranalysis <directorio_de_sonidos_tag>
-```
-
-## Segmentar sonidos
-
-```
-from apicultor.segmentation import RandomSegmentation //hay que cambiar variables como el data dir para correrlo automáticamente desde la terminal
-```
-
-## Similaridad Sonora
-
-Procesar señales de salida para guardar los sonidos en base a clusters
-
-```
-$ soundsimilarity carpetadondehayanaudiosdescriptos
-```
-
-## Sonificación
-
-```
-$ sonify carpetadondehayanaudiosdescriptos
-```
-
-## SuperCollider
-
-Performance and helper scripts in "supercollider/".
-
-
-## Correr webservice (requiere api rest)
-
-```
-from apicultor.segmentation import MockRedPanalAPI_service
-```
-
-
-By default:
-
-* Listen IP: 0.0.0.0
-* Port: 5000
-
-Ver ejemplos de uso en tests/Test_API.py
-
-
-## Generar documentación HTML sobre la API REST
-
-```
-$ cd doc/ && ./update_api_doc.sh
-```
-
-Resultado: API-Documentation.html
-
-
-## Máquina de estados emocionales de la música (MusicEmotionMachine)
-
-```
-$ musicemotionmachine directoriodondeestadata directoriodondesevanaguardarlasvariablesdedecisionylasclasesdeemociones True/False(== None)
-```
-
-(True, clasifica Todos los audios descargados. Después de haber hecho la clasificación, correr de nuevo con la opcion multitag en False o en None para llamar a Johnny (la máquina de estados emocionales) para que comienzen las transiciones emocionales con remixes en tiempo real de Todos los sonidos)
-
-En los remixes utilizamos, ademas de la data acerca de las correspondientes clases, las variables de decision en el entrenamiento del DSVM para reconstruir movimientos de scratching. Ademas se pone enfasis en la busqueda de componentes que se puedan separar (utilizando un metodo que intenta encontrar las n fuentes en una mezcla automaticamente) para generar remixes simples, donde el sonido puede marcar el ritmo y el sonido b puede seguir un rol harmonico. Nos proveemos de varias utilidades (métodos de scratching, segmentaciones, etc) para que el remix resulte divertido
-
-### Sobre el aprendizaje profundo de la MEM:
-
-Con la intención de obtener la mejor clasificación posible de los sonidos basándose en las emociones que son capaces de transmitirnos, la tarea profunda consiste en este caso particular de reveer las activaciones con capas de máquinas de soporte vectorial para dar con la clasificación correcta. Por el momento solamente se utilizan cuatro clases de emociones para la clasificación. Como la información del MIR es importante, el aprendizaje se hace respetando lo mejor posible las descripciones, lo que permite reveer las clasificaciones hechas hasta dar con las correctas. Es por esto que contamos con nuestros modulos de validación cruzada y con nuestras utilidades matemáticas para clasificar los sonidos sin perder información.
-## Docker
-
-Ver tutorial sobre [docker](docker.md) y [Dockerfile](Dockerfile).
-
-Servicio (API) escuchando en puerto 5000:
-```
-$ docker build -t apicultor_v0.9 .
-$ docker run -p 5000:5000 --name apicultor  -it --net="host"  apicultor_v0.9
-```
-
-## Build
-
-
-~~Si ya tenés instaladas todas las dependencias se puede correr: 
-```
-$ sudo python3 setup.py install
-```
-Y tener varias opciones de comando disponibles para utilizar. Los comandos utilizados hasta el momento son:
-
-*rpdl: para descargar sonidos de RedPanal
-*rpdla: para descargar los sonidos provenientes de archive.redpanal.org
-*miranalysis: para analizar archivos de audio utilizando versiones en Python3 de algoritmos en la lib Essentia by MTG
-*musicemotionmachine: para clasificar los sonidos en base a las emociones y luego correr la MEM
-*sonify: para sonificar los sonidos en base a descripciones
-*qualify: para reparar defectos en la calidad sonora en los sonidos descargados //hay que reparar un bug en hiss, el reparador de sibilancias está mas insensible en la detección
-*soundsimilarity: para clasificar sonidos de acuerdo a la similaridad sonora y remixarlos
-*mockrpapi: mock de la API redpanalera
-*audio2ogg: para convertir archivos de audio a ogg
-*smcomposition: para replicar una performance de Sonidos Mutantes
-~~
