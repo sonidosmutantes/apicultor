@@ -25,6 +25,8 @@ Funciona a través de una API REST para la consulta externa de archivos y descri
 
 Extrae miel de [RedPanal](http://redpanal.org)  con técnicas de Music Information Retrieval (MIR).
 
+![](doc/IMG_20181101_002941_HDR.jpg)
+
 ![](doc/InstrNubeTI_repr.png)
 
 ![](doc/retrieve_ui.png)
