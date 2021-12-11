@@ -16,6 +16,7 @@ import cmath
 #from apicultor.machine_learning.quality import *
 import warnings
 import logging
+import signal
 
 #TODO: *Remove wows, clippings, pops
 
@@ -44,6 +45,13 @@ cent2hz = lambda cent, f0: f0 * pow(pow(2, 10 / 1200.0), cent)
 #la importancia evolutiva es que escucharla de tan lejos evitaba el desapego
 #80m = audible con atención
 #>100m = imposible de oir
+
+def hard_kill_pool(pids, pt):
+    #terminates a function
+    for pid in pids:
+        os.kill(pid, signal.SIGINT)
+    #terminates a tree of processes
+    pt.terminate()
 
 def dmean(data):
     derived = np.zeros(len(data))
@@ -1049,7 +1057,8 @@ class MIR:
         #print('COLLECTED SPECTROGRAM', self.audio_signal_spectrum)
         
     def onsets_strength(self):   
-        """Spectral Flux of a signal used for onset strength detection"""                                                              
+        """Spectral Flux of a signal used for onset strength detection"""
+        #envelope using mel dbs                                                              
         self.envelope = self.mel_dbs[:,1:] - self.mel_dbs[:,:-1]
         self.envelope = np.maximum(0.0, self.envelope)
         self.envelope = np.mean(self.envelope, axis=0)
@@ -1058,6 +1067,7 @@ class MIR:
             self.envelope = np.pad(self.envelope, ([0, 0], [int(pad_width), 0]),mode='constant') 
         except Exception as e:     
             self.envelope = np.pad([self.envelope], ([0, 0], [int(pad_width), 0]),mode='constant') 
+        #novelty function    
         self.envelope = lfilter([1.,-1.], [1., -0.99], self.envelope, axis = -1) 
         self.envelope = self.envelope[:,:self.n_bands][0]  
 
@@ -2382,4 +2392,3 @@ def ChordsDetection(hpcps, song):
             continue
         chords.append((key + scale, firstto_2ndrelative_strength))
     return chords   
-
