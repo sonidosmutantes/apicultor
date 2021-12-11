@@ -1,0 +1,247 @@
+<html>
+    <head>
+        <title>
+            Documentation
+            </title>
+        <style>
+            * {
+                margin: 0;
+                padding: 0;
+                font-family: Verdana, "Helvetica Neue", Arial, Helvetica, Geneva, sans-serif;
+            }
+
+            body {
+                margin: 10px;
+            }
+
+            div.mapping {
+                margin: 20px 20px;
+            }
+
+            ul.methods:before { content: "Methods: "; }
+            ul.methods li {
+                display: inline;
+                list-style: none;
+            }
+            ul.methods li:after { content: ","; }
+            ul.methods li:last-child:after { content: ""; }
+
+            ul.arguments:before { content: "Arguments: "; }
+            ul.arguments li {
+                display: inline;
+                list-style: none;
+            }
+            ul.arguments .argument { font-style:italic }
+            ul.arguments .default:not(:empty):before { content: "("; }
+            ul.arguments .default:not(:empty):after { content: ")"; }
+            ul.arguments li:after { content: ","; }
+            ul.arguments li:last-child:after { content: ""; }
+
+            .docstring:before { content: "Description: "; }
+        </style>
+    </head>
+    <body>
+        <h1>
+            Documentation
+            </h1>
+
+        
+        <div class="mapping">
+            <a id="rule-/list/pistas" class="rule"><h2>/list/pistas</h2></a>
+            <ul class="methods">
+                    <li class="method">HEAD</li>
+                    <li class="method">OPTIONS</li>
+                    <li class="method">GET</li>
+                    
+            </ul>
+            <ul class="arguments">
+                
+                <li>
+                    <span class="argument">None</span>
+                    <span class="default"></span>
+                </li>
+                
+            </ul>
+            <p class="docstring">
+        list audio files
+    </p>
+        </div>
+        
+        <div class="mapping">
+            <a id="rule-/list/samples" class="rule"><h2>/list/samples</h2></a>
+            <ul class="methods">
+                    <li class="method">HEAD</li>
+                    <li class="method">OPTIONS</li>
+                    <li class="method">GET</li>
+                    
+            </ul>
+            <ul class="arguments">
+                
+                <li>
+                    <span class="argument">None</span>
+                    <span class="default"></span>
+                </li>
+                
+            </ul>
+            <p class="docstring">
+        list sample files (segmented pistas)
+    </p>
+        </div>
+        
+        <div class="mapping">
+            <a id="rule-/pistas/%3Cint%3Aid%3E" class="rule"><h2>/pistas/&lt;int:id&gt;</h2></a>
+            <ul class="methods">
+                    <li class="method">HEAD</li>
+                    <li class="method">OPTIONS</li>
+                    <li class="method">GET</li>
+                    
+            </ul>
+            <ul class="arguments">
+                
+                <li>
+                    <span class="argument">id</span>
+                    <span class="default"></span>
+                </li>
+                
+            </ul>
+            <p class="docstring">
+        Info de la pista. Json con path a archivos de audio y del descriptor
+    </p>
+        </div>
+        
+        <div class="mapping">
+            <a id="rule-/pistas/%3Cint%3Aid%3E/audio" class="rule"><h2>/pistas/&lt;int:id&gt;/audio</h2></a>
+            <ul class="methods">
+                    <li class="method">HEAD</li>
+                    <li class="method">OPTIONS</li>
+                    <li class="method">GET</li>
+                    
+            </ul>
+            <ul class="arguments">
+                
+                <li>
+                    <span class="argument">id</span>
+                    <span class="default"></span>
+                </li>
+                
+            </ul>
+            <p class="docstring">
+        Retorna el full path donde esta descargado el audio con ese id
+    </p>
+        </div>
+        
+        <div class="mapping">
+            <a id="rule-/pistas/%3Cint%3Aid%3E/descriptor" class="rule"><h2>/pistas/&lt;int:id&gt;/descriptor</h2></a>
+            <ul class="methods">
+                    <li class="method">HEAD</li>
+                    <li class="method">OPTIONS</li>
+                    <li class="method">GET</li>
+                    
+            </ul>
+            <ul class="arguments">
+                
+                <li>
+                    <span class="argument">id</span>
+                    <span class="default"></span>
+                </li>
+                
+            </ul>
+            <p class="docstring">
+        json con descriptores
+    </p>
+        </div>
+        
+        <div class="mapping">
+            <a id="rule-/pistas/%3Cint%3Aid%3E/descriptor/%3Cdescname%3E" class="rule"><h2>/pistas/&lt;int:id&gt;/descriptor/&lt;descname&gt;</h2></a>
+            <ul class="methods">
+                    <li class="method">HEAD</li>
+                    <li class="method">OPTIONS</li>
+                    <li class="method">GET</li>
+                    
+            </ul>
+            <ul class="arguments">
+                
+                <li>
+                    <span class="argument">id</span>
+                    <span class="default"></span>
+                </li>
+                
+                <li>
+                    <span class="argument">descname</span>
+                    <span class="default"></span>
+                </li>
+                
+            </ul>
+            <p class="docstring">
+        Path con el archivo  json con descriptores
+    </p>
+        </div>
+        
+        <div class="mapping">
+            <a id="rule-/search/%3Cquery%3E/%3Cint%3Amaxnumber%3E" class="rule"><h2>/search/&lt;query&gt;/&lt;int:maxnumber&gt;</h2></a>
+            <ul class="methods">
+                    <li class="method">HEAD</li>
+                    <li class="method">OPTIONS</li>
+                    <li class="method">GET</li>
+                    
+            </ul>
+            <ul class="arguments">
+                
+                <li>
+                    <span class="argument">maxnumber</span>
+                    <span class="default"></span>
+                </li>
+                
+                <li>
+                    <span class="argument">query</span>
+                    <span class="default"></span>
+                </li>
+                
+            </ul>
+            <p class="docstring">
+        Search result of query
+    </p>
+        </div>
+        
+        <div class="mapping">
+            <a id="rule-/search/last/%3Cint%3Anumber%3E" class="rule"><h2>/search/last/&lt;int:number&gt;</h2></a>
+            <ul class="methods">
+                    <li class="method">HEAD</li>
+                    <li class="method">OPTIONS</li>
+                    <li class="method">GET</li>
+                    
+            </ul>
+            <ul class="arguments">
+                
+                <li>
+                    <span class="argument">number</span>
+                    <span class="default"></span>
+                </li>
+                
+            </ul>
+            <p class="docstring">None</p>
+        </div>
+        
+        <div class="mapping">
+            <a id="rule-/search/tag/%3Ctag1%3E" class="rule"><h2>/search/tag/&lt;tag1&gt;</h2></a>
+            <ul class="methods">
+                    <li class="method">HEAD</li>
+                    <li class="method">OPTIONS</li>
+                    <li class="method">GET</li>
+                    
+            </ul>
+            <ul class="arguments">
+                
+                <li>
+                    <span class="argument">tag1</span>
+                    <span class="default"></span>
+                </li>
+                
+            </ul>
+            <p class="docstring">
+        Search by tag name
+    </p>
+        </div>
+        
+    </body>
+</html>
