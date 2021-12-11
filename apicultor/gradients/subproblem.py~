@@ -18,6 +18,6 @@ def attention(Q, K, V):
     try:            
         num = np.array(Q.dot(K.T))
     except Exception as e:            
-        num = np.array(Q.T.dot(K))
+        num = np.array(Q.dot(K))
     denum = np.sqrt(K.shape[0])
     return sigmoid(num / denum) * V
