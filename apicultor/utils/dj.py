@@ -22,13 +22,19 @@ def NMF(stft, n_sources):
     :returns:                                                                                                         
       - Ys: sources
     """
-    print("Computing approximations")
+    stft = []
+    for frame in song.FrameGenerator():
+        song.window()
+        song.Spectrum()
+        stft.append(song.magnitude_spectrum)
+    stft = np.array(stft)    
     transformer = sklearn.decomposition.NMF(n_components=n_sources)                                  
     H = transformer.fit_transform(stft.T).T
     W = transformer.components_.T
     W, idx = axis_sort(W, index = True)
     H = H[idx]
     return W,H
+
 
 def reconstruct_sound_sources(W, H, n_sources, frames, phase, song, x):
     print("Reconstructing signals")
