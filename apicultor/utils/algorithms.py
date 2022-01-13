@@ -136,7 +136,8 @@ def intensity(complexity,kurtosis,dissonance):
     return ['relaxed','moderate','aggresive'][intensity]
 
 def roll_off(spectrum,fs):
-    e_m = energy(spectrum)
+    #energy in potential terms
+    e_m = np.inner(spectrum,spectrum) 
     cutoff = .85 * e_m
     cume = 0
     rolloff = 0
@@ -146,7 +147,6 @@ def roll_off(spectrum,fs):
             rolloff=i
     rolloff *= (fs/2) / (spectrum.size-1)
     return rolloff
-
 
 def audio_fingerprint(peaks):
     encoded_peaks = hash(peaks[:4])
@@ -201,7 +201,7 @@ def find_saturation(song):
         past_mask = current_mask
     if prev_start and len(dflanks) > 9:
         start = prev_start
-        end = float(idx * song.H + dflanks[0] / 48000)
+        end = float(idx * song.H + dflanks[0] / song.fs)
         duration = end -start
         if duration > min_dur:
             starts.append(start)
@@ -209,13 +209,13 @@ def find_saturation(song):
         prev_start = 0
         dflanks.remove(dflanks[0])
     if len(uflanks) != len(dflanks) and len(uflanks) > 0:
-        prev_start = idx * song.H + uflanks[-1] / 48000
+        prev_start = idx * song.H + uflanks[-1] / song.fs
         uflanks.pop(-1) 
     if len(uflanks) != len(dflanks) and idx == 0:
         dflanks.pop(-1)
     for i in range(len(uflanks)):
-        start = float(idx * song.H + uflanks[0] / 48000) 
-        end = float(idx * song.H + dflanks[0] / 48000) 
+        start = float(idx * song.H + uflanks[0] / song.fs) 
+        end = float(idx * song.H + dflanks[0] / song.fs) 
         duration = end -start
         if duration >= min_dur:
             starts.append(start)
@@ -341,7 +341,7 @@ def NSGConstantQ(signal):
         cqtbw[j] = Q * _baseFreqs[j] + _gamma;
     _binsNum = _baseFreqs.size  
     _baseFreqs = np.append(_baseFreqs,0)     
-    _baseFreqs = np.append(_baseFreqs,22050) 
+    _baseFreqs = np.append(_baseFreqs,int(signal.fs/2)) 
 
     for j in reversed(range(_binsNum)):                                                 
          _baseFreqs = np.append(_baseFreqs,signal.fs -_baseFreqs[j])
@@ -709,21 +709,32 @@ class MIR:
         else:
             self.attack_time = at
 
-    def IIR(self, array, cutoffHz, type):
+    def IIR(self, array, cutoffHz, type,octave_rolloff=6):
         """Apply an Infinite Impulse Response filter to the input signal                                                                        
-        -param: cutoffHz: cutoff frequency in Hz                        
-        -type: the type of filter to use [highpass, bandpass]"""                                        
+        :param: array: input array
+        :param: cutoffHz: cutoff frequency in Hz                        
+        :param: type: the type of filter to use [highpass, bandpass]        
+        :param: octave_rolloff: rolloff in decibels to compute filter order 
+        """                                        
         if type == 'bandpass':                                          
             nyquist_low = self.nyquist(cutoffHz[0]) 
             nyquist_hi = self.nyquist(cutoffHz[1])                
             Wn = [nyquist_low, nyquist_hi] 
         else:                
-            Wn = self.nyquist(cutoffHz)            
-        if not type=='lowpass':              
-            b,a = iirfilter(1, Wn, btype = type, ftype = 'butter')  
-        else: 
-            b,a = iirfilter(1, Wn, btype = type)       
-        output = lfilter(b,a,array) #use a time-freq compromised filter
+            Wn = self.nyquist(cutoffHz)    
+        order = int(octave_rolloff/6)            
+        if order >= 4:
+            if not type=='lowpass':
+                sos = iirfilter(order, Wn, btype = type, ftype = 'butter',output='sos')
+            else:
+                sos = iirfilter(order, Wn, btype = type,output='sos')
+            output = sosfilt(sos,array) #use a time-freq compromised filter   
+        else:
+            if not type=='lowpass':
+                b,a = iirfilter(order, Wn, btype = type, ftype = 'butter')
+            else:
+                b,a = iirfilter(order, Wn, btype = type)
+            output = lfilter(b,a,array) #use a time-freq compromised filter
         return output 
 
     def pitch_salience_function(self,thres=1):
@@ -1075,7 +1086,7 @@ class MIR:
         """Computes tempo of a signal in Beats Per Minute with its tempo onsets""" 
         self.onsets_strength()                                                             
         n = len(self.envelope) 
-        win_length = np.asscalar(np.array([int(np.floor(8*48000/self.H))]))
+        win_length = np.asscalar(np.array([int(np.floor(8*self.fs/self.H))]))
         ac_window = hann(win_length) 
         self.envelope = np.pad(self.envelope, int(win_length // 2),mode='linear_ramp', end_values=[0, 0])
         frames = 1 + int((len(self.envelope) - win_length) / 1) 
@@ -1217,7 +1228,7 @@ class MIR:
     def trackPitchContour(self,_nonSalientPeaksBins,peak_thres=0):
         max_i = 0
         max_j = 0
-        _timeContinuityInFrames = (100 / 1000.0) * 44100 / self.H
+        _timeContinuityInFrames = (100 / 1000.0) * self.fs / self.H
         maxSalience = 0
         bins = []
         saliences = []
@@ -1784,7 +1795,7 @@ def music_structure_analysis(signal,separator,fun='median'):
     for magnitude in song.audio_signal_spectrum:
         song.magnitude_spectrum = magnitude
         song.spectral_peaks()
-        pcps.append(hpcp(song,28))
+        pcps.append(hpcp(song,28)) #> 400
     pcps = np.array(pcps)
     ticks = np.array(ticks)    
 
