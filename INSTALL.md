@@ -1,7 +1,6 @@
 # General requirements
 
 Python 3.6
-Note: old versión is Python 2.7 but is deprecated
 
 ### Operating System
 Tested under Linux, Mac OS (>10.11) and Windows 10.

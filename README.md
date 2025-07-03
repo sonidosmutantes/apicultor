@@ -1,22 +1,256 @@
-# About the project
+# Apicultor: Modular Music Information Retrieval Toolkit
 
-* Interactive __DEMO__:
-  * [Cloud Instrument](https://www.youtube.com/watch?v=SCYEEpfct_Y) raspicultor + custom controller version video. Interactive demo retrieving sounds from the Cloud using MIR descriptors and processing them in realtime (using raspicultor aka raspberry pi + apicultor).
-  * [Experimental session with sounds from the cloud](https://www.youtube.com/watch?v=2sMsKvfZKGA). First live demo with an standard midi controller.
-* Embedded instrument running in a [Bela](http://bela.io/) or Raspberry Pi: [cloudpicultor](https://github.com/hordiales/cloudpicultor_instrument).
-* Cloud Instrument mention in [ArCiTec prize, Technology applied to Arts](https://arcitec.frba.utn.edu.ar/tecnologia-aplicada-al-arte/) (2018).
-* Publication: [Sound recycling from public databases](https://www.researchgate.net/publication/317388443_Sound_recycling_from_public_databases) @ [Audio Mostly](http://audiomostly.com) 2017 
-* "Forgotten pieces from unknown people" and "Dialectic in suspense" constructed using APICultor, were showed in [NIPS 2017 Art Gallery](http://nips4creativity.com/music/) (Machine Learning for Creativity and Design, Long Beach, California, USA)
-* "Sound recycling from public databases" was presented at [Technarte Los Angeles 2017](http://www.technarte.org/losangeles-2017-program/).
-* Recycled sounds: [Sound miniatures](http://redpanal.org/p/reciclado-de-samples/)
+[![Python 3.8+](https://img.shields.io/badge/python-3.8+-blue.svg)](https://www.python.org/downloads/)
+[![License: GPL v3](https://img.shields.io/badge/License-GPLv3-blue.svg)](https://www.gnu.org/licenses/gpl-3.0)
+[![Type Hints](https://img.shields.io/badge/typing-yes-brightgreen.svg)](https://docs.python.org/3/library/typing.html)
 
-APICultor born to realize interdisciplinary performances based on sounds of the web platform [http://redpanal.org](http://redpanal.org). The system is also useful to use with any other sound database on the internet or even running it locally.
+**Apicultor** is a modular toolkit for **Music Information Retrieval (MIR)**, **sound analysis**, and **algorithmic composition**. It features a flexible plugin architecture that allows you to enable only the components you need, making it suitable for everything from research environments to embedded systems.
 
-The sound is processed digitally using different live-coding techniques. A pre-analysis based on Music Information Retrieval (MIR) stored in a database and accessed via a web-service REST API is combined with real-time processing and synthesis, random processes and human control via external interfaces.
+## ✨ Key Features
 
-![](doc/InstrCloudIT_play.png)
+- 🧩 **Modular Plugin Architecture** - Enable/disable components as needed
+- 🎵 **Music Information Retrieval** - Extract audio features and descriptors
+- 🤖 **Machine Learning** - Sound similarity, clustering, and classification
+- 🎭 **Emotion Analysis** - Music emotion recognition and generation
+- 🎛️ **Real-time Performance** - Live coding with OSC/MIDI control
+- 🌐 **Database Integration** - Freesound, RedPanal, and local file support
+- 🔧 **Type Safe** - Full type annotations for robust development
+- 📊 **Comprehensive Testing** - Extensive test coverage
 
-Examples available with SuperCollider, Pyo and pure data.
+## 🚀 Quick Start
+
+### Installation
+
+```bash
+# Install from source
+git clone https://github.com/sonidosmutantes/apicultor.git
+cd apicultor
+pip install -e .
+
+# Or with Poetry
+poetry install
+```
+
+### Basic Usage
+
+```python
+import apicultor
+
+# Initialize with default plugins
+plugin_manager = apicultor.initialize()
+
+# Use database plugin to search for sounds
+db_plugin = plugin_manager.get_plugin('database')
+results = db_plugin.search_sounds("piano", limit=10)
+
+# Use constraints plugin for optimization
+constraints_plugin = plugin_manager.get_plugin('constraints')
+constrained_values = constraints_plugin.apply_lower_bounds(data)
+```
+
+### Configuration
+
+Create `apicultor_config.json`:
+
+```json
+{
+  "plugins": {
+    "enabled_modules": ["database", "constraints", "machine_learning"],
+    "disabled_modules": ["emotion", "state_machine"],
+    "plugin_configs": {
+      "database": {
+        "default_provider": "freesound",
+        "freesound_api_key": "${APICULTOR_FREESOUND_API_KEY}"
+      }
+    }
+  }
+}
+```
+
+Or use environment variables:
+
+```bash
+export APICULTOR_ENABLED_MODULES="database,constraints,machine_learning"
+export APICULTOR_FREESOUND_API_KEY="your_api_key"
+```
+
+## 🧩 Available Plugins
+
+| Plugin | Description | Use Cases |
+|--------|-------------|-----------|
+| **database** | Sound database access (Freesound, RedPanal, local files) | Sound retrieval, corpus building |
+| **analysis** | MIR feature extraction and descriptors | Audio analysis, feature vectors |
+| **machine_learning** | Clustering, similarity, classification | Sound organization, recommendation |
+| **emotion** | Music emotion analysis and generation | Affective computing, mood-based selection |
+| **segmentation** | Audio segmentation algorithms | Structure analysis, boundary detection |
+| **state_machine** | Markov chain composition and performance | Algorithmic composition, live coding |
+| **constraints** | Mathematical optimization utilities | Machine learning, signal processing |
+| **sonification** | Data-to-audio conversion | Scientific sonification, synthesis |
+| **gradients** | Optimization algorithms | Deep learning, parameter tuning |
+
+## 📖 Documentation
+
+- **[Plugin System Guide](PLUGIN_SYSTEM.md)** - Complete guide to the modular architecture
+- **[Installation Guide](INSTALL.md)** - Detailed installation instructions  
+- **[Development Guidelines](doc/Dev-Guidelines.md)** - Contributing and development setup
+- **[API Documentation](doc/API.md)** - Complete API reference
+
+## 🎪 Interactive Demos
+
+* **[Cloud Instrument](https://www.youtube.com/watch?v=SCYEEpfct_Y)** - Raspberry Pi + custom controller retrieving sounds using MIR descriptors
+* **[Experimental Session](https://www.youtube.com/watch?v=2sMsKvfZKGA)** - Live demo with MIDI controller
+* **[Embedded Instrument](https://github.com/hordiales/cloudpicultor_instrument)** - Running on Bela or Raspberry Pi
+
+## 🏆 Recognition
+
+* **ArCiTec Prize** - Technology Applied to Arts (2018)
+* **NIPS 2017 Art Gallery** - Machine Learning for Creativity and Design
+* **Audio Mostly 2017** - "Sound recycling from public databases" publication
+* **Technarte Los Angeles 2017** - Conference presentation
+
+## 🎵 Use Cases
+
+### Research & Analysis
+```python
+# Enable analysis and ML plugins
+export APICULTOR_ENABLED_MODULES="analysis,machine_learning,constraints"
+
+# Extract features and cluster sounds
+ml_plugin = plugin_manager.get_plugin('machine_learning')
+clusters = ml_plugin.cluster_sounds(feature_vectors, n_clusters=5)
+```
+
+### Live Performance
+```python
+# Enable real-time performance plugins  
+export APICULTOR_ENABLED_MODULES="database,state_machine,sonification"
+
+# Create Markov chain composition
+sm_plugin = plugin_manager.get_plugin('state_machine')
+composition = sm_plugin.create_composition(sounds, transitions)
+```
+
+### Embedded/IoT
+```python
+# Minimal setup for embedded systems
+export APICULTOR_ENABLED_MODULES="analysis,constraints"
+
+# Lightweight audio analysis
+analysis_plugin = plugin_manager.get_plugin('analysis')
+features = analysis_plugin.extract_features(audio_data)
+```
+
+## 🎛️ Hardware Integration
+
+![Custom MIDI Controller](doc/controller.jpg)
+
+Apicultor supports:
+- **Custom MIDI controllers** (Yaeltex and others)
+- **OSC communication** for networked performance
+- **Raspberry Pi** deployment for embedded instruments
+- **Bela Platform** for ultra-low latency audio
+
+## 🌐 Database Support
+
+- **[Freesound.org](https://freesound.org)** - Collaborative sound database
+- **[RedPanal.org](http://redpanal.org)** - Latin American sound platform  
+- **Local Files** - Your own sound collections
+- **Custom APIs** - Extensible database interface
+
+## 🔬 Research Applications
+
+Apicultor has been used in academic research:
+
+- **Sound Recycling** - Automated discovery and reuse of online audio
+- **Music Emotion Analysis** - Deep learning for affective music computing
+- **Algorithmic Composition** - MIR-driven generative music systems
+- **Interactive Performance** - Real-time sound manipulation and synthesis
+
+## 🎨 Creative Projects
+
+### Performances with Sonidos Mutantes
+- **APICultor + No Input + Granular synthesis** - [Live performance](https://soundcloud.com/sonidosmutantes/apicultor-no-input)
+- **Feature Thinking** - Generative music using MIR state machines
+- **Banda de Mutantes** - Experimental sound workshops and performances
+
+### Compositions
+- **[API-Cultor compositions](http://redpanal.org/p/apicultor/)** - Sound recycling pieces
+- **[Reciclado de samples](http://redpanal.org/p/reciclado-de-samples/)** - Creative Commons remixes
+
+## 🛠️ Development
+
+### Prerequisites
+- Python 3.8+
+- Poetry (recommended) or pip
+- Optional: SuperCollider, Pyo, Pure Data
+
+### Setup
+```bash
+git clone https://github.com/sonidosmutantes/apicultor.git
+cd apicultor
+poetry install --with dev
+
+# Run tests
+poetry run pytest
+
+# Type checking
+poetry run mypy src/
+
+# Code formatting
+poetry run black src/ tests/
+```
+
+### Contributing
+1. Fork the repository
+2. Create a feature branch
+3. Add tests for new functionality
+4. Ensure all tests pass and code is typed
+5. Submit a pull request
+
+See [Development Guidelines](doc/Dev-Guidelines.md) for detailed information.
+
+## 📦 Deployment Scenarios
+
+### Docker
+```bash
+docker build -t apicultor .
+docker run -e APICULTOR_ENABLED_MODULES="database,analysis" apicultor
+```
+
+### Raspberry Pi
+```bash
+# Optimized for embedded systems
+export APICULTOR_ENABLED_MODULES="analysis,constraints,sonification"
+python -m apicultor.cli.run_analysis --input audio.wav
+```
+
+## 📄 License
+
+This project is licensed under the **GNU General Public License v3.0** - see the [LICENSE](LICENSE) file for details.
+
+## 👥 Authors
+
+- **Hernán Ordiales** - Creator and maintainer
+- **Marcelo Tuller (MarsCrop)** - MusicEmotionMachine branch
+- **Community Contributors** - See [contributors](https://github.com/sonidosmutantes/apicultor/contributors)
+
+## 🔗 Links
+
+- **Website**: [Sonidos Mutantes](http://sonidosmutantes.github.io/)
+- **RedPanal**: [Sound platform](http://redpanal.org)
+- **Research**: [Publications and papers](https://www.researchgate.net/publication/317388443_Sound_recycling_from_public_databases)
+
+## 🌟 Support
+
+If you find Apicultor useful, please:
+- ⭐ Star this repository
+- 🐛 Report bugs and suggest features
+- 📢 Share your projects using Apicultor
+- 🤝 Contribute code, documentation, or examples
+
+---
+
+**APICultor** born to realize interdisciplinary performances based on sounds from web platforms. The system combines Music Information Retrieval (MIR) analysis, real-time processing, machine learning, and human control to create new forms of musical expression and sound art.
 
 Spanish version: [README_es.md](README_es.md)
 
