@@ -46,13 +46,6 @@ cent2hz = lambda cent, f0: f0 * pow(pow(2, 10 / 1200.0), cent)
 #80m = audible con atención
 #>100m = imposible de oir
 
-def hard_kill_pool(pids, pt):
-    #terminates a function
-    for pid in pids:
-        os.kill(pid, signal.SIGINT)
-    #terminates a tree of processes
-    pt.terminate()
-
 def dmean(data):
     derived = np.zeros(len(data))
     for i in range(len(data)-1):

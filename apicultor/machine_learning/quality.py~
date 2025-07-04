@@ -2,7 +2,7 @@
 # -*- coding: UTF-8 -*-
 
 from scipy.stats import pearsonr
-from ..constraints.dynamic_range import *
+from ..constraints.dynamic_range import dyn_constraint_satis
 from ..utils.algorithms import *
 from .lstm_synth_w import *
 from ..sonification.Sonification import normalize, write_file
@@ -15,11 +15,11 @@ import os
 import sys
 import logging
 import librosa
-import warnings
+
 # TODO: *Remove wows, clippings, pops
 
 # you should comment what you've already processed (avoid over-processing)
-warnings.simplefilter("ignore", RuntimeWarning)
+
 logging.basicConfig(level=logging.DEBUG)
 logging.disable(logging.WARNING)
 logger = logging.getLogger(__name__)
@@ -27,9 +27,8 @@ logger = logging.getLogger(__name__)
 
 def energy(mag): return np.sum((10 ** (mag / 20)) ** 2)
 
-def dec(at,scalar): return at * (500*scalar/100)  # calculate decay time based on a maximum scalar
 
-def rel(at,scalar): return at * (1000*scalar/100)  # calculate release time based on a maximum scalar
+def rel(at): return at * 10  # calculate release time
 
 
 # convert attack and release time to coefficients
@@ -507,72 +506,6 @@ def constantQ_transform(audio):
         pin += 1024
     return output
 
-def noise_gate(audio,fs=44100,thresh_db=-32,reduction_db=-20,freq_cut=0,ca=.0001,cdec=.001, hold_time=0):
-    """
-    RMS noise as least autocorrelated (stationary) samples (other peaks and heart beatings) 
-    of its signal envelope (spsynth rather than anisotropic diffusion)
-    enhanced phase values are probabilistic
-    short-term phases (music: rms of tones, remanent noise: wider critical bandwidth) are discarded by the ear
-    Additive noise is noise in environment. Humans can discriminate only part of it due to masking, leading to
-    conditions:
-        mask (Wiener gain) = psd/(psd+psd_noise) => harmonic distortion and higher critical noise
-        if mask[i] === min(mask):
-                alpha[i] (or beta[i]) = max(alpha)
-        elif mask[i] === max(mask):
-                alpha[i] (or beta[i]) = min(alpha)
-        elif min(mask) > mask[i] > max(mask):
-                alpha[i] (or beta) = max(alpha) *(( max(mask) - mask[i] )/( max(mask) - min(mask) ) + min(alpha) *( ( mask[i] - min(mask) )/( max(mask)- min(mask) ))
-    """
-    pend = len(audio)-(int(fs/10)+1102)
-    song = sonify(audio, fs)
-    pin = 0
-    output = np.zeros(len(audio))
-    amp = audio.max()
-    reduction = 10**(reduction_db*.1) #dBmV to amplitude    
-    holda = ca
-    half_fs = fs/2
-    if freq_cut == 0:
-        freq_cut = 2049
-        ngate = 2048
-    else:
-        freq_cut = int(freq_cut*2048/half_fs)
-        ngate = freq_cut
-    while pin < pend:
-        selection = pin+2048
-        song.frame = audio[pin:selection]
-        song.window()
-        song.M = 2048
-        song.H = 2048
-        song.Spectrum()
-        log_spectrum = 10*np.log10(song.magnitude_spectrum*song.H**2)
-        song.Envelope()
-        song.AttackTime()
-        dec_coef = to_coef(cdec, fs)
-        at_coef = to_coef(ca, fs)
-        gs = np.zeros(song.magnitude_spectrum.size)
-        #hold time: time at which the attack should happen as open
-        holda = holda + song.attack_time 
-        if np.any(log_spectrum < thresh_db):
-            gc = gate_constraint_satis(
-                    song.magnitude_spectrum[:freq_cut], [log_spectrum, thresh_db], reduction)        
-        else:
-            np.add.at(output, range(pin, selection), song.frame)
-            pin = pin + song.H
-            continue
-        for i, x in enumerate(gc):
-            if holda > hold_time and gc[i - 1] <= gs[i - 1]:
-                if x > gc[i - 1]:
-                    gs[i] = at_coef * gs[i - 1] + (1 - at_coef) * x
-            if holda <= hold_time:
-                gs[i] = gs[i-1]
-            if gc[i] > gs[i - 1]:
-                gs[i] = dec_coef * gs[i - 1] + (1 - dec_coef) * x  
-        song.frame[:freq_cut] *= gs[:ngate]        
-        np.add.at(output, range(pin, selection), song.frame)
-        pin = pin + song.H
-        #gate acts in time domain of the signal
-        hold_time += selection/fs
-    return np.float32(output)
 
 def hiss_removal(audio):
     """

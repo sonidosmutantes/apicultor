@@ -508,25 +508,25 @@ class deep_support_vector_machines(object):
                 alpha1 = self.dual_coefficients[class2 - 1, self.sv_locs[class1]:self.sv_locs[class1 + 1]]
                 # dual coef for class2 SVs:
                 alpha2 = self.dual_coefficients[class1, self.sv_locs[class2]:self.sv_locs[class2 + 1]]
-                try:  
-                    # build weight for class1 vs class2
-                    fair_ij = ind_fairness(sv1,ssd(alpha1, sv1),ys1)
-                    print("Conditional parity at class ",class1," targeting is ",str(fair_ij)) 
-                    fair_group = fair_ij ** 2
-                    self.w.append(ssd(alpha1, sv1)+ ssd(alpha2, sv2)) 
-                    print("Group fairness at class ",class1," targeting is ",str(fair_group)) 
-                    fair_ij = ind_fairness(sv2,ssd(alpha2, sv2),ys2) 
-                    print("Conditional parity at class ",class2," targeting is ",str(fair_ij)) 
-                    fair_group = fair_ij ** 2 
-                    print("Group fairness at class ",class2," targeting is ",str(fair_group)) 
-                    old_loss = np.mean((ys1-(ssd(alpha1, sv1)*sv1).T)**2)  
-                    unprot1 = unprotection_score(old_loss,(ssd(alpha1, sv1)*sv1).T,ys1) 
-                    print("Conditional procedure accuracy equality targeting ",class1," is ",str(unprot1)) 
-                    old_loss = np.mean((ys2-(ssd(alpha2, sv2)*sv2).T)**2)  
-                    unprot2 = unprotection_score(old_loss,(ssd(alpha2, sv2)*sv2).T,ys2) 
-                    print("Conditional procedure accuracy equality targeting ",class2," is ",str(unprot2)) 
+                # build weight for class1 vs class2
+                fair_ij = ind_fairness(sv1,ssd(alpha1, sv1),ys1)
+                print("Conditional parity at class ",class1," targeting is ",str(fair_ij)) 
+                fair_group = fair_ij ** 2
+                self.w.append(ssd(alpha1, sv1)+ ssd(alpha2, sv2)) 
+                print("Group fairness at class ",class1," targeting is ",str(fair_group)) 
+                try: 
+                            fair_ij = ind_fairness(sv2,ssd(alpha2, sv2),ys2) 
+                            print("Conditional parity at class ",class2," targeting is ",str(fair_ij)) 
+                            fair_group = fair_ij ** 2 
+                            print("Group fairness at class ",class2," targeting is ",str(fair_group)) 
+                            old_loss = np.mean((ys1-(ssd(alpha1, sv1)*sv1).T)**2)  
+                            unprot1 = unprotection_score(old_loss,(ssd(alpha1, sv1)*sv1).T,ys1) 
+                            print("Conditional procedure accuracy equality targeting ",class1," is ",str(unprot1)) 
+                            old_loss = np.mean((ys2-(ssd(alpha2, sv2)*sv2).T)**2)  
+                            unprot2 = unprotection_score(old_loss,(ssd(alpha2, sv2)*sv2).T,ys2) 
+                            print("Conditional procedure accuracy equality targeting ",class2," is ",str(unprot2)) 
                 except Exception as e: 
-                    raise ValueError("Can't compute individual fairness with empty support values")
+                            raise ValueError("Can't compute individual fairness with empty support values")
         if self.kernel1 == "poly":
             kernel1 = self.polynomial_kernel
         if self.kernel1 == "sigmoid":

@@ -265,7 +265,6 @@ def GridSearch(model, features, targets, Cs, reg_params, kernel_configs, criteri
                 models['models'][i].append(None)
                 grid_conflicts.append(
                     np.array([i for i in range(len(features))]))
-                continue    
         try:
             best_estimator['score'][i].append(min(scores['scorings'][i]))
             best_model = models['models'][i][np.argmin(scores['scorings'][i])]
