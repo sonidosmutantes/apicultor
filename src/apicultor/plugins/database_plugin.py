@@ -7,7 +7,7 @@ import logging
 from apicultor.core.interfaces import DatabaseInterface
 from apicultor.database.db.FreesoundDB import FreesoundDB
 from apicultor.database.db.RedPanalDB import RedPanalDB
-from apicultor.database.db.JsonMirFilesData import JsonMirFilesData
+from apicultor.database.db.LocalFilesData import LocalFilesData
 
 
 logger = logging.getLogger(__name__)
@@ -65,7 +65,8 @@ class DatabasePlugin(DatabaseInterface):
             
             # Initialize local file provider
             data_dir = config.get("data_dir", "./data")
-            self._providers["local"] = JsonMirFilesData(data_dir)
+            samples_dir = config.get("samples_dir", "./samples")
+            self._providers["local"] = LocalFilesData(data_dir, samples_dir)
             logger.info("Initialized local file database provider")
             
         except Exception as e:
