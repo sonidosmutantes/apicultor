@@ -52,12 +52,8 @@ class PluginManager:
         
         # Built-in plugin modules mapping
         self._builtin_modules = {
-            "database": "apicultor.database",
-            "segmentation": "apicultor.audio.segmentation",
-            "state_machine": "apicultor.state_machine",
-            "constraints": "apicultor.audio.constraints",
-            "sonification": "apicultor.audio.sonification",
-            "analysis": "apicultor.core.analysis",
+            "database": "apicultor.plugins.database_plugin",
+            "constraints": "apicultor.plugins.constraints_plugin",
         }
     
     def initialize(self) -> None:
@@ -86,7 +82,7 @@ class PluginManager:
             try:
                 self._discover_plugin_in_module(plugin_name, module_path)
             except Exception as e:
-                logger.warning(f"Failed to discover plugin {plugin_name}: {e}")
+                logger.debug(f"Plugin {plugin_name} not available: {e}")
                 if self.config.fail_on_plugin_error:
                     raise
         
@@ -188,7 +184,7 @@ class PluginManager:
                 try:
                     self.enable_plugin(plugin_name)
                 except Exception as e:
-                    logger.error(f"Failed to enable plugin {plugin_name}: {e}")
+                    logger.debug(f"Plugin {plugin_name} not available: {e}")
                     if self.config.fail_on_plugin_error:
                         raise
     
@@ -206,7 +202,7 @@ class PluginManager:
             return True
         
         if plugin_name not in self._plugin_classes:
-            logger.error(f"Plugin {plugin_name} not found")
+            logger.debug(f"Plugin {plugin_name} not found")
             return False
         
         try:

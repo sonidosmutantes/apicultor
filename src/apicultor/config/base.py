@@ -148,7 +148,11 @@ class PluginConfig(BaseConfig):
         self.disabled_modules: List[str] = [
             "gradients",
             "emotion", 
-            "machine_learning"
+            "machine_learning",
+            "analysis",
+            "sonification",
+            "segmentation",
+            "state_machine"
         ]
         self.auto_discover: bool = True
         self.fail_on_plugin_error: bool = False
