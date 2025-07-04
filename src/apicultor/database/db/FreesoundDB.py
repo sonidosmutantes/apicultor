@@ -2,7 +2,8 @@
 
 import json
 import sys
-import urllib2
+import urllib.request
+import urllib.error
 import ffmpeg
 import random
 import os
@@ -14,7 +15,7 @@ import freesound
 # ```
 # import oauth2
 # import base64
-from mir.db.api import MirDbApi
+from .api import MirDbApi
 
 
 """
@@ -109,7 +110,7 @@ class FreesoundDB(MirDbApi):
 
         desc_filter = ""
         desc_target = ""
-        for desc,value in mir_state.iteritems():
+        for desc,value in mir_state.items():
             if "TO" in str(value):
                 print("Filter by: "+desc)
                 desc_filter = desc+":["+value+"]"
@@ -164,11 +165,11 @@ class FreesoundAPI_extended(MirDbApi):
         """
         # curl -X POST -d "client_id=YOUR_CLIENT_ID&client_secret=YOUR_CLIENT_SECRET&grant_type=authorization_code&code=THE_GIVEN_CODE" https://www.freesound.org/apiv2/oauth2/access_token/
         data = "client_id=%(client_id)s&client_secret=%(client_secret)s&grant_type=authorization_code&code=%(auth_code)s"%locals()
-        print data
-        request = urllib2.Request( 'https://www.freesound.org/apiv2/oauth2/access_token/', data=data )
+        print(data)
+        request = urllib.request.Request( 'https://www.freesound.org/apiv2/oauth2/access_token/', data=data )
         # request.add_header('Accept', 'application/json')
         # try:
-        response = urllib2.urlopen(request)
+        response = urllib.request.urlopen(request)
         # except urllib2.HTTPError, exc:
         #     if exc.code == 401: # Unauthorized
         #         raise Unauthorized("Bad request")
@@ -181,11 +182,11 @@ class FreesoundAPI_extended(MirDbApi):
 # curl -X POST -d "client_id=YOUR_CLIENT_ID&client_secret=YOUR_CLIENT_SECRET&grant_type=refresh_token&refresh_token=REFRESH_TOKEN" "https://www.freesound.org/apiv2/oauth2/access_token/"
         """
         data = "client_id=%(client_id)s&client_secret=%(client_secret)s&grant_type=refresh_token&refresh_token=%(refresh_token)s"%locals()
-        print data
-        request = urllib2.Request( 'https://www.freesound.org/apiv2/oauth2/access_token/', data=data )
+        print(data)
+        request = urllib.request.Request( 'https://www.freesound.org/apiv2/oauth2/access_token/', data=data )
         # request.add_header('Accept', 'application/json')
         # try:
-        response = urllib2.urlopen(request)
+        response = urllib.request.urlopen(request)
         # except urllib2.HTTPError, exc:
         #     if exc.code == 401: # Unauthorized
         #         raise Unauthorized("Bad request")
@@ -208,9 +209,9 @@ class FreesoundAPI_extended(MirDbApi):
         """
             Returns a json
         """
-        request = urllib2.Request("http://www.freesound.org/apiv2/sounds/%s/"%id)
+        request = urllib.request.Request("http://www.freesound.org/apiv2/sounds/%s/"%id)
         request.add_header('Authorization','Token %s'%self.__api_key)
-        response = urllib2.urlopen(request).read()
+        response = urllib.request.urlopen(request).read()
         return json.JSONDecoder().decode(response)
     #search_by_id()
     
@@ -220,9 +221,9 @@ class FreesoundAPI_extended(MirDbApi):
         """
         content = content.replace (" ","%20")
         #TODO: use urllib3.request.urlencode.
-        request = urllib2.Request("http://www.freesound.org/apiv2/search/content/?target=%s"%content)
+        request = urllib.request.Request("http://www.freesound.org/apiv2/search/content/?target=%s"%content)
         request.add_header('Authorization','Token %s'%self.__api_key)
-        response = urllib2.urlopen(request).read()
+        response = urllib.request.urlopen(request).read()
         return json.JSONDecoder().decode(response) 
         #search_by_content()
 
@@ -250,7 +251,7 @@ if __name__ == '__main__':
         
         #HARDCODED FIXME (take name from argv)
         composition = json.load( open("state_machine/composition1.json",'r') )
-    except Exception, e:
+    except Exception as e:
         print(e)
         print("No json config file or error.")
         sys.exit(2)

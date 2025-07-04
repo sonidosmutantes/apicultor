@@ -4,7 +4,7 @@
 import random
 import os
 
-from ..Sonification import write_file
+from ..sonification.Sonification import write_file
 from soundfile import read
 import time
 

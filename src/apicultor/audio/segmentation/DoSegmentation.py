@@ -2,12 +2,11 @@
 # -*- coding: utf-8 -*-
 
 import sys
-from ..machine_learning.cache import memoize
 import numpy as np
 from soundfile import read
 from ..sonification.Sonification import write_file
 from random import choice
-from ..utils.algorithms import *
+from ...utils.algorithms import *
 import os
 
 def do_segmentation(audio_input, audio_input_from_filename = True, audio_input_from_array = False, sec_len = 6, save_file = True):

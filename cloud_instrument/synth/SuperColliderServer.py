@@ -57,7 +57,7 @@ class SupercolliderServer(AudioServer):
 
         try:
             osc_client.send(msg)
-        except Exception,e:
+        except Exception as e:
             print(e)
     #()
 
@@ -80,7 +80,7 @@ class SupercolliderServer(AudioServer):
 
         try:
             osc_client.send(msg)
-        except Exception,e:
+        except Exception as e:
             print(e)
     #()
     
@@ -102,7 +102,7 @@ class SupercolliderServer(AudioServer):
 
         try:
             osc_client.send(msg)
-        except Exception,e:
+        except Exception as e:
             print(e)
         #TODO: get duration from msg (via API)
         # time.sleep(duration)

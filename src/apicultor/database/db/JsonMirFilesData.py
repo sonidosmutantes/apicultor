@@ -7,19 +7,31 @@
 import os
 import flask
 from flask import jsonify
-from flask_autodoc import Autodoc
 import logging
 import os
 import json
 from flask import abort
 import itertools
 
+# Try to import flask_autodoc, but make it optional
+try:
+    from flask_autodoc import Autodoc
+    HAS_AUTODOC = True
+except ImportError:
+    HAS_AUTODOC = False
+    print("Warning: flask_autodoc not available - API documentation disabled")
+
 #TODO: get from config files
 DATA_PATH = "./data"
 SAMPLES_PATH = "./samples"
 
 app = flask.Flask(__name__)
-auto = Autodoc(app)
+
+# Only initialize Autodoc if available
+if HAS_AUTODOC:
+    auto = Autodoc(app)
+else:
+    auto = None
 
 ext_filter = ['.mp3','.ogg','.ogg','.wav']
 
@@ -93,10 +105,10 @@ def get_list_of_files_comparing(FILES_PATH, querydescriptor, fixedfloatvalue, co
                         outlist.append(subdir+'/'+ filename + ".wav") #TODO: check if it's always a wav file (or filter it)
                 elif comp=="<":
                     if value<comp_value:
-                        print filename+extension, value
+                        print(filename+extension, value)
                         # outlist += subdir+'/'+ f + "\n"
                     outlist.append(subdir+'/'+ filename + ".wav")
-            except Exception, e:
+            except Exception as e:
                 app.logger.error( e )
         # except Exception, e:
         #     app.logger.error( e )

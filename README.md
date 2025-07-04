@@ -256,13 +256,29 @@ Spanish version: [README_es.md](README_es.md)
 
 # News
 
-* 2018
-  * Migration to Python3 and setup.py install thanks to MarsCrop!
-  * MusicEmotionMachine by MarsCrop (in development)
-  * Cloud Instrument ready to play with an external controller, running in a dedicated device like Raspberry Pi or Bela Platform
-* 2017: 
-  * SuperCollider patch to play in realtime using sounds from public repositories (databases on the web). Realtime synthesis, wav retrieving using MIR descriptors, OSC & MIDI communication between process and controllers.
-* 2016: First demos (extracting MIR features, database build, MIR State Machine, etc)
+## 2025 - Major Refactor & Modernization
+* **Complete Architecture Overhaul**: Implemented modular plugin system with dependency injection
+* **Type Safety**: Added comprehensive type annotations throughout the codebase using Python 3.8+ features
+* **FFmpeg Integration**: Replaced subprocess calls with modern `ffmpeg-python` library for robust audio conversion
+* **Database Modernization**: Updated RedPanalDB to use `requests` library with proper error handling and async support
+* **Project Restructuring**: 
+  - Moved audio-related modules (constraints, segmentation) under unified `/audio` directory
+  - Removed legacy code from gradients, emotion, and machine_learning modules
+  - Streamlined plugin discovery and configuration management
+* **Configuration System**: New JSON-based configuration with environment variable support
+* **Testing Infrastructure**: Added pytest framework with comprehensive test coverage and CI/CD support
+* **Poetry Migration**: Migrated from setuptools to Poetry for modern Python dependency management
+
+## 2018
+* Migration to Python3 and setup.py install thanks to MarsCrop!
+* MusicEmotionMachine by MarsCrop (in development)
+* Cloud Instrument ready to play with an external controller, running in a dedicated device like Raspberry Pi or Bela Platform
+
+## 2017
+* SuperCollider patch to play in realtime using sounds from public repositories (databases on the web). Realtime synthesis, wav retrieving using MIR descriptors, OSC & MIDI communication between process and controllers.
+
+## 2016
+* First demos (extracting MIR features, database build, MIR State Machine, etc)
 
 # Developers
 

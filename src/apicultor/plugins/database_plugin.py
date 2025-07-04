@@ -4,10 +4,10 @@ from typing import Any, Dict, List, Optional
 from pathlib import Path
 import logging
 
-from ..core.interfaces import DatabaseInterface
-from ..database.db.FreesoundDB import FreesoundDB
-from ..database.db.RedPanalDB import RedPanalDB
-from ..database.db.JsonMirFilesData import JsonMirFilesData
+from apicultor.core.interfaces import DatabaseInterface
+from apicultor.database.db.FreesoundDB import FreesoundDB
+from apicultor.database.db.RedPanalDB import RedPanalDB
+from apicultor.database.db.JsonMirFilesData import JsonMirFilesData
 
 
 logger = logging.getLogger(__name__)

@@ -1,6 +1,7 @@
 """Plugin management system for apicultor."""
 
 import importlib
+import importlib.util
 import logging
 from typing import Dict, List, Optional, Type, Any, Set
 from pathlib import Path
@@ -52,12 +53,9 @@ class PluginManager:
         # Built-in plugin modules mapping
         self._builtin_modules = {
             "database": "apicultor.database",
-            "emotion": "apicultor.emotion", 
-            "gradients": "apicultor.gradients",
-            "machine_learning": "apicultor.machine_learning",
-            "segmentation": "apicultor.segmentation",
+            "segmentation": "apicultor.audio.segmentation",
             "state_machine": "apicultor.state_machine",
-            "constraints": "apicultor.constraints",
+            "constraints": "apicultor.audio.constraints",
             "sonification": "apicultor.audio.sonification",
             "analysis": "apicultor.core.analysis",
         }

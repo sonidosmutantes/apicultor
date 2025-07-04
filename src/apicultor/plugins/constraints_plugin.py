@@ -1,13 +1,13 @@
 """Constraints plugin implementation."""
 
-from typing import Any, Dict, List, Union
+from typing import Any, Dict, List, Union, Optional
 import numpy as np
 from numpy.typing import NDArray
 import logging
 
-from ..core.interfaces import PluginInterface
-from ..constraints.bounds import dsvm_low_a, dsvm_high_a, es
-from ..constraints.tempo import same_time
+from apicultor.core.interfaces import PluginInterface
+from apicultor.audio.constraints.bounds import dsvm_low_a, dsvm_high_a, es
+from apicultor.audio.constraints.tempo import same_time
 
 
 logger = logging.getLogger(__name__)

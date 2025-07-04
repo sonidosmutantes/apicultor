@@ -12,7 +12,7 @@ from typing import Optional, Dict, List, Any, Tuple
 from pathlib import Path
 import logging
 
-from mir.db.api import MirDbApi
+from .api import MirDbApi
 
 logger = logging.getLogger(__name__)
 

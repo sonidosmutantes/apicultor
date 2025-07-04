@@ -145,7 +145,11 @@ class PluginConfig(BaseConfig):
         self.enabled_modules: List[str] = [
             "database"
         ]
-        self.disabled_modules: List[str] = []
+        self.disabled_modules: List[str] = [
+            "gradients",
+            "emotion", 
+            "machine_learning"
+        ]
         self.auto_discover: bool = True
         self.fail_on_plugin_error: bool = False
         self.plugin_configs: Dict[str, Dict[str, Any]] = {}
