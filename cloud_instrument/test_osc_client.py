@@ -33,7 +33,7 @@ def test_osc_communication():
     
     # Test reverb control
     print("Sending reverb control message...")
-    client.send_message("/fx/reverb", 0.4, 0.6)
+    client.send_message("/fx/reverb", [0.4, 0.6])
     time.sleep(0.5)
     
     # Test MIR parameters
@@ -60,12 +60,12 @@ def test_osc_communication():
     
     # Test system status
     print("Requesting system status...")
-    client.send_message("/system/status")
+    client.send_message("/system/status", [])
     time.sleep(0.5)
     
     # Test unknown message
     print("Sending unknown message...")
-    client.send_message("/test/unknown", "hello", 42)
+    client.send_message("/test/unknown", ["hello", 42])
     time.sleep(0.5)
     
     print("-" * 50)

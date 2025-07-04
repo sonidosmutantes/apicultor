@@ -79,7 +79,7 @@ class OSCServer:
             )
             
             if self.config.enable_logging:
-                logger.debug(f"Received OSC message: {path} {args}")
+                logger.info(f"Received OSC message: {path} {args}")
             
             # Route to handlers
             self.handler_registry.handle_message(message)
@@ -239,22 +239,142 @@ class MockOSCServer:
         self.event_manager = event_manager
         self.handler_registry = OSCHandlerRegistry(event_manager)
         self._running = False
+        self._server_thread: Optional[threading.Thread] = None
         
         logger.warning("Using mock OSC server - python-osc not available")
     
     def start(self) -> None:
-        """Mock start."""
+        """Mock start with simple UDP listener."""
         self._running = True
         logger.info(f"Mock OSC server 'started' on {self.config.host}:{self.config.port}")
+        
+        # Start a simple UDP listener for demonstration
+        self._server_thread = threading.Thread(target=self._mock_listener, daemon=True)
+        self._server_thread.start()
+    
+    def _mock_listener(self) -> None:
+        """Simple mock UDP listener that logs received data."""
+        import socket
+        try:
+            sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+            sock.settimeout(1.0)  # Non-blocking with timeout
+            sock.bind((self.config.host, self.config.port))
+            
+            while self._running:
+                try:
+                    data, addr = sock.recvfrom(1024)
+                    if self.config.enable_logging:
+                        # Simple mock parsing - just log the raw data
+                        logger.info(f"Mock OSC received from {addr}: {len(data)} bytes")
+                        # Try to extract some readable info
+                        try:
+                            decoded = data.decode('utf-8', errors='ignore')
+                            if decoded:
+                                logger.info(f"Mock OSC data (partial): {decoded[:100]}")
+                        except:
+                            pass
+                        
+                        # Parse and handle the actual OSC data
+                        self._parse_and_handle_osc_data(data, addr)
+                        
+                except socket.timeout:
+                    continue
+                except Exception as e:
+                    if self._running:
+                        logger.debug(f"Mock OSC listener error: {e}")
+                        
+        except Exception as e:
+            logger.error(f"Mock OSC server failed to bind to {self.config.host}:{self.config.port}: {e}")
+        finally:
+            try:
+                sock.close()
+            except:
+                pass
+    
+    def _parse_and_handle_osc_data(self, data: bytes, addr) -> None:
+        """Simple OSC data parsing for mock server."""
+        try:
+            # Basic OSC message parsing - very simplified
+            decoded = data.decode('utf-8', errors='ignore')
+            
+            # Extract the path (first null-terminated string)
+            path_end = decoded.find('\x00')
+            if path_end > 0:
+                path = decoded[:path_end]
+                
+                # Simple argument extraction - look for common patterns
+                args = []
+                remaining = decoded[path_end:]
+                
+                # Look for float arguments (very basic parsing)
+                if ',f' in remaining:
+                    # Float argument present - try to extract it
+                    import struct
+                    try:
+                        # Find float data (after type tag)
+                        type_idx = data.find(b',f')
+                        if type_idx >= 0:
+                            # Skip to float data (aligned to 4 bytes)
+                            float_start = type_idx + 4
+                            while float_start % 4 != 0:
+                                float_start += 1
+                            if float_start + 4 <= len(data):
+                                float_val = struct.unpack('>f', data[float_start:float_start+4])[0]
+                                args.append(float_val)
+                    except:
+                        pass
+                
+                # Look for string arguments
+                elif ',s' in remaining:
+                    # String argument - extract it
+                    try:
+                        string_start = remaining.find(',s') + 2
+                        while string_start < len(remaining) and remaining[string_start] in '\x00 ':
+                            string_start += 1
+                        string_end = remaining.find('\x00', string_start)
+                        if string_end > string_start:
+                            string_arg = remaining[string_start:string_end]
+                            args.append(string_arg)
+                    except:
+                        pass
+                
+                # Create proper OSC message
+                message = OSCMessage(
+                    path=path,
+                    args=args,
+                    timestamp=datetime.now(),
+                    source_address=f"{addr[0]}:{addr[1]}"
+                )
+                
+                if self.config.enable_logging:
+                    logger.info(f"Mock OSC parsed message: {path} {args}")
+                
+                # Route to handlers
+                self.handler_registry.handle_message(message)
+                
+        except Exception as e:
+            logger.debug(f"Mock OSC parsing error: {e}")
+            # Fallback to generic message
+            mock_message = OSCMessage(
+                path="/mock/unparsed",
+                args=["error"],
+                timestamp=datetime.now(),
+                source_address=f"{addr[0]}:{addr[1]}"
+            )
+            self.handler_registry.handle_message(mock_message)
     
     def stop(self) -> None:
         """Mock stop."""
         self._running = False
         logger.info("Mock OSC server 'stopped'")
+        
+        if self._server_thread and self._server_thread.is_alive():
+            self._server_thread.join(timeout=2)
     
     def send_message(self, host: str, port: int, path: str, *args: Any) -> None:
         """Mock send message."""
-        logger.debug(f"Mock OSC send to {host}:{port}: {path} {args}")
+        if self.config.enable_logging:
+            logger.info(f"Mock OSC send to {host}:{port}: {path} {args}")
     
     def register_handler(self, path: str, callback: Callable, description: str = "") -> None:
         """Mock register handler."""

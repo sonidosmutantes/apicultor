@@ -46,7 +46,7 @@ class OSCHandlerRegistry:
         """
         handler = OSCHandler(path, callback, description)
         self._handlers.append(handler)
-        logger.debug(f"Registered OSC handler for {path}: {description}")
+        logger.info(f"Registered OSC handler for {path}: {description}")
     
     def unregister_handler(self, path: str, callback: Callable[[OSCMessage], None]) -> None:
         """Unregister an OSC message handler.
@@ -85,7 +85,7 @@ class OSCHandlerRegistry:
                 try:
                     handler.callback(message)
                     handled = True
-                    logger.debug(f"Handled OSC message {message.path} with {handler.description}")
+                    logger.info(f"Handled OSC message {message.path} with {handler.description}")
                 except Exception as e:
                     logger.error(f"Error in OSC handler for {message.path}: {e}")
                     self.event_manager.emit(
